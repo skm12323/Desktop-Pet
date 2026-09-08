@@ -5,4 +5,5 @@ jsonschema>=4,<5
 numpy>=1.26,<3
 onnxruntime>=1.18,<2
 tokenizers>=0.19,<1
+live2d-py>=0.7.0.4,<0.8
 pyobjc>=10,<12; sys_platform == "darwin"

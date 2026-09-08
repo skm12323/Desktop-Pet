@@ -145,6 +145,7 @@ class ChatBridge(QAbstractListModel):
         # ——旧版无条件 deleteLater = 销毁可能仍在运行的 QThread（原生崩溃）
         self._dying = None
         self.on_user_message = None  # v0.6 可选钩子：app 侧 follow-up 启发式
+        self.on_lip_sync = None      # v0.15 Live2D 流式口型（0..1）
         self._offline = False
 
     # ---- QAbstractListModel ----
@@ -448,6 +449,18 @@ class ChatBridge(QAbstractListModel):
     def _set_streaming(self, text: str) -> None:
         self._streaming = text
         self.streamingChanged.emit()
+        cb = getattr(self, "on_lip_sync", None)
+        if cb is None:
+            return
+        try:
+            if not text:
+                cb(0.0)
+            else:
+                import math
+                import time as _t
+                cb(0.3 + 0.5 * abs(math.sin(_t.monotonic() * 14.0)))
+        except Exception:
+            pass
 
     @Slot()
     def reset_offline(self) -> None:

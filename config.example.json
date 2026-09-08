@@ -10,7 +10,18 @@
     }
   },
   "provider": "ai",
-  "presentation": "frames",
+  "presentation": "live2d",
+  "live2d": {
+    "model": "assets/live2d/haru/Haru.model3.json",
+    "mapping": "",
+    "scale": 1.0,
+    "offset": [0.0, -0.15],
+    "gaze": true,
+    "lip_sync": true,
+    "auto_blink": true,
+    "auto_breath": true,
+    "idle": true
+  },
   "user_name": "主人",
   "sleepy_idle_minutes": 10,
   "age_speed_multiplier": 1,

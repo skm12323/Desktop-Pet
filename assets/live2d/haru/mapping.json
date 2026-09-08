@@ -1,0 +1,37 @@
+{
+  "spec": 1,
+  "model": "Haru.model3.json",
+  "display_name": "Haru",
+  "license": "Live2D Free Material License — see assets/live2d/CUBISM-SAMPLES-LICENSE.md",
+  "expressions": {
+    "happy": "F05",
+    "neutral": "F01",
+    "sad": "F03",
+    "sleepy": "F04",
+    "hungry": "F06",
+    "neglected": "F02"
+  },
+  "motions": {
+    "idle": {"group": "Idle", "priority": 1},
+    "walk": {"group": "Idle", "priority": 1},
+    "pat": {"group": "TapBody", "priority": 3},
+    "poke": {"group": "TapBody", "priority": 3},
+    "feed": {"group": "TapBody", "priority": 2},
+    "clean": {"group": "TapBody", "priority": 2},
+    "stretch": {"group": "TapBody", "priority": 2},
+    "roll": {"group": "TapBody", "priority": 2},
+    "blink": null,
+    "fall": null,
+    "eat_mouse": null
+  },
+  "parameters": {
+    "mouth": "ParamMouthOpenY",
+    "body_x": "ParamBodyAngleX",
+    "angle_x": "ParamAngleX",
+    "angle_z": "ParamAngleZ"
+  },
+  "hit_areas": {
+    "Head": "pat",
+    "Body": "poke"
+  }
+}

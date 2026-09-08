@@ -163,7 +163,13 @@ class PetApp:
         # （app.py:349 同源约束，否则聊天面板载入失败）。
         sprite0 = self.provider.get_static(self.store.get())
         presentation = self.cfg.get("presentation", "frames")
-        if presentation in ("rig", "paperdoll"):
+        if presentation == "live2d":
+            from pet.live2d.presenter import build_live2d_window
+
+            self.window = build_live2d_window(
+                adapter.create_pet_window, sprite0,
+                self.cfg.get("live2d") or {})
+        elif presentation in ("rig", "paperdoll"):
             from pet.rig.presenter import build_rig_window
 
             self.window = build_rig_window(
@@ -551,6 +557,14 @@ class PetApp:
             sum_client=getattr(self, "_sum_client", None),
         )
         self._chat_bridge.offlineRequested.connect(self._on_chat_offline)
+        lip = getattr(self.window, "set_lip_open", None)
+        if callable(lip):
+            def _on_lip(openness: float) -> None:
+                try:
+                    lip(openness)
+                except Exception:
+                    pass
+            self._chat_bridge.on_lip_sync = _on_lip
         try:
             self._chat_engine = load_chat_panel(self._chat_bridge, qml_path)
             if self._chat_engine and self._chat_engine.rootObjects():
@@ -947,6 +961,12 @@ class PetApp:
         msg = _INTERACT_MSG.get(kind)
         if msg:
             self.bubble.show(msg, anchor=self._pet_anchor())
+        play = getattr(self.window, "play_interaction", None)
+        if callable(play):
+            try:
+                play(kind)
+            except Exception:
+                self.logger.warning("live2d 交互动作失败", exc_info=True)
 
     # ---- 衰减 / 持久化 ----
     def _apply_decay(self) -> None:
@@ -1189,8 +1209,10 @@ class PetApp:
             # L21（REVIEW-2026-09-04）：paperdoll 档已有引擎级 blinkOn 贴片
             # （场景每 4.7s 自脉冲），帧版 blink 会切到烤死全帧渲染，6 sway
             # 件+腿件微动骤停 ~1.3s——重复且劣化，跳过（stretch/roll 保留）
-            if name == "blink" and getattr(self, "_part_walk", False) \
-                    and self.window.part_walk_active():
+            if name == "blink" and (
+                    (getattr(self, "_part_walk", False)
+                     and self.window.part_walk_active())
+                    or getattr(self.window, "live2d_active", False)):
                 return
             frames = self.provider.frames_for(self.store.get().stage.value, key)
             if frames:
@@ -1284,8 +1306,9 @@ class PetApp:
             # v0.14 部件驱动步态优先（paperdoll）：当前 figure 挂 limb 部件
             # → 不播 walk 帧，正面原地步态由场景 limb 驱动器程序化合成；
             # 无 limb figure（mood 姿态/未铺量阶段）走下方帧路径自动回退。
-            if getattr(self, "_part_walk", False) \
-                    and self.window.part_walk_active():
+            if (getattr(self, "_part_walk", False)
+                    and self.window.part_walk_active()) \
+                    or getattr(self.window, "live2d_active", False):
                 # 批次L/N3：裸读改 getattr——与本函数其他 _anim_key 读取一致
                 if getattr(self, "_anim_key", None) == "walk":
                     self._stop_anim()
@@ -1372,9 +1395,16 @@ class PetApp:
                     pass
         self._mem_engine = None
         self._perm_engine = None
-        # ⑥ 移除托盘
+        # ⑥ 释放 Live2D GL（须在窗口销毁前、OpenGL 上下文仍活着时）
+        dispose = getattr(self.window, "dispose_presentation", None)
+        if callable(dispose):
+            try:
+                dispose()
+            except Exception:
+                self.logger.warning("live2d 释放失败", exc_info=True)
+        # ⑦ 移除托盘
         self.tray.remove()
-        # ⑦ QApplication.quit()
+        # ⑧ QApplication.quit()
         self.app.quit()
 
     def run(self) -> int:
