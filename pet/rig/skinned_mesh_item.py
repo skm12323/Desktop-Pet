@@ -19,8 +19,9 @@
   ``geom.markVertexDataDirty()``。
 * **复用帧缓冲**：FK 矩阵栈、LBS 输出、眨眼形变与视图变换复用 NumPy
   缓冲；骨矩阵的高级索引仍产生小型临时数组。
-* **纹理持久缓存**：``window().createTextureFromImage(QImage)`` 一次创建
-  存入纹理表，跨重建复用，仅场景图失效/换窗时重建。
+* **纹理显式生命周期**：``window().createTextureFromImage(QImage)`` 创建的
+  QSGTexture 不由场景图托管、须调用者显式删；登记进纹理表，在渲染线程
+  ``_release_textures`` 显式释放，场景图失效时只丢引用（上下文拆除已释放）。
 
 硬件后端使用持久 QSGGeometryNode + QSGTextureMaterial，逐帧更新顶点。
 软件后端不支持此自定义材质，由 ready=False 通知呈现器回退分层位图。
@@ -758,7 +759,7 @@ class SkinnedMeshItem(QQuickItem):
         # ---- 场景图态（仅渲染同步阶段触碰）----
         self._root: QSGNode | None = None
         self._layer_sgs: dict[str, _LayerSG] = {}
-        self._tex_cache: dict[str, QSGTexture] = {}           # 层纹理跨重建复用
+        self._tex_cache: dict[str, QSGTexture] = {}           # 自建 QSGTexture 登记表（渲染线程显式释放，非跨重建复用）
         # ---- 帧簿记 ----
         self._pose_dirty: bool = True
         self._view_key: tuple[float, float] = (0.0, 0.0)
@@ -993,7 +994,7 @@ class SkinnedMeshItem(QQuickItem):
         if oldNode is not None:
             self._detach_children(oldNode)
         self._layer_sgs.clear()
-        self._tex_cache.clear()
+        self._release_textures()       # 渲染线程显式释放旧纹理（勿只 clear 丢引用）
         self._root = oldNode if oldNode is not None else QSGNode()
         for layer in rt.layers:
             try:
@@ -1009,13 +1010,13 @@ class SkinnedMeshItem(QQuickItem):
 
     def _build_layer_node(self, layer: _LayerSkin,
                           win: QQuickWindow) -> _LayerSG:
-        texture = self._tex_cache.get(layer.layer_id)
-        if texture is None:
-            img = QImage(layer.texture_path)
-            if img.isNull():
-                raise ValueError(f"纹理缺失/不可读：{layer.texture_path}")
-            texture = win.createTextureFromImage(img)
-            self._tex_cache[layer.layer_id] = texture   # 持久缓存，跨重建复用
+        # 每层每次重建都新建纹理并登记；_tex_cache 仅作所有权登记用于显式释放，
+        # 不做跨重建复用（_build_scene_graph 每次先 _release_textures 清空）。
+        img = QImage(layer.texture_path)
+        if img.isNull():
+            raise ValueError(f"纹理缺失/不可读：{layer.texture_path}")
+        texture = win.createTextureFromImage(img)
+        self._tex_cache[layer.layer_id] = texture
         material: QSGTextureMaterial | None = None
         vcount = layer.rest.shape[0]
         icount = int(layer.triangles.size)
@@ -1148,6 +1149,8 @@ class SkinnedMeshItem(QQuickItem):
     def _on_sg_invalidated(self) -> None:
         # Qt owns the old node tree. Never mutate it from a GUI timer.
         self._layer_sgs.clear()
+        # 场景图失效时渲染上下文(RHI)正被拆除，GPU 纹理随之释放；此处只丢
+        # Python 引用即可，不可 shiboken6.delete 悬空的 QSGTexture。
         self._tex_cache.clear()
         self._root = None
         self._assets_dirty = True
@@ -1160,6 +1163,25 @@ class SkinnedMeshItem(QQuickItem):
             child = root.firstChild()
             root.removeChildNode(child)
             shiboken6.delete(child)  # reload runs only in updatePaintNode
+
+    def _release_textures(self) -> None:
+        """渲染线程上显式释放自建 QSGTexture（调用前提：节点树已 detach）。
+
+        QQuickWindow.createTextureFromImage 返回的 QSGTexture 不由场景图托管，
+        须调用者显式删除；若只 clear() 丢 Python 引用，析构会落到 GUI 线程 GC，
+        跨线程释放底层 QRhiTexture 属未定义行为且可能残留 VRAM。本方法只在
+        _build_scene_graph（updatePaintNode 渲染线程）调用；场景图失效时
+        上下文已拆、GPU 资源已释放，故 _on_sg_invalidated 只 clear 不 delete。
+        """
+        if not self._tex_cache:
+            return
+        import shiboken6
+        for texture in self._tex_cache.values():
+            try:
+                shiboken6.delete(texture)
+            except Exception:  # noqa: BLE001 —— 释放失败不阻断重建
+                log.warning("QSGTexture 释放失败（忽略）", exc_info=True)
+        self._tex_cache.clear()
 
 
 def _normalize_path(v: object) -> str:
