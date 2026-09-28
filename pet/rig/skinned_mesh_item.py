@@ -129,25 +129,204 @@ except AttributeError:                     # pragma: no cover —— 旧版绑�
 
 
 def _mat_trans(tx: float, ty: float) -> np.ndarray:
-    """平移 3×3 仿射（float32）。"""
-    m = np.zeros((3, 3), np.float32)
+    """平移 3×3 仿射（float64；静止位形纯平移，动态绑定视角重算共用）。"""
+    m = np.zeros((3, 3), np.float64)
     m[0, 0] = m[1, 1] = m[2, 2] = 1.0
     m[0, 2], m[1, 2] = tx, ty
     return m
 
 
 def _inv_affine3(m: np.ndarray) -> np.ndarray:
-    """3×3 仿射封闭求逆；退化（det≈0）回退单位阵——静止位形不会走到，防御。"""
+    """3×3 仿射封闭求逆（float64）；退化（det≈0）回退单位阵——防御。"""
     a, b, c = float(m[0, 0]), float(m[0, 1]), float(m[0, 2])
     d, e, f = float(m[1, 0]), float(m[1, 1]), float(m[1, 2])
     det = a * e - b * d
     if not math.isfinite(det) or abs(det) < 1e-12:
-        return np.eye(3, dtype=np.float32)
-    out = np.empty((3, 3), np.float32)
+        return np.eye(3, dtype=np.float64)
+    out = np.empty((3, 3), np.float64)
     out[0, 0], out[0, 1], out[0, 2] = e / det, -b / det, (b * f - c * e) / det
     out[1, 0], out[1, 1], out[1, 2] = -d / det, a / det, (c * d - a * f) / det
     out[2, 0], out[2, 1], out[2, 2] = 0.0, 0.0, 1.0
     return out
+
+
+def _build_bind_matrices(bones: list, parent_idx: np.ndarray,
+                         joints_xy: np.ndarray,
+                         order: "list[int] | None" = None) -> tuple:
+    """静止绑定三件套（``w_rest`` 隐含）：按世界静止关节建局部/逆绑定矩阵。
+
+    与 load 期同式（关节位置按全图世界坐标解释，静止姿态无旋转）；
+    ``set_view_yaw`` 的动态绑定重算共用此函数（§4.2 Dynamic Bind Poses）。
+    ``order`` 为拓扑序（父先于子）——缺省按数组序（仅当骨骼已父先子后时
+    正确；非根骨的父矩阵未就绪会静默产出错误绑定）。
+    """
+    B = len(bones)
+    a_local = np.zeros((B, 3, 3), np.float64)
+    inv_w_rest = np.zeros((B, 3, 3), np.float64)
+    w_rest = np.zeros((B, 3, 3), np.float64)
+    for i in (order if order is not None else range(B)):
+        t = _mat_trans(float(joints_xy[i, 0]), float(joints_xy[i, 1]))
+        p = int(parent_idx[i])
+        w_rest[i] = t
+        a_local[i] = t if p < 0 else _inv_affine3(w_rest[p]) @ t
+        inv_w_rest[i] = _inv_affine3(w_rest[i])
+    return a_local, inv_w_rest
+
+
+# ============================ 视角关键形态（§4/§6.2 数据契约） ============================
+
+
+class ViewKeyforms:
+    """``view_keyforms.json`` 解析与插值核（纯数学，无 Qt 依赖）。
+
+    * 严格校验（任一失败抛 ValueError → 调用方整体回退正面单视角模式）：
+      版本号、视角 yaw 升序且唯一、逐层顶点数一致、positions/tangents 形状
+      有限、骨骼 pivot 覆盖。
+    * Hermite 插值（§4.3）：切线由构建工具按 Catmull-Rom 提供（per yaw），
+      运行时换算到 μ 单位；端视角外钳位。
+    * 零姿态恒等性（§4.2）为**结构性质**：任意 yaw 的绑定矩阵由同一组插值
+      关节重建，零姿态下 M = W·inv(W) = I（float64 舍入 ~1e-12 px）。
+    * 补片透明度（§4.4）：余弦加权平滑阶跃，C1 且端点钳 0/1。
+    """
+
+    def __init__(self, raw: dict):
+        if not isinstance(raw, dict) or str(raw.get("version")) != "1.0":
+            raise ValueError("view_keyforms 缺 version=1.0")
+        views = raw.get("views")
+        if not isinstance(views, dict) or len(views) < 2:
+            raise ValueError("view_keyforms 需要至少 2 个视角")
+        names = sorted(views, key=lambda n: float(views[n]["yaw_deg"]))
+        yaws = [float(views[n]["yaw_deg"]) for n in names]
+        if any(b <= a for a, b in zip(yaws, yaws[1:])):
+            raise ValueError(f"视角 yaw 必须严格升序：{list(zip(names, yaws))}")
+        self.view_names = names
+        self.yaws = np.asarray(yaws, np.float64)
+        k = len(names)
+        idx = {n: i for i, n in enumerate(names)}
+
+        binds = raw.get("bones_dynamic_bind") or {}
+        self.joints: dict[str, np.ndarray] = {}      # bone -> (K,2)
+        for n in names:
+            for bone, rec in (binds.get(n) or {}).items():
+                piv = rec.get("pivot")
+                if not isinstance(piv, (list, tuple)) or len(piv) != 2:
+                    raise ValueError(f"{n}/{bone} pivot 非法")
+                arr = self.joints.setdefault(bone, np.full((k, 2), np.nan))
+                arr[idx[n]] = (float(piv[0]), float(piv[1]))
+        for bone, arr in self.joints.items():
+            if not np.isfinite(arr).all():
+                raise ValueError(f"骨骼 {bone} 缺部分视角 pivot")
+        # 关节切线：与构建工具同式的 Catmull-Rom（per yaw，内部中心差分）
+        self.joint_tans: dict[str, np.ndarray] = {
+            bone: self._catmull_rom_per_yaw(arr, self.yaws)
+            for bone, arr in self.joints.items()}
+
+        layers = raw.get("layers_keyforms")
+        if not isinstance(layers, dict) or not layers:
+            raise ValueError("view_keyforms 缺 layers_keyforms")
+        self.layers: dict[str, dict] = {}
+        for lid, rec in layers.items():
+            pos = rec.get("positions") or {}
+            tan = rec.get("tangents") or {}
+            vcount = int(rec.get("vertex_count", -1))
+            pos_arr = np.full((k, max(vcount, 0), 2), np.nan, np.float64)
+            tan_arr = np.zeros((k, max(vcount, 0), 2), np.float64)
+            for n in names:
+                p = pos.get(n)
+                if not isinstance(p, list):
+                    raise ValueError(f"{lid} 缺 {n} positions")
+                a = np.asarray(p, np.float64)
+                if a.shape != (vcount, 2):
+                    raise ValueError(f"{lid}/{n} positions 形状 {a.shape} ≠ ({vcount},2)")
+                pos_arr[idx[n]] = a
+                t = tan.get(n)
+                ta = np.asarray(t, np.float64) if t is not None else np.zeros_like(a)
+                if ta.shape != (vcount, 2):
+                    raise ValueError(f"{lid}/{n} tangents 形状非法")
+                tan_arr[idx[n]] = ta
+            if not (np.isfinite(pos_arr).all() and np.isfinite(tan_arr).all()):
+                raise ValueError(f"{lid} positions/tangents 含非有限值")
+            self.layers[lid] = {"positions": pos_arr, "tangents": tan_arr}
+
+        self.patches: list[dict] = []
+        for p in raw.get("occlusion_patches") or []:
+            try:
+                self.patches.append({
+                    "patch_id": str(p["patch_id"]),
+                    "base_layer": str(p.get("base_layer", p["patch_id"])),
+                    "yaw_range": (float(p["visible_yaw_range"][0]),
+                                  float(p["visible_yaw_range"][1])),
+                    "alpha": None,
+                })
+            except (KeyError, TypeError, ValueError, IndexError) as e:
+                log.warning("occlusion_patch 解析失败，弃片：%s", e)
+
+    @staticmethod
+    def _catmull_rom_per_yaw(keys: np.ndarray, yaws: np.ndarray) -> np.ndarray:
+        """(K,…) 关键序列的 Catmull-Rom 切线（per yaw：内部中心差分，端点单侧）。"""
+        k = keys.shape[0]
+        tans = np.empty_like(keys)
+        for i in range(k):
+            if 0 < i < k - 1:
+                tans[i] = (keys[i + 1] - keys[i - 1]) / (yaws[i + 1] - yaws[i - 1])
+            elif i == 0:
+                tans[i] = (keys[1] - keys[0]) / (yaws[1] - yaws[0])
+            else:
+                tans[i] = (keys[-1] - keys[-2]) / (yaws[-1] - yaws[-2])
+        return tans
+
+    def _bracket(self, yaw: float) -> tuple:
+        y = min(max(float(yaw), float(self.yaws[0])), float(self.yaws[-1]))
+        j = int(np.searchsorted(self.yaws, y))
+        j = min(max(j - 1, 0), len(self.yaws) - 2)
+        d = float(self.yaws[j + 1] - self.yaws[j])
+        mu = 0.0 if d <= 0 else min(max((y - float(self.yaws[j])) / d, 0.0), 1.0)
+        return j, d, mu
+
+    def interp_layer(self, layer_id: str, yaw: float) -> np.ndarray:
+        """(V,2) float64 Hermite 插值（§4.3 公式；切线按 Δyaw 换算到 μ）。"""
+        rec = self.layers[layer_id]
+        j, d, mu = self._bracket(yaw)
+        p0 = rec["positions"][j]
+        p1 = rec["positions"][j + 1]
+        m0 = rec["tangents"][j] * d
+        m1 = rec["tangents"][j + 1] * d
+        mu2, mu3 = mu * mu, mu * mu * mu
+        h00 = 2 * mu3 - 3 * mu2 + 1
+        h10 = mu3 - 2 * mu2 + mu
+        h01 = -2 * mu3 + 3 * mu2
+        h11 = mu3 - mu2
+        return h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1
+
+    def interp_joints(self, yaw: float) -> dict[str, np.ndarray]:
+        j, d, mu = self._bracket(yaw)
+        out = {}
+        for bone, keys in self.joints.items():
+            p0, p1 = keys[j], keys[j + 1]
+            m0 = self.joint_tans[bone][j] * d
+            m1 = self.joint_tans[bone][j + 1] * d
+            mu2, mu3 = mu * mu, mu * mu * mu
+            out[bone] = ((2 * mu3 - 3 * mu2 + 1) * p0 + (mu3 - 2 * mu2 + mu) * m0
+                         + (-2 * mu3 + 3 * mu2) * p1 + (mu3 - mu2) * m1)
+        return out
+
+    @staticmethod
+    def patch_alpha(yaw_range: tuple, yaw: float) -> float:
+        """§4.4 余弦加权平滑阶跃（0/1 钳位，C1）。"""
+        t0, t1 = yaw_range
+        if t1 <= t0:
+            return 1.0 if yaw >= t1 else 0.0
+        if yaw <= t0:
+            return 0.0
+        if yaw >= t1:
+            return 1.0
+        return 0.5 * (1.0 - math.cos(math.pi * (yaw - t0) / (t1 - t0)))
+
+    @classmethod
+    def load(cls, path: str) -> "ViewKeyforms":
+        with open(path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        return cls(raw)
 
 
 @dataclass(frozen=True)
@@ -210,8 +389,10 @@ class RigRuntime:
     """骨架 + 网格的静态数据与 FK/LBS 计算核（无 Qt 对象，可独立单测）。
 
     矩阵列向量约定：``p' = M @ [x, y, 1]ᵀ``；全局 ``T_b = T_parent @ L_b``；
-    蒙皮 ``M_b = T_b · T_rest(b)⁻¹``。所有数组 float32（像素空间幅值 ≤ ~2¹⁰，
-    精度充裕）。
+    蒙皮 ``M_b = T_b · T_rest(b)⁻¹``。legacy 单视角路径全部数组 float32
+    （像素空间幅值 ≤ ~2¹⁰，精度充裕）；**视角关键形态模式升级为 float64**
+    （§4.2 零姿态恒等 1e-6 px 门槛在 ~1600 px 幅值下超出 float32 量化能力
+    ~1e-4，见 attach_view_keyforms）。
     """
 
     def __init__(self, bones: list[_BoneDef], parent_idx: np.ndarray,
@@ -232,6 +413,10 @@ class RigRuntime:
              if n in self.bone_index and n not in uv_bones],
             dtype=np.int32)
 
+        # ---- 视角关键形态态（attach_view_keyforms 激活）----
+        self._kf: ViewKeyforms | None = None
+        self.view_yaw: float | None = None      # 当前已应用视角（None=未激活）
+
         # ---- 静止矩阵（加载期一次算清）----
         self._a_local_rest = a_local_rest       # (B,3,3) L_b 的零姿态部分
         self.inv_w_rest = inv_w_rest            # (B,3,3) T_rest⁻¹
@@ -251,6 +436,104 @@ class RigRuntime:
         max_v = max((l.rest.shape[0] for l in layers), default=1)
         self.buf_x = np.zeros(max_v, np.float32)
         self.buf_y = np.zeros(max_v, np.float32)
+
+    # ---------------- 视角关键形态（§4 动态绑定） ----------------
+
+    def attach_view_keyforms(self, path_or_kf) -> bool:
+        """挂接 view_keyforms（失败 → 整体回退正面单视角，宽进严出）。
+
+        激活后数学核升级 float64：绑定矩阵/静止顶点/蒙皮缓冲全部换 64 位，
+        ``set_view_yaw`` 重算动态绑定与各层静止位置。GPU 顶点缓冲仍 float32
+        （写入时自动降采，量化 ~1e-4 px 远低于其余门槛）。
+        """
+        try:
+            kf = path_or_kf if isinstance(path_or_kf, ViewKeyforms) \
+                else ViewKeyforms.load(str(path_or_kf))
+            missing = [l.layer_id for l in self.layers
+                       if l.layer_id not in kf.layers]
+            if missing:
+                raise ValueError(f"关键形态缺 {len(missing)} 层：{missing[:4]}")
+        except Exception as e:                  # noqa: BLE001 —— 回退铁律
+            log.warning("view keyforms 挂接失败，保持正面单视角：%s", e)
+            self._kf = None
+            self.view_yaw = None
+            return False
+        self._kf = kf
+        self._a_local_rest = self._a_local_rest.astype(np.float64)
+        self.inv_w_rest = self.inv_w_rest.astype(np.float64)
+        self._L = self._L.astype(np.float64)
+        self._W = self._W.astype(np.float64)
+        self.M = self.M.astype(np.float64)
+        for buf in (self._rad, self._cos, self._sin, self._tx, self._ty,
+                    self.buf_x, self.buf_y):
+            buf = None
+        n = len(self.bones)
+        self._rad = np.zeros(n, np.float64)
+        self._cos = np.zeros(n, np.float64)
+        self._sin = np.zeros(n, np.float64)
+        self._tx = np.zeros(n, np.float64)
+        self._ty = np.zeros(n, np.float64)
+        max_v = max((l.rest.shape[0] for l in self.layers), default=1)
+        self.buf_x = np.zeros(max_v, np.float64)
+        self.buf_y = np.zeros(max_v, np.float64)
+        for layer in self.layers:
+            layer.rest = layer.rest.astype(np.float64)
+            layer.scratch = layer.scratch.astype(np.float64)
+            # 权重 float32 行和差 ~6e-8 × 坐标幅值 ~1600 ≈ 1e-4 px，超出
+            # §4.2 零姿态恒等 1e-6 门槛——升 f64 并重归一（Σw=1 至 ~1e-16）
+            w64 = layer.weights.astype(np.float64)
+            rs = w64.sum(axis=1, keepdims=True)
+            layer.weights = np.where(rs > 0.5, w64 / rs, w64)
+            if layer.eff_rest is not None:
+                layer.eff_rest = layer.eff_rest.astype(np.float64)
+            if layer.blink_delta is not None:
+                layer.blink_delta = layer.blink_delta.astype(np.float64)
+            if layer._ybuf is not None:
+                layer._ybuf = layer._ybuf.astype(np.float64)
+            layer._blink_applied = None         # dtype 变更，失效眨眼缓存
+        self.view_yaw = float(kf.yaws[0])
+        self._apply_view(self.view_yaw)
+        log.info("view keyforms 就绪：%d 视角 %s（float64 数学核）",
+                 len(kf.yaws), np.round(kf.yaws, 1).tolist())
+        return True
+
+    def _apply_view(self, yaw: float) -> None:
+        """按视角重算动态绑定（§4.2）与各层静止位置（§4.3 Hermite）。"""
+        assert self._kf is not None
+        joints_map = self._kf.interp_joints(yaw)
+        joints_xy = np.empty((len(self.bones), 2), np.float64)
+        for i, b in enumerate(self.bones):
+            j = joints_map.get(b.name)
+            joints_xy[i] = j if j is not None else b.joint_px   # 缺骨骼回退正面
+        a_local, inv_w = _build_bind_matrices(self.bones, self.parent_idx,
+                                              joints_xy, self._bone_order)
+        self._a_local_rest[...] = a_local
+        self.inv_w_rest[...] = inv_w
+        for layer in self.layers:
+            layer.rest[:, :2] = self._kf.interp_layer(layer.layer_id, yaw)
+            # 眨眼缓存只按 blink 值失效——rest 随视角变化后必须一并失效，
+            # 否则眼睑/瞳孔层返回陈旧位置（legacy 单视角无此问题）
+            layer._blink_applied = None
+
+    def set_view_yaw(self, yaw_deg: float) -> bool:
+        """连续视角切换（端视角钳位）。返回是否实际重算（未变/未激活=False）。"""
+        if self._kf is None:
+            return False
+        y = min(max(float(yaw_deg), float(self._kf.yaws[0])),
+                float(self._kf.yaws[-1]))
+        if self.view_yaw is not None and abs(y - self.view_yaw) < 1e-9:
+            return False
+        self.view_yaw = y
+        self._apply_view(y)
+        return True
+
+    def patch_alphas(self, yaw: float | None = None) -> dict:
+        """各补片当前透明度（§4.4 余弦阶跃；缺省用当前视角）。"""
+        if not self._kf or not self._kf.patches:
+            return {}
+        y = self.view_yaw if yaw is None else yaw
+        return {p["patch_id"]: ViewKeyforms.patch_alpha(p["yaw_range"], y)
+                for p in self._kf.patches}
 
     # ---------------- FK ----------------
 
@@ -345,8 +628,12 @@ class RigRuntime:
 
     @classmethod
     def load(cls, spec_file: str, mesh_file: str,
-             layers_dir: str) -> RigRuntime | None:
-        """解析 spec + mesh 两份 json。整体不可用返回 None（调用方空渲染）。"""
+             layers_dir: str, keyforms_file: str = "") -> RigRuntime | None:
+        """解析 spec + mesh（+ 可选 view_keyforms）。
+
+        整体不可用返回 None（调用方空渲染）；keyforms 挂接失败仅降级为
+        正面单视角（attach_view_keyforms 宽进严出）。
+        """
         try:
             with open(spec_file, "r", encoding="utf-8") as f:
                 raw_spec = json.load(f)
@@ -415,8 +702,11 @@ class RigRuntime:
 
         rt = cls(bones, parent_idx, a_local, inv_w_rest, layers, look_cfg,
                  img_w, img_h)
-        log.info("蒙皮核就绪：%d 骨 / %d 层 / 源图 %.0f×%.0f",
-                 len(bones), len(layers), img_w, img_h)
+        if keyforms_file:
+            rt.attach_view_keyforms(keyforms_file)
+        log.info("蒙皮核就绪：%d 骨 / %d 层 / 源图 %.0f×%.0f%s",
+                 len(bones), len(layers), img_w, img_h,
+                 "（含视角关键形态）" if rt._kf is not None else "")
         return rt
 
     # ---- 加载辅助：逐段防御，坏件降级 ----
@@ -731,6 +1021,7 @@ class SkinnedMeshItem(QQuickItem):
     lookAtXChanged = Signal(float)
     lookAtYChanged = Signal(float)
     blinkProgressChanged = Signal(float)
+    viewYawChanged = Signal(float)
     readyChanged = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
@@ -744,6 +1035,10 @@ class SkinnedMeshItem(QQuickItem):
         self._look_x: float = 0.0
         self._look_y: float = 0.0
         self._blink: float = 0.0
+        self._view_yaw: float = 0.0
+        self._patch_hidden: set[str] = set()
+        self._patch_step: dict[str, int] = {}
+        self._patch_tex_cache: dict[tuple, QSGTexture] = {}
         self._pose_angle: dict[str, float] = {}
         self._pose_tx: dict[str, float] = {}
         self._pose_ty: dict[str, float] = {}
@@ -881,6 +1176,82 @@ class SkinnedMeshItem(QQuickItem):
     blinkProgress = Property(float, _get_blink, _set_blink,
                              notify=blinkProgressChanged)
 
+    def _get_view_yaw(self) -> float:
+        return self._view_yaw
+
+    def _set_view_yaw(self, v: float) -> None:
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return
+        if not math.isfinite(v) or v == self._view_yaw:
+            return
+        self._view_yaw = v
+        self.viewYawChanged.emit(v)
+        rt = self._rt
+        if rt is not None and rt.set_view_yaw(v):
+            self._apply_patch_alphas()
+            self._invalidate_pose()
+
+    viewYaw = Property(float, _get_view_yaw, _set_view_yaw,
+                       notify=viewYawChanged)
+
+    def _apply_patch_alphas(self) -> None:
+        """补片遮挡透明度（§4.4）：α=0 折叠隐藏；部分透明按 16 级量化换纹理。
+
+        TexturedPoint2D 顶点格式无颜色/alpha 通道，逐帧顶点透明不可行——
+        以量化步进的纹理 alpha 缩放缓存实现平滑阶跃（补片数量少、仅在
+        视角变化期间换档），杜绝 Z-Order 瞬时闪现。
+        """
+        rt = self._rt
+        if rt is None or not getattr(rt, "_kf", None) or not rt._kf.patches:
+            return
+        win = self.window()
+        if win is None:
+            return
+        alphas = rt.patch_alphas(self._view_yaw)
+        for patch in rt._kf.patches:
+            lid = patch["base_layer"]
+            sg = self._layer_sgs.get(lid)
+            if sg is None:
+                continue
+            alpha = float(alphas.get(patch["patch_id"], 0.0))
+            if alpha <= 0.03:
+                self._patch_hidden.add(lid)
+                continue
+            self._patch_hidden.discard(lid)
+            step = int(round(alpha * 16.0))
+            if step == self._patch_step.get(lid, 16):
+                continue
+            self._patch_step[lid] = step
+            tex = self._patch_texture(sg, step, win)
+            sg.material.setTexture(tex)
+            sg.node.markDirty(QSGNode.DirtyState.DirtyMaterial)
+
+    def _patch_texture(self, sg: "_LayerSG", step: int, win) -> QSGTexture:
+        key = (id(sg), step)
+        tex = self._patch_tex_cache.get(key)
+        if tex is not None:
+            return tex
+        src = QImage(sg.texture_path)
+        # 纹理 alpha 整体缩放（step/16）；ARGB32 逐像素乘法
+        img = src.convertToFormat(QImage.Format_ARGB32)
+        if step < 16:
+            w, h = img.width(), img.height()
+            arr = np.frombuffer(img.constBits(), np.uint8).reshape(h, img.bytesPerLine() // 1)[:h, :w * 4].copy()
+            arr = arr.reshape(h, w, 4)
+            # ARGB32 little-endian 内存序为 B,G,R,A
+            arr[:, :, 3] = (arr[:, :, 3].astype(np.uint32) * step // 16).astype(np.uint8)
+            out = QImage(arr.data, w, h, w * 4, QImage.Format_ARGB32)
+            out = out.copy()          # arr 生命周期与 QImage 解耦
+            img = out
+        tex = win.createTextureFromImage(img)
+        self._patch_tex_cache[key] = tex
+        if len(self._patch_tex_cache) > 256:     # LRU 粗截断（补片×步数有界）
+            self._patch_tex_cache.clear()
+            self._patch_tex_cache[key] = tex
+        return tex
+
     def _set_look(self, axis: str, v: float) -> None:
         try:
             v = float(v)
@@ -1007,6 +1378,7 @@ class SkinnedMeshItem(QQuickItem):
             self._root.appendChildNode(sg.node)
         self._set_ready(len(self._layer_sgs) == len(rt.layers))
         self._pose_dirty = True            # 重建后首帧必须全量写顶点
+        self._apply_patch_alphas()
 
     def _build_layer_node(self, layer: _LayerSkin,
                           win: QQuickWindow) -> _LayerSG:
@@ -1100,6 +1472,11 @@ class SkinnedMeshItem(QQuickItem):
         """单层 LBS → 视图变换 → 顶点缓冲切片直写（就地、零分配）。"""
         rt = self._rt
         assert rt is not None
+        if layer.layer_id in self._patch_hidden:
+            sg.verts[:, :2] = sg.verts[0, :2]    # α=0 补片折叠隐藏
+            sg.geometry.markVertexDataDirty()
+            sg.node.markDirty(QSGNode.DirtyState.DirtyGeometry)
+            return
         vcount = layer.rest.shape[0]
         scratch = rt.deform(layer, rt.effective_rest(layer, self._blink))
         bx, by = rt.buf_x[:vcount], rt.buf_y[:vcount]
@@ -1152,6 +1529,8 @@ class SkinnedMeshItem(QQuickItem):
         # 场景图失效时渲染上下文(RHI)正被拆除，GPU 纹理随之释放；此处只丢
         # Python 引用即可，不可 shiboken6.delete 悬空的 QSGTexture。
         self._tex_cache.clear()
+        self._patch_tex_cache.clear()
+        self._patch_step.clear()
         self._root = None
         self._assets_dirty = True
         self._pose_dirty = True
@@ -1172,16 +1551,18 @@ class SkinnedMeshItem(QQuickItem):
         跨线程释放底层 QRhiTexture 属未定义行为且可能残留 VRAM。本方法只在
         _build_scene_graph（updatePaintNode 渲染线程）调用；场景图失效时
         上下文已拆、GPU 资源已释放，故 _on_sg_invalidated 只 clear 不 delete。
+        补片缓存（_patch_tex_cache，视角关键形态 16 级量化纹理）同为自建
+        QSGTexture，随主缓存一并显式释放；_patch_step 随之归零。
         """
-        if not self._tex_cache:
-            return
         import shiboken6
-        for texture in self._tex_cache.values():
-            try:
-                shiboken6.delete(texture)
-            except Exception:  # noqa: BLE001 —— 释放失败不阻断重建
-                log.warning("QSGTexture 释放失败（忽略）", exc_info=True)
-        self._tex_cache.clear()
+        for cache in (self._tex_cache, self._patch_tex_cache):
+            for texture in cache.values():
+                try:
+                    shiboken6.delete(texture)
+                except Exception:  # noqa: BLE001 —— 释放失败不阻断重建
+                    log.warning("QSGTexture 释放失败（忽略）", exc_info=True)
+            cache.clear()
+        self._patch_step.clear()
 
 
 def _normalize_path(v: object) -> str:

@@ -44,6 +44,7 @@ class MotionInputs:
     cursor_pos: tuple[float, float] | None = None  # 桌面光标全局像素 (x, y)
     pet_rect: tuple[float, float, float, float] | None = None  # 宠物窗口屏幕坐标 (x, y, w, h)
     source_facing: int = 1     # Source art orientation; young mesh faces left.
+    grounded: bool = True      # False while falling, thrown or dragged.
 
 
 @dataclass
@@ -83,12 +84,15 @@ def spring_step(angle: float, vel: float, target: float,
                 stiffness: float, damping: float, dt_ms: float) -> tuple:
     """二阶弹簧-阻尼一步（semi-implicit Euler，单位质量，目标速度恒 0）。
 
-    阻尼比 ζ = damping/(2√stiffness)：ζ<1 欠阻尼=过冲回弹（软感来源），
-    ζ≈0.5~0.8 软但不乱抖。返回 (新 angle, 新 vel)。
+    采用最大 16.6ms 内部子步与隐式阻尼更新，保证任意 dt 或高刚度下绝对数值稳定。
     """
-    dt = dt_ms / 1000.0
-    vel += (stiffness * (target - angle) - damping * vel) * dt
-    angle += vel * dt
+    if dt_ms <= 0:
+        return angle, vel
+    sub_count = max(1, int(math.ceil(dt_ms / 16.66)))
+    sub_dt = (dt_ms / sub_count) / 1000.0
+    for _ in range(sub_count):
+        vel = (vel + stiffness * (target - angle) * sub_dt) / (1.0 + damping * sub_dt)
+        angle += vel * sub_dt
     return angle, vel
 
 
@@ -140,6 +144,7 @@ class MotionEngine:
         # 2D 骨骼蒙皮物理动力学扩展
         self._physics_presets = getattr(spec, "physics_presets", {}) or {}
         self._face_mechanics = getattr(spec, "face_mechanics", {}) or {}
+        self._rest_pose_angles = getattr(spec, "rest_pose_angles", {}) or {}
         self._spring_groups = self._physics_presets.get("spring_groups", [])
         self._bone_spring_cfg: dict[str, dict] = {}
         for g in self._spring_groups:
@@ -154,6 +159,18 @@ class MotionEngine:
         self._look_y: float = 0.0
         self._look_smoothing_ms = float(
             (self._face_mechanics.get("look_at") or {}).get("smoothing_time_ms", 75.0))
+        self._eye_center = (0.46, 0.45)
+        look_cfg = self._face_mechanics.get("look_at", {}) or {}
+        eyes = look_cfg.get("eyes", [])
+        if eyes:
+            centers = []
+            for e in eyes:
+                rc = e.get("rest_center")
+                if rc and len(rc) >= 2:
+                    centers.append((float(rc[0]), float(rc[1])))
+            if centers:
+                self._eye_center = (sum(c[0] for c in centers) / len(centers),
+                                    sum(c[1] for c in centers) / len(centers))
 
     @property
     def parts(self):
@@ -256,8 +273,8 @@ class MotionEngine:
             cx, cy = inputs.cursor_pos
             px, py, pw, ph = inputs.pet_rect
             if pw > 0 and ph > 0:
-                eye_sx = px + pw * 0.46
-                eye_sy = py + ph * 0.45
+                eye_sx = px + pw * self._eye_center[0]
+                eye_sy = py + ph * self._eye_center[1]
                 dx = (cx - eye_sx) / 300.0
                 dy = (cy - eye_sy) / 300.0
                 if inputs.facing * inputs.source_facing < 0:
@@ -282,6 +299,11 @@ class MotionEngine:
             2.0 * math.pi * t / self._BREATH_FLOAT_PERIOD_MS)
         drift_deg = self._DRIFT_AMP_DEG * math.sin(
             2.0 * math.pi * t / self._DRIFT_PERIOD_MS)
+        # ADULT 的站立脚与窗口地面重合；原先整身漂浮会反复抬起鞋底。
+        # 把呼吸留在脊柱/胸部，步态包络只在移动时恢复全身律动。
+        if self._spec is not None and self._spec.stage == "adult" and inputs.grounded:
+            breath_float *= self._gait_k
+            drift_deg *= self._gait_k
 
         # L1 落地 squash：先按触发拍原值出峰值压缩（谷 0.85 当拍可见），
         # 再推欠阻尼弹簧一步（过冲回弹→settle，下帧起恢复）。修复：旧版先
@@ -342,6 +364,7 @@ class MotionEngine:
         ang, vel = spring_step(self._bone_angles.get(bone, target),
                                self._bone_vels.get(bone, 0.0),
                                target, stiffness, damping, dt)
+        ang = max(-45.0, min(45.0, ang))
         self._bone_angles[bone] = ang
         self._bone_vels[bone] = vel
         return ang
@@ -355,7 +378,10 @@ class MotionEngine:
 
         # 1. 躯干脊柱呼吸微动
         ph_breath = 2.0 * math.pi * t / self._BREATH_FLOAT_PERIOD_MS
-        angles["root_hip"] = 0.2 * math.sin(ph_breath)
+        hip_breath = 0.2 * math.sin(ph_breath)
+        if self._spec is not None and self._spec.stage == "adult" and inputs.grounded:
+            hip_breath *= self._gait_k
+        angles["root_hip"] = hip_breath
         angles["spine"] = 0.4 * math.sin(ph_breath + 0.3)
         angles["chest"] = 0.5 * math.sin(ph_breath + 0.6)
         angles["neck"] = -0.3 * math.sin(ph_breath + 0.8)
@@ -423,12 +449,12 @@ class MotionEngine:
 
         arm_amp = 10.0 * k_gait
         fore_amp = 6.0 * k_gait
-        angles["upper_arm_l"] = -arm_amp * math.sin(phi)
-        angles["forearm_l"] = -fore_amp * max(0.0, math.cos(phi))
+        angles["upper_arm_l"] = self._rest_pose_angles.get("upper_arm_l", 0.0) - arm_amp * math.sin(phi)
+        angles["forearm_l"] = self._rest_pose_angles.get("forearm_l", 0.0) - fore_amp * max(0.0, math.cos(phi))
         angles["hand_l"] = 0.0
 
-        angles["upper_arm_r"] = -arm_amp * math.sin(phi + math.pi)
-        angles["forearm_r"] = -fore_amp * max(0.0, math.cos(phi + math.pi))
+        angles["upper_arm_r"] = self._rest_pose_angles.get("upper_arm_r", 0.0) - arm_amp * math.sin(phi + math.pi)
+        angles["forearm_r"] = self._rest_pose_angles.get("forearm_r", 0.0) - fore_amp * max(0.0, math.cos(phi + math.pi))
         angles["hand_r"] = 0.0
 
         return angles, tx, ty

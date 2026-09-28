@@ -1,0 +1,42 @@
+{
+  "timestamp": "2026-09-25T13:08:07+0800",
+  "view": "right45",
+  "ref_input": "D:\\Desktop-Pet\\assets\\reference\\adult_ref.png",
+  "ref_sha256": "012ac59e3cf6414dedc71bc4ad213e7ce04cf4bedc15887979893289daa415ca",
+  "prompt": "Using the exact same character from <image1>, maintain her identical facial features, blue eyes, dark blue hair, white frilled maid headdress, ear fins, navy blue maid dress with gold filigree and ribbons, white frilled bib apron with blue whale embroidery, white socks, blue shoes, and large blue whale tail. Turn the character in place to a three-quarters view facing right (yaw ~45 degrees). Maintain the exact same relaxed idle upright standing posture and gentle pleasant expression, no walking. Both feet must touch the ground evenly on the same horizontal plane. Keep the exact same character proportions, scale, camera height, and lighting as reference. Properly reveal newly visible body and clothing angles while keeping the whale tail visible on the right. Render full body from headdress to shoes with pure white background, no cropping of tail, feet, or hair.",
+  "negative_prompt": "different character, walking, dynamic pose, crossed legs, bent knees, floating, blurry, lowres, deformed anatomy, missing limbs, duplicate tail, cropped feet, cropped head, dark background",
+  "candidates": [
+    {
+      "seed": 20260925,
+      "job_id": "d45d0bcd-812a-4dcd-9590-1e2fde815086",
+      "raw_output": "adult_turn_right45_s20260925_00001_.png",
+      "candidate_file": "candidate_s20260925.png",
+      "candidate_sha256": "214624419642021027fad8438cadafd157092e0b99a9eec8edf6d1cc5eeb3749",
+      "status": "generated"
+    },
+    {
+      "seed": 20260926,
+      "job_id": "c2b0de34-3a42-4d26-9494-f5b3231f16ac",
+      "raw_output": "adult_turn_right45_s20260926_00001_.png",
+      "candidate_file": "candidate_s20260926.png",
+      "candidate_sha256": "6e936ce26bfda422c82c25e696ff49cfddffa145c31f63fcb016ee094df8b7ea",
+      "status": "generated"
+    },
+    {
+      "seed": 20260927,
+      "job_id": "ca2aa86e-76ac-4485-a649-a89e473b2100",
+      "raw_output": "adult_turn_right45_s20260927_00001_.png",
+      "candidate_file": "candidate_s20260927.png",
+      "candidate_sha256": "338826731463326a2e71dae8c78556cfd383effd31c81aa3e4fd4719870cfe2c",
+      "status": "generated"
+    },
+    {
+      "seed": 20260928,
+      "job_id": "5bfb1f26-ab84-4f97-ba1c-61f1aa92d0f9",
+      "raw_output": "adult_turn_right45_s20260928_00001_.png",
+      "candidate_file": "candidate_s20260928.png",
+      "candidate_sha256": "242f6dad08f4be8031a666c35627a62009fa8d4f2bc8841e553ef3633fca5712",
+      "status": "generated"
+    }
+  ]
+}

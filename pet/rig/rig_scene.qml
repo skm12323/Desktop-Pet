@@ -27,14 +27,25 @@ Item {
     property real lookAtX: 0.0
     property real lookAtY: 0.0
     property real blinkProgress: 0.0
+    // 连续视角朝向（v0.19，度；步态/转身路径推入，蒙皮项据此做关键形态插值）
+    property real viewYaw: 0.0
+    // 蒙皮源图的真实脚底线；-1/0 表示此阶段不做脚底对齐。
+    property real skinnedGroundYPx: 0.0
+    property real skinnedSourceW: 960.0
+    property real skinnedSourceH: 1696.0
+    readonly property real skinnedFit: Math.min(width / skinnedSourceW, height / skinnedSourceH)
+    readonly property real skinnedGroundShift: skinnedMeshVisible && skinnedGroundYPx > 0
+        ? height - ((height - skinnedSourceH * skinnedFit) / 2 + skinnedGroundYPx * skinnedFit)
+        : 0.0
 
     // ---- Presenter 写入的显示状态 ----
     property url figASrc: ""
     property url figBSrc: ""
     property real mix: 0.0        // 0=A … 1=B 完全可见
     property int facing: 1        // 1 右 / -1 左（即时镜像，语义同旧 set_facing）
-    // The young mesh has its tail on the right: its source art faces left.
-    readonly property int sourceFacing: skinnedMeshVisible ? -1 : 1
+    // 蒙皮源图朝向（young=-1 源图朝左，adult=1 源图为正向 A-pose）
+    property int skinnedSourceFacing: -1
+    readonly property int sourceFacing: skinnedMeshVisible ? skinnedSourceFacing : 1
     readonly property int visualFacing: facing * sourceFacing
     property string activeFigure: ""   // 当前展示的 figure 名（绑定件可见性）
     property var partsModel: []   // [{id,file,_url,source_figure,px_rect,pivot,z,kind,sway{...}}]
@@ -119,7 +130,7 @@ Item {
             id: bobNode
             width: parent.width
             height: parent.height
-            y: root.bodyY
+            y: root.bodyY + root.skinnedGroundShift
             // bob 不加 Behavior：33ms 步进本身平滑，Behavior 反而滞后抖动
 
             // 2D 骨骼蒙皮渲染节点（当 skinnedMeshEnabled 时接管渲染）
@@ -134,6 +145,7 @@ Item {
                 lookAtX: root.lookAtX
                 lookAtY: root.lookAtY
                 blinkProgress: root.blinkProgress
+                viewYaw: root.viewYaw
             }
 
             // ---- under_core 部件（压在主体下，接缝被核心图遮住）----

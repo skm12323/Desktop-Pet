@@ -26,8 +26,11 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import math
 import os
+import time
 
 from PySide6.QtCore import QPropertyAnimation, QTimer, QUrl
 from PySide6.QtGui import QFont, QImage
@@ -35,6 +38,7 @@ from PySide6.QtGui import QFont, QImage
 from ..asset_provider import SpriteRef
 from ..window import WindowBase
 from . import skinned_mesh_item  # noqa: F401 —— 注册 PetRig 1.0 QML 模块
+from .gait import GaitSolver
 from .motion import MotionEngine, MotionInputs
 from .spec import RigSpec, load_rig_spec
 
@@ -137,6 +141,11 @@ class RigWindow(WindowBase):
         self._engine = MotionEngine(spec) if spec is not None else None
         self._motion_inputs = MotionInputs()
         self._motion_timer: QTimer | None = None
+        # ---- v0.19 步态引擎（模块 3）：变 dt 时钟 + 原子提交 ----
+        self._gait: GaitSolver | None = None
+        self._gait_desired_vx = 0.0
+        self._last_tick_s: float | None = None      # perf_counter 单调时钟
+        self._setup_gait_solver()
         if spec is not None:
             if defer_quick:
                 # 引擎延至事件循环首拍（见 build_rig_window docstring：
@@ -245,17 +254,84 @@ class RigWindow(WindowBase):
             self._root.setProperty("specFile", sp)
             self._root.setProperty("meshDataFile", mp)
             self._root.setProperty("layersDir", lp)
+            self._root.setProperty("skinnedGroundYPx", float(getattr(self._spec, "ground_anchor_y_px", 0.0)))
             from PySide6.QtQuick import QQuickItem
             self._skinned_item = self._root.findChild(QQuickItem, "skinnedMesh")
             from PySide6.QtQuick import QQuickWindow
             enabled = (QQuickWindow.sceneGraphBackend() != "software"
                        and self._skinned_item is not None
                        and self._skinned_item.prepare())
+            if enabled and self._skinned_item._rt is not None:
+                tv = getattr(self._spec, "turn_views_file", "")
+                if tv:
+                    # 连续视角关键形态（§4）：挂接失败自动回退正面单视角
+                    self._skinned_item._rt.attach_view_keyforms(tv)
+                self._root.setProperty("skinnedSourceW", float(self._skinned_item._rt.img_w))
+                self._root.setProperty("skinnedSourceH", float(self._skinned_item._rt.img_h))
             self._root.setProperty("skinnedMeshEnabled", enabled)
-            log.info("RigWindow 蒙皮可用=%s（spec=%s）", enabled, sp)
+            sf = getattr(self._spec, "source_facing", -1 if (self._spec and self._spec.stage == "young") else 1)
+            self._root.setProperty("skinnedSourceFacing", int(sf))
+            log.info("RigWindow 蒙皮可用=%s（spec=%s, sourceFacing=%d）", enabled, sp, sf)
         else:
             self._root.setProperty("skinnedMeshEnabled", False)
+            self._root.setProperty("skinnedGroundYPx", 0.0)
             self._skinned_item = None
+
+    def _setup_gait_solver(self) -> None:
+        """装配步态求解器（spec 带 gait 配置时；失败静默保持旧路径）。
+
+        生产包（assets/rig/adult）无 gait 段 → 不激活，行为与旧版完全一致；
+        新资产包（rig_adult_turn_v1）带 gait → 蒙皮渲染由步态骨骼驱动，
+        窗口位移与姿态在同一渲染拍原子提交（§5.2）。
+        """
+        spec = self._spec
+        if spec is None or not getattr(spec, "gait_config", None):
+            self._gait = None
+            return
+        try:
+            with open(spec.skinned_spec, "r", encoding="utf-8") as f:
+                spec_data = json.load(f)
+            win_h = float(self.height() or 256)
+            scale = win_h / 1696.0 if win_h > 0 else 256.0 / 1696.0
+            self._gait = GaitSolver(spec_data, window_scale=scale)
+        except Exception as e:                # pragma: no cover —— 资产缺件
+            log.warning("步态求解器装配失败，保持旧运动路径：%s", e)
+            self._gait = None
+
+    def set_gait_command(self, desired_vx: float) -> None:
+        """行为层行走意图入口（逻辑 px/s，256 尺度；0=停止）。"""
+        self._gait_desired_vx = float(desired_vx or 0.0)
+
+    @property
+    def gait_active(self) -> bool:
+        return self._gait is not None
+
+    def _gait_tick(self, dt: float) -> None:
+        """步态原子提交（§5.2）：窗口位移与骨骼姿态同一拍生效。
+
+        求解器内部维护浮点窗口累加器（防整数量化的系统性速度损失，见
+        gait.update docstring）；本层按累加器落位窗口 int 坐标。
+        """
+        solver = self._gait
+        if solver is None or not self.rig_active:
+            return
+        dragged = bool(getattr(self, "_dragging", False))
+        grounded = bool(self._motion_inputs.grounded) if self._motion_inputs else True
+        out = solver.update(dt, self._gait_desired_vx, (self.x(), self.y()),
+                            is_grounded=grounded, is_dragged=dragged)
+        if abs(out.delta_window_x) > 1e-9 and not dragged:
+            # 与姿态同帧提交窗口位移（严禁跨帧延迟）
+            self.move(int(round(solver.window_x_float)), self.y())
+            item = self._skinned_item
+            if item is not None and self._root.property("skinnedMeshVisible"):
+                # 骨骼角（弧度→度）+ 骨盆平移（root_hip）+ 连续视角，一次推入
+                for bone, rad in out.bone_rotations.items():
+                    item.setBonePose(bone, math.degrees(rad))
+                sway, dip = out.pelvis_offset
+                item.setBonePose("root_hip",
+                                 math.degrees(out.bone_rotations.get("root_hip", 0.0)),
+                                 tx=sway, ty=dip)
+                self._root.setProperty("viewYaw", float(out.view_yaw))
 
     def _reapply_platform_polish(self) -> None:
         """场景初始化后重施加平台窗口 polish。
@@ -461,6 +537,7 @@ class RigWindow(WindowBase):
             self._motion_inputs.tilt_deg = float(tilt_deg)
             self._motion_inputs.walking = bool(walking)
             self._motion_inputs.walk_hz = float(walk_hz)
+            self._motion_inputs.grounded = not bool(airborne)
             self._motion_inputs.facing = int(getattr(self, "_facing", 1))
             self._motion_inputs.wind_gain = float(wind_gain)
             self._motion_inputs.wind_bias_deg = float(wind_bias_deg)
@@ -512,9 +589,19 @@ class RigWindow(WindowBase):
             pass
 
     def _motion_tick(self) -> None:
-        """33ms 逻辑拍：推进运动引擎并推帧到 QML（对齐旧 QML interval=33）。"""
+        """运动逻辑拍：单调时钟实测 dt（§5.1，摒弃固定 33ms）。
+
+        掉帧/卡顿恢复的巨帧被钳到 0.25s（后台暂停回来不瞬移）；dt 交给
+        MotionEngine（弹簧/相位内部自适应子步）与步态求解器（≤5ms 相位
+        子步），30/60Hz 与不均匀 dt 的轨迹一致（§7 时间一致性）。
+        """
         if not self.rig_active or self._engine is None:
             return
+        now = time.perf_counter()
+        if self._last_tick_s is None:
+            self._last_tick_s = now
+        dt = min(max(now - self._last_tick_s, 0.0), 0.25)
+        self._last_tick_s = now
         if self._motion_inputs is not None:
             self._motion_inputs.source_facing = int(self._root.property("sourceFacing"))
             try:
@@ -525,8 +612,9 @@ class RigWindow(WindowBase):
                                                 float(self.width()), float(self.height()))
             except Exception:
                 pass
-        frame = self._engine.step(self._motion_inputs, 33.0)
+        frame = self._engine.step(self._motion_inputs, dt * 1000.0)
         self._push_frame(frame)
+        self._gait_tick(dt)
 
     def pause_render(self) -> None:
         """暂停常驻运动+渲染循环（全屏/不可见时由 app 调用）。
@@ -547,19 +635,28 @@ class RigWindow(WindowBase):
             self._motion_timer.start()
 
     def _push_frame(self, frame) -> None:
-        """把 MotionFrame 一次性写到 QML（body 变换 + 眨眼 + 部件角度）。"""
+        """把 MotionFrame 一次性写到 QML（body 变换 + 眨眼 + 部件角度）。
+
+        步态路径激活且接地时，body 级 bob/rotation/呼吸被置零——脚部世界
+        接触由骨骼解算锁定，QML 整体变换的二次移动会破坏零滑步（计划 §7
+        "时间与渲染前置"）。身体起伏已由骨盆 dip 在接触解算之前完成。
+        """
         r = self._root
-        r.setProperty("bodyAngle", float(frame.body_angle))
+        gait_driven = (self._gait is not None
+                       and r.property("skinnedMeshVisible")
+                       and bool(self._motion_inputs.grounded))
+        r.setProperty("bodyAngle", 0.0 if gait_driven else float(frame.body_angle))
         r.setProperty("bodyScaleX", float(frame.body_scale_x))
         r.setProperty("bodyScaleY", float(frame.body_scale_y))
-        r.setProperty("bodyY", float(frame.body_y))
+        r.setProperty("bodyY", 0.0 if gait_driven else float(frame.body_y))
         r.setProperty("blinkOn", bool(frame.blink_on))
         r.setProperty("partAngles", dict(frame.part_angles))
         # 镜像属性（测试/门禁观察 gaitK/gaitPhase 的收敛与相位连续性）
         r.setProperty("gaitK", float(self._engine.gait_k))
         r.setProperty("gaitPhase", float(self._engine.gait_phase))
 
-        # 2D 骨骼蒙皮姿态推入（若蒙皮节点存活）
+        # 2D 骨骼蒙皮姿态推入（若蒙皮节点存活）。步态路径下腿部/骨盆由
+        # _gait_tick 的解算值接管（后写覆盖），其余骨骼（尾/发/臂）沿用引擎帧
         item = self._skinned_item
         if item is not None and r.property("skinnedMeshVisible"):
             for b, deg in frame.bone_angles.items():

@@ -220,7 +220,7 @@ def generate_layer_mesh(
     }
 
 
-def generate_all_meshes(spec_path: str, layers_dir: str, out_mesh_path: str):
+def generate_all_meshes(spec_path: str, layers_dir: str, out_mesh_path: str, grid_step: int = 28):
     with open(spec_path, "r", encoding="utf-8") as f:
         spec = json.load(f)
 
@@ -231,12 +231,12 @@ def generate_all_meshes(spec_path: str, layers_dir: str, out_mesh_path: str):
     total_verts = 0
     total_tris = 0
 
-    print(f"Generating mesh data for {len(layers_spec)} layers...")
+    print(f"Generating mesh data for {len(layers_spec)} layers from {spec_path}...")
 
     for l in layers_spec:
         lid = l["id"]
         png_path = os.path.join(layers_dir, l.get("texture", f"{lid}.png"))
-        mesh_layer = generate_layer_mesh(l, spec["skeleton"], png_path, (img_w, img_h))
+        mesh_layer = generate_layer_mesh(l, spec["skeleton"], png_path, (img_w, img_h), grid_step=grid_step)
         if mesh_layer:
             out_layers.append(mesh_layer)
             nv = len(mesh_layer["vertices"])
@@ -260,7 +260,18 @@ def generate_all_meshes(spec_path: str, layers_dir: str, out_mesh_path: str):
 
 
 if __name__ == "__main__":
-    spec = "assets/rig_young/spec.json"
-    layers = "assets/rig_young/layers"
-    out = "assets/rig_young/mesh/mesh_data.json"
-    generate_all_meshes(spec, layers, out)
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate 2D skinned mesh data from rig spec and layer PNGs")
+    parser.add_argument("--stage", choices=["young", "adult"], default="young", help="Stage name (default: young)")
+    parser.add_argument("--spec", default=None, help="Path to spec.json")
+    parser.add_argument("--layers", default=None, help="Path to layers directory")
+    parser.add_argument("--out", default=None, help="Output path for mesh_data.json")
+    parser.add_argument("--grid-step", type=int, default=28, help="Grid step in pixels (default: 28)")
+    args = parser.parse_args()
+
+    spec = args.spec or f"assets/rig_{args.stage}/spec.json"
+    layers = args.layers or f"assets/rig_{args.stage}/layers"
+    out = args.out or f"assets/rig_{args.stage}/mesh/mesh_data.json"
+
+    generate_all_meshes(spec, layers, out, grid_step=args.grid_step)
+

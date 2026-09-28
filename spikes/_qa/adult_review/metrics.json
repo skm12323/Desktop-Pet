@@ -1,0 +1,478 @@
+{
+  "bones": 47,
+  "layers": 21,
+  "vertices": 2043,
+  "triangles": 3116,
+  "visible_mesh": true,
+  "source_size": [
+    960.0,
+    1696.0
+  ],
+  "rest_floor_source_px": {
+    "l": 1608.0,
+    "r": 1607.0
+  },
+  "rest_bottom_gap_display_px_at_256": 13.283018867924529,
+  "binding": {
+    "leg_l": {
+      "vertex_count": 99,
+      "bounds": [
+        335.0,
+        1096.0,
+        453.0,
+        1608.0
+      ],
+      "mean_upper_leg_weight_on_shoe": 0.05715599999999999
+    },
+    "leg_r": {
+      "vertex_count": 98,
+      "bounds": [
+        471.0,
+        1096.0,
+        589.0,
+        1607.0
+      ],
+      "mean_upper_leg_weight_on_shoe": 0.05965
+    },
+    "skirt": {
+      "vertex_count": 372,
+      "bounds": [
+        121.0,
+        689.0,
+        795.0,
+        1197.0
+      ]
+    },
+    "arm_l": {
+      "vertex_count": 95,
+      "bounds": [
+        155.0,
+        476.0,
+        389.0,
+        937.0
+      ]
+    },
+    "arm_r": {
+      "vertex_count": 89,
+      "bounds": [
+        533.0,
+        490.0,
+        767.0,
+        937.0
+      ]
+    }
+  },
+  "walk_sample_scope": "limb-only current engine; body angle/bob/breath and secondary motion disabled",
+  "walk_samples": [
+    {
+      "phase": 0.015625,
+      "floor_delta_l_display_px_at_256": 0.09905660377358491,
+      "floor_delta_r_display_px_at_256": -0.43831073113207547,
+      "shoe_center_gap_display_px_at_256": 39.111540020636795
+    },
+    {
+      "phase": 0.03125,
+      "floor_delta_l_display_px_at_256": 0.12824292452830188,
+      "floor_delta_r_display_px_at_256": -0.7269310141509434,
+      "shoe_center_gap_display_px_at_256": 44.305419921875
+    },
+    {
+      "phase": 0.046875,
+      "floor_delta_l_display_px_at_256": 0.09017541273584906,
+      "floor_delta_r_display_px_at_256": -1.0272884728773586,
+      "shoe_center_gap_display_px_at_256": 49.242086158608494
+    },
+    {
+      "phase": 0.0625,
+      "floor_delta_l_display_px_at_256": -0.009876179245283018,
+      "floor_delta_r_display_px_at_256": -1.3245135613207548,
+      "shoe_center_gap_display_px_at_256": 53.87490326503538
+    },
+    {
+      "phase": 0.078125,
+      "floor_delta_l_display_px_at_256": -0.16439416273584906,
+      "floor_delta_r_display_px_at_256": -1.6049896816037736,
+      "shoe_center_gap_display_px_at_256": 58.160423422759436
+    },
+    {
+      "phase": 0.09375,
+      "floor_delta_l_display_px_at_256": -0.3638708726415094,
+      "floor_delta_r_display_px_at_256": -1.8563716096698113,
+      "shoe_center_gap_display_px_at_256": 62.058602962853776
+    },
+    {
+      "phase": 0.109375,
+      "floor_delta_l_display_px_at_256": -0.5972877358490566,
+      "floor_delta_r_display_px_at_256": -2.068469929245283,
+      "shoe_center_gap_display_px_at_256": 65.5332353699882
+    },
+    {
+      "phase": 0.125,
+      "floor_delta_l_display_px_at_256": -0.8525574882075472,
+      "floor_delta_r_display_px_at_256": -2.23326945754717,
+      "shoe_center_gap_display_px_at_256": 68.55199274027123
+    },
+    {
+      "phase": 0.140625,
+      "floor_delta_l_display_px_at_256": -1.116855837264151,
+      "floor_delta_r_display_px_at_256": -2.3455188679245285,
+      "shoe_center_gap_display_px_at_256": 71.08687260465801
+    },
+    {
+      "phase": 0.15625,
+      "floor_delta_l_display_px_at_256": -1.3775611733490567,
+      "floor_delta_r_display_px_at_256": -2.4028228183962264,
+      "shoe_center_gap_display_px_at_256": 73.11420483859081
+    },
+    {
+      "phase": 0.171875,
+      "floor_delta_l_display_px_at_256": -1.6222729952830188,
+      "floor_delta_r_display_px_at_256": -2.405697228773585,
+      "shoe_center_gap_display_px_at_256": 74.61491422833137
+    },
+    {
+      "phase": 0.1875,
+      "floor_delta_l_display_px_at_256": -1.8397516214622642,
+      "floor_delta_r_display_px_at_256": -2.357532429245283,
+      "shoe_center_gap_display_px_at_256": 75.57464945091391
+    },
+    {
+      "phase": 0.203125,
+      "floor_delta_l_display_px_at_256": -2.0200103183962264,
+      "floor_delta_r_display_px_at_256": -2.2646668632075473,
+      "shoe_center_gap_display_px_at_256": 75.98392587337854
+    },
+    {
+      "phase": 0.21875,
+      "floor_delta_l_display_px_at_256": -2.154849646226415,
+      "floor_delta_r_display_px_at_256": -2.1357421875,
+      "shoe_center_gap_display_px_at_256": 75.83820386202831
+    },
+    {
+      "phase": 0.234375,
+      "floor_delta_l_display_px_at_256": -2.238244398584906,
+      "floor_delta_r_display_px_at_256": -1.9817032724056605,
+      "shoe_center_gap_display_px_at_256": 75.13814443912146
+    },
+    {
+      "phase": 0.25,
+      "floor_delta_l_display_px_at_256": -2.266491008254717,
+      "floor_delta_r_display_px_at_256": -1.8150427476415094,
+      "shoe_center_gap_display_px_at_256": 73.88945266435731
+    },
+    {
+      "phase": 0.265625,
+      "floor_delta_l_display_px_at_256": -2.0707915683962264,
+      "floor_delta_r_display_px_at_256": -1.7889703714622642,
+      "shoe_center_gap_display_px_at_256": 72.09708505306604
+    },
+    {
+      "phase": 0.28125,
+      "floor_delta_l_display_px_at_256": -1.8859448702830188,
+      "floor_delta_r_display_px_at_256": -1.7120061910377358,
+      "shoe_center_gap_display_px_at_256": 69.78414513929835
+    },
+    {
+      "phase": 0.296875,
+      "floor_delta_l_display_px_at_256": -1.7260465801886793,
+      "floor_delta_r_display_px_at_256": -1.5878169221698113,
+      "shoe_center_gap_display_px_at_256": 66.97217257517688
+    },
+    {
+      "phase": 0.3125,
+      "floor_delta_l_display_px_at_256": -1.6045843160377358,
+      "floor_delta_r_display_px_at_256": -1.4223724941037736,
+      "shoe_center_gap_display_px_at_256": 63.687642799233494
+    },
+    {
+      "phase": 0.328125,
+      "floor_delta_l_display_px_at_256": -1.533534787735849,
+      "floor_delta_r_display_px_at_256": -1.2237249410377358,
+      "shoe_center_gap_display_px_at_256": 59.961909456073116
+    },
+    {
+      "phase": 0.34375,
+      "floor_delta_l_display_px_at_256": -1.5229768573113207,
+      "floor_delta_r_display_px_at_256": -1.0016583136792452,
+      "shoe_center_gap_display_px_at_256": 55.83073223761792
+    },
+    {
+      "phase": 0.359375,
+      "floor_delta_l_display_px_at_256": -1.5805571933962264,
+      "floor_delta_r_display_px_at_256": -0.7672833136792453,
+      "shoe_center_gap_display_px_at_256": 51.33417784492924
+    },
+    {
+      "phase": 0.375,
+      "floor_delta_l_display_px_at_256": -1.3022184551886793,
+      "floor_delta_r_display_px_at_256": -0.5326687794811321,
+      "shoe_center_gap_display_px_at_256": 46.5159750884434
+    },
+    {
+      "phase": 0.390625,
+      "floor_delta_l_display_px_at_256": -1.0403338738207548,
+      "floor_delta_r_display_px_at_256": -0.3102520636792453,
+      "shoe_center_gap_display_px_at_256": 41.423155586674525
+    },
+    {
+      "phase": 0.40625,
+      "floor_delta_l_display_px_at_256": -0.8616966391509434,
+      "floor_delta_r_display_px_at_256": -0.11243366745283019,
+      "shoe_center_gap_display_px_at_256": 36.105528633549525
+    },
+    {
+      "phase": 0.421875,
+      "floor_delta_l_display_px_at_256": -0.7668963738207547,
+      "floor_delta_r_display_px_at_256": 0.04893867924528302,
+      "shoe_center_gap_display_px_at_256": 30.615114607900942
+    },
+    {
+      "phase": 0.4375,
+      "floor_delta_l_display_px_at_256": -0.7532797759433962,
+      "floor_delta_r_display_px_at_256": 0.16328862028301888,
+      "shoe_center_gap_display_px_at_256": 25.00546782871462
+    },
+    {
+      "phase": 0.453125,
+      "floor_delta_l_display_px_at_256": -0.8151164504716981,
+      "floor_delta_r_display_px_at_256": 0.22147700471698112,
+      "shoe_center_gap_display_px_at_256": 19.331234338148583
+    },
+    {
+      "phase": 0.46875,
+      "floor_delta_l_display_px_at_256": -0.9440595518867925,
+      "floor_delta_r_display_px_at_256": 0.21644678655660377,
+      "shoe_center_gap_display_px_at_256": 13.647465543926886
+    },
+    {
+      "phase": 0.484375,
+      "floor_delta_l_display_px_at_256": -1.1293853183962264,
+      "floor_delta_r_display_px_at_256": 0.14335200471698112,
+      "shoe_center_gap_display_px_at_256": 8.008982532429245
+    },
+    {
+      "phase": 0.5,
+      "floor_delta_l_display_px_at_256": -1.3585274174528301,
+      "floor_delta_r_display_px_at_256": 0.0,
+      "shoe_center_gap_display_px_at_256": 2.4700029481132075
+    },
+    {
+      "phase": 0.515625,
+      "floor_delta_l_display_px_at_256": -1.6177034198113207,
+      "floor_delta_r_display_px_at_256": 0.0904517983490566,
+      "shoe_center_gap_display_px_at_256": -2.9166006412146226
+    },
+    {
+      "phase": 0.53125,
+      "floor_delta_l_display_px_at_256": -1.8923938679245282,
+      "floor_delta_r_display_px_at_256": 0.11114386792452831,
+      "shoe_center_gap_display_px_at_256": -8.099641619988208
+    },
+    {
+      "phase": 0.546875,
+      "floor_delta_l_display_px_at_256": -2.1679503242924527,
+      "floor_delta_r_display_px_at_256": 0.06487691627358491,
+      "shoe_center_gap_display_px_at_256": -13.03013063826651
+    },
+    {
+      "phase": 0.5625,
+      "floor_delta_l_display_px_at_256": -2.4301665683962264,
+      "floor_delta_r_display_px_at_256": -0.04304245283018868,
+      "shoe_center_gap_display_px_at_256": -17.66164873231132
+    },
+    {
+      "phase": 0.578125,
+      "floor_delta_l_display_px_at_256": -2.6658682193396226,
+      "floor_delta_r_display_px_at_256": -0.20504127358490565,
+      "shoe_center_gap_display_px_at_256": -21.95072965801887
+    },
+    {
+      "phase": 0.59375,
+      "floor_delta_l_display_px_at_256": -2.8633365271226414,
+      "floor_delta_r_display_px_at_256": -0.4115197523584906,
+      "shoe_center_gap_display_px_at_256": -25.857242224351417
+    },
+    {
+      "phase": 0.609375,
+      "floor_delta_l_display_px_at_256": -3.012916420990566,
+      "floor_delta_r_display_px_at_256": -0.6514408903301887,
+      "shoe_center_gap_display_px_at_256": -29.34452848614387
+    },
+    {
+      "phase": 0.625,
+      "floor_delta_l_display_px_at_256": -3.1072376179245285,
+      "floor_delta_r_display_px_at_256": -0.9125515919811321,
+      "shoe_center_gap_display_px_at_256": -32.379878206073116
+    },
+    {
+      "phase": 0.640625,
+      "floor_delta_l_display_px_at_256": -3.1415462853773586,
+      "floor_delta_r_display_px_at_256": -1.1822118219339623,
+      "shoe_center_gap_display_px_at_256": -34.934547280365564
+    },
+    {
+      "phase": 0.65625,
+      "floor_delta_l_display_px_at_256": -3.114055129716981,
+      "floor_delta_r_display_px_at_256": -1.4475420106132075,
+      "shoe_center_gap_display_px_at_256": -36.98411704009434
+    },
+    {
+      "phase": 0.671875,
+      "floor_delta_l_display_px_at_256": -3.025814416273585,
+      "floor_delta_r_display_px_at_256": -1.696270636792453,
+      "shoe_center_gap_display_px_at_256": -38.508660082547166
+    },
+    {
+      "phase": 0.6875,
+      "floor_delta_l_display_px_at_256": -2.880822523584906,
+      "floor_delta_r_display_px_at_256": -1.917010613207547,
+      "shoe_center_gap_display_px_at_256": -39.492910709021224
+    },
+    {
+      "phase": 0.703125,
+      "floor_delta_l_display_px_at_256": -2.686062794811321,
+      "floor_delta_r_display_px_at_256": -2.099830483490566,
+      "shoe_center_gap_display_px_at_256": -39.926384691922166
+    },
+    {
+      "phase": 0.71875,
+      "floor_delta_l_display_px_at_256": -2.4508033608490565,
+      "floor_delta_r_display_px_at_256": -2.2365123820754715,
+      "shoe_center_gap_display_px_at_256": -39.803674086084904
+    },
+    {
+      "phase": 0.734375,
+      "floor_delta_l_display_px_at_256": -2.186744545990566,
+      "floor_delta_r_display_px_at_256": -2.3210126768867925,
+      "shoe_center_gap_display_px_at_256": -39.1244426223467
+    },
+    {
+      "phase": 0.75,
+      "floor_delta_l_display_px_at_256": -1.9071528596698113,
+      "floor_delta_r_display_px_at_256": -2.349646226415094,
+      "shoe_center_gap_display_px_at_256": -37.89363299675708
+    },
+    {
+      "phase": 0.765625,
+      "floor_delta_l_display_px_at_256": -1.8806198408018868,
+      "floor_delta_r_display_px_at_256": -2.0415499705188678,
+      "shoe_center_gap_display_px_at_256": -36.11737636350236
+    },
+    {
+      "phase": 0.78125,
+      "floor_delta_l_display_px_at_256": -1.802292158018868,
+      "floor_delta_r_display_px_at_256": -1.7431640625,
+      "shoe_center_gap_display_px_at_256": -33.81632333431604
+    },
+    {
+      "phase": 0.796875,
+      "floor_delta_l_display_px_at_256": -1.6758733785377358,
+      "floor_delta_r_display_px_at_256": -1.469708136792453,
+      "shoe_center_gap_display_px_at_256": -31.011451577240567
+    },
+    {
+      "phase": 0.8125,
+      "floor_delta_l_display_px_at_256": -1.5072965801886793,
+      "floor_delta_r_display_px_at_256": -1.2357385023584906,
+      "shoe_center_gap_display_px_at_256": -27.72911906692217
+    },
+    {
+      "phase": 0.828125,
+      "floor_delta_l_display_px_at_256": -1.3046875,
+      "floor_delta_r_display_px_at_256": -1.0545032429245282,
+      "shoe_center_gap_display_px_at_256": -24.000469855542452
+    },
+    {
+      "phase": 0.84375,
+      "floor_delta_l_display_px_at_256": -1.0778670400943395,
+      "floor_delta_r_display_px_at_256": -0.9373341686320755,
+      "shoe_center_gap_display_px_at_256": -19.8615031692217
+    },
+    {
+      "phase": 0.859375,
+      "floor_delta_l_display_px_at_256": -0.8379827535377359,
+      "floor_delta_r_display_px_at_256": -0.8931677476415094,
+      "shoe_center_gap_display_px_at_256": -15.352529849646226
+    },
+    {
+      "phase": 0.875,
+      "floor_delta_l_display_px_at_256": -0.5971771816037735,
+      "floor_delta_r_display_px_at_256": -0.507591391509434,
+      "shoe_center_gap_display_px_at_256": -10.517785414209905
+    },
+    {
+      "phase": 0.890625,
+      "floor_delta_l_display_px_at_256": -0.36799823113207547,
+      "floor_delta_r_display_px_at_256": -0.16041420990566038,
+      "shoe_center_gap_display_px_at_256": -5.404978626179245
+    },
+    {
+      "phase": 0.90625,
+      "floor_delta_l_display_px_at_256": -0.16288325471698112,
+      "floor_delta_r_display_px_at_256": 0.09426591981132075,
+      "shoe_center_gap_display_px_at_256": -0.06470647847877359
+    },
+    {
+      "phase": 0.921875,
+      "floor_delta_l_display_px_at_256": 0.006301591981132075,
+      "floor_delta_r_display_px_at_256": 0.25503021816037735,
+      "shoe_center_gap_display_px_at_256": 5.450149248231132
+    },
+    {
+      "phase": 0.9375,
+      "floor_delta_l_display_px_at_256": 0.12879569575471697,
+      "floor_delta_r_display_px_at_256": 0.32377653301886794,
+      "shoe_center_gap_display_px_at_256": 11.085025427476415
+    },
+    {
+      "phase": 0.953125,
+      "floor_delta_l_display_px_at_256": 0.19545990566037735,
+      "floor_delta_r_display_px_at_256": 0.30571933962264153,
+      "shoe_center_gap_display_px_at_256": 16.784285635318398
+    },
+    {
+      "phase": 0.96875,
+      "floor_delta_l_display_px_at_256": 0.19901606721698112,
+      "floor_delta_r_display_px_at_256": 0.208984375,
+      "shoe_center_gap_display_px_at_256": 22.491920327240567
+    },
+    {
+      "phase": 0.984375,
+      "floor_delta_l_display_px_at_256": 0.13461821933962265,
+      "floor_delta_r_display_px_at_256": 0.04411114386792453,
+      "shoe_center_gap_display_px_at_256": 28.15211342865566
+    },
+    {
+      "phase": 0.0,
+      "floor_delta_l_display_px_at_256": 0.0,
+      "floor_delta_r_display_px_at_256": -0.17629716981132076,
+      "shoe_center_gap_display_px_at_256": 33.70986420253538
+    }
+  ],
+  "angle_limits": {
+    "upper_leg_l": [
+      -25,
+      25
+    ],
+    "lower_leg_l": [
+      -35,
+      10
+    ],
+    "foot_l": [
+      -10,
+      10
+    ],
+    "upper_leg_r": [
+      -25,
+      25
+    ],
+    "lower_leg_r": [
+      -35,
+      10
+    ],
+    "foot_r": [
+      -10,
+      10
+    ]
+  }
+}

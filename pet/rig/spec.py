@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 from dataclasses import dataclass, field
 
@@ -160,6 +161,14 @@ class RigSpec:
     skinned_layers: str = ""
     physics_presets: dict = field(default_factory=dict)
     face_mechanics: dict = field(default_factory=dict)
+    source_facing: int = 1
+    ground_anchor_y_px: float = 0.0
+    rest_pose_angles: dict[str, float] = field(default_factory=dict)
+    # ADULT 连续视角/步态（v0.19）：蒙皮 spec.json 的可选 "turn_views"/"gait"
+    # 段——宽进解析，缺失/非法即空（运行期回退单视角/无步态路径）
+    turn_views_file: str = ""
+    gait_config: dict = field(default_factory=dict)
+    contact_markers: dict = field(default_factory=dict)
 
     def figure_for(self, key: str) -> str | None:
         """按 figure 名取路径；未登记返回 None（调用方走整帧/静帧路径）。"""
@@ -257,6 +266,8 @@ def load_rig_spec(rig_dir: str, stage: str) -> RigSpec | None:
     skinned_layers = ""
     physics_presets = {}
     face_mechanics = {}
+    ground_anchor_y_px = 0.0
+    rest_pose_angles: dict[str, float] = {}
 
     if isinstance(skinned_cfg, dict):
         sp = os.path.normpath(os.path.join(rig_dir, skinned_cfg.get("spec_file", "")))
@@ -272,26 +283,64 @@ def load_rig_spec(rig_dir: str, stage: str) -> RigSpec | None:
         candidates = [
             (os.path.join(rig_dir, "spec.json"), os.path.join(rig_dir, "mesh", "mesh_data.json"), os.path.join(rig_dir, "layers")),
         ]
-        if stage == "young":
-            assets_dir = os.path.normpath(os.path.join(rig_dir, "..", ".."))
-            young_dir = os.path.join(assets_dir, "rig_young")
-            candidates += [
-                (os.path.join(young_dir, "spec.json"),
-                 os.path.join(young_dir, "mesh", "mesh_data.json"),
-                 os.path.join(young_dir, "layers")),
-            ]
+        assets_dir = os.path.normpath(os.path.join(rig_dir, "..", ".."))
+        stage_dir = os.path.join(assets_dir, f"rig_{stage}")
+        candidates += [
+            (os.path.join(stage_dir, "spec.json"),
+             os.path.join(stage_dir, "mesh", "mesh_data.json"),
+             os.path.join(stage_dir, "layers")),
+        ]
         for sp, mp, lp in candidates:
             sp, mp, lp = os.path.normpath(sp), os.path.normpath(mp), os.path.normpath(lp)
             if os.path.isfile(sp) and os.path.isfile(mp) and os.path.isdir(lp):
                 skinned_spec, skinned_mesh, skinned_layers = sp, mp, lp
                 break
 
+    source_facing = -1 if stage == "young" else 1
+    turn_views_file = ""
+    gait_config: dict = {}
+    contact_markers: dict = {}
     if skinned_spec:
         try:
             with open(skinned_spec, "r", encoding="utf-8") as f:
                 sdata = json.load(f)
             physics_presets = sdata.get("physics_presets", {})
             face_mechanics = sdata.get("face_mechanics", {})
+            source_h = float(((sdata.get("skeleton") or {}).get("source_reference") or {}).get("image_size_px", [0, 0])[1])
+            candidate_ground = float(sdata.get("ground_anchor_y_px", 0.0))
+            if 0.0 < candidate_ground <= source_h:
+                ground_anchor_y_px = candidate_ground
+            raw_pose = sdata.get("rest_pose_angles", {})
+            if isinstance(raw_pose, dict):
+                rest_pose_angles = {
+                    str(name): float(angle) for name, angle in raw_pose.items()
+                    if isinstance(angle, (int, float)) and math.isfinite(float(angle))
+                }
+            if "source_facing" in sdata:
+                source_facing = int(sdata["source_facing"])
+            # ---- v0.19 连续视角/步态段（宽进：坏件只降级不阻断） ----
+            tv = sdata.get("turn_views")
+            if isinstance(tv, dict):
+                rel = str(tv.get("keyforms_file", "") or "")
+                if rel:
+                    kp = os.path.normpath(os.path.join(os.path.dirname(skinned_spec), rel))
+                    if os.path.isfile(kp):
+                        turn_views_file = kp
+                    else:
+                        log.warning("turn_views.keyforms_file 缺文件（%s），忽略", kp)
+            gait_raw = sdata.get("gait")
+            if isinstance(gait_raw, dict):
+                gait_config = {
+                    str(k): float(v) for k, v in gait_raw.items()
+                    if isinstance(v, (int, float)) and math.isfinite(float(v))
+                }
+            mk_raw = sdata.get("contact_markers")
+            if isinstance(mk_raw, dict):
+                for key, val in mk_raw.items():
+                    try:
+                        contact_markers[str(key)] = [float(val[0]), float(val[1])]
+                    except (TypeError, ValueError, IndexError):
+                        continue
         except Exception as e:
             log.warning("读取蒙皮物理预设失败（%s）：%s", skinned_spec, e)
 
@@ -299,4 +348,10 @@ def load_rig_spec(rig_dir: str, stage: str) -> RigSpec | None:
                    skinned_spec=skinned_spec, skinned_mesh=skinned_mesh,
                    skinned_layers=skinned_layers,
                    physics_presets=physics_presets,
-                   face_mechanics=face_mechanics)
+                   face_mechanics=face_mechanics,
+                   source_facing=source_facing,
+                   ground_anchor_y_px=ground_anchor_y_px,
+                   rest_pose_angles=rest_pose_angles,
+                   turn_views_file=turn_views_file,
+                   gait_config=gait_config,
+                   contact_markers=contact_markers)

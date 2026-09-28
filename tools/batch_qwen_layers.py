@@ -1,145 +1,129 @@
 """
 Automated batch layer generator using local ComfyUI + Qwen-Image-2.1.
 Connects to http://127.0.0.1:8188, loads crops or full reference, sends structured
-layer extraction & inpainting prompts, and saves resulting RGBA PNGs to assets/rig_young/layers/.
+layer extraction & inpainting prompts, and saves resulting RGBA PNGs to assets/rig_{stage}/layers/.
+Supports both --stage young and --stage adult.
 """
 
 import os
 import sys
 import json
 import time
+import argparse
 import urllib.request
-import numpy as np
 from PIL import Image
 
 COMFY_URL = "http://127.0.0.1:8188"
 COMFY_INPUT = r"D:\AI\ComfyUI\input"
-SPEC_PATH = "assets/reference/young_rig_spec.json"
-OUT_LAYERS_DIR = "assets/rig_young/layers"
-CROPS_DIR = "assets/rig_young/prep/crops"
-MANIFEST_PATH = "assets/rig_young/prep/manifest.json"
+COMFY_OUTPUT = r"D:\AI\ComfyUI\output"
 
-# Curated prompts for Qwen-Image-2.1 tailored to each layer
-PROMPTS = {
-    "ahoge": {
-        "prompt": "Extract the single hair ahoge (the top curved antenna hair strand) from <image1>. Remove the white maid headpiece, background, and other hair completely. Keep only the single ahoge strand, smooth out the root connection, output as a transparent RGBA PNG image with pure transparent background.",
-        "negative": "white headpiece, face, extra hair, opaque background, background, lowres"
-    },
-    "headpiece": {
-        "prompt": "Extract the white frilled maid headdress headband from <image1>. Keep the ruffled lace edges and curved shape. Remove the blue hair, face, ahoge, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "hair, face, skin, eyes, background, lowres, blurry"
-    },
-    "bangs": {
-        "prompt": "Extract the front bangs and short side hair flares from <image1>. Inpaint and extend the hair roots upward by 15px behind where the white headpiece was. Keep the pointed tips, hair strands, and soft blue highlights. Remove the face, eyes, eyebrows, headpiece, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "face, eyes, skin, eyebrows, headpiece, background, lowres, blurry"
+# Curated prompts for Adult (A-pose) layers
+ADULT_PROMPTS = {
+    "ahoge_headdress": {
+        "prompt": "Extract the single curved ahoge antenna hair strand and the white frilled lace maid headdress headband from <image1>. Remove the blue hair, face, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "face, skin, eyes, blue hair, background, lowres, blurry"
     },
     "ear_fin_l": {
-        "prompt": "Extract the left whale-fin ear from <image1>. Keep the dark blue fin shape and light blue lower scalloped edge. Inpaint and smoothly extend the root into where the hair was. Remove the hair, face, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "prompt": "Extract the left whale-fin ear from <image1>. Keep the dark blue fin shape and light blue lower scalloped edge. Inpaint and smoothly extend the root into the head. Remove the hair, face, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
         "negative": "hair, face, skin, background, human ear, lowres, blurry"
     },
     "ear_fin_r": {
-        "prompt": "Extract the right whale-fin ear and its dark blue ribbon bow from <image1>. Keep the distinct shapes of both the ear fin and the ribbon. Inpaint and smoothly extend the root behind the side hair. Remove the hair, face, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "prompt": "Extract the right whale-fin ear and its light blue ribbon bow from <image1>. Keep the distinct shapes of both ear fin and ribbon. Inpaint and smoothly extend the root inward. Remove hair, face, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
         "negative": "hair, face, skin, background, human ear, lowres, blurry"
     },
+    "bangs": {
+        "prompt": "Extract the front hair bangs covering the forehead, center hair strands, and side face hair flares from <image1>. The center front bangs covering the forehead MUST BE FULLY PRESERVED and solid, with sharp pointed tips and smooth blue highlights. Do NOT hollow out the center forehead hair. Inpaint roots upward behind headdress. Remove the white maid headdress, eyes, eyebrows, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "bald forehead, missing bangs, hollow center hair, split bangs, headdress, background, lowres, blurry"
+    },
+    "head_base": {
+        "prompt": "Extract the full face skin, forehead, cheeks, eyebrows, nose, mouth, blush, and neck connection from <image1>. COMPLETELY INPAINT AND CLEAR the iris, pupils, highlights, and eyelashes into smooth, pure white clean sclera. Inpaint forehead skin under bangs. Remove hair, headdress, dress, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "iris, pupils, blue eyes, eyelashes, headdress, bangs, hair, background, lowres"
+    },
     "pupil_l": {
-        "prompt": "Extract the left eye iris, pupil, and white sparkle highlight from <image1>. Inpaint and complete the top curved arc of the iris that was hidden under the upper eyelid. Remove the sclera, eyelashes, eyelids, and skin completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "prompt": "Extract the left eye iris, pupil, and white sparkle highlight from <image1>. Inpaint and complete the top curved arc of the iris hidden under upper eyelid. Remove sclera, eyelashes, eyelids, and skin completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
         "negative": "eyelash, eyelid, skin, sclera, white of eye, background, face, lowres"
     },
     "pupil_r": {
-        "prompt": "Extract the right eye iris, pupil, and white sparkle highlight from <image1>. Inpaint and complete the top curved arc of the iris hidden under the upper eyelid. Keep the original tilt and highlights. Remove the sclera, eyelashes, eyelids, and skin completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "prompt": "Extract the right eye iris, pupil, and white sparkle highlight from <image1>. Inpaint and complete the top curved arc of the iris hidden under upper eyelid. Remove sclera, eyelashes, eyelids, and skin completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
         "negative": "eyelash, eyelid, skin, sclera, white of eye, background, face, lowres"
     },
     "eyelid_l": {
-        "prompt": "Extract the left eye upper and lower eyelid skin patches and black eyelash curve from <image1>. Keep the peach skin tone, subtle blush gradient, and crisp eyelash stroke. Remove the iris, pupil, sclera, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "iris, pupil, blue eye, eyeball, sclera, background, lowres"
+        "prompt": "Extract the black upper eyelash curve, eyeliner, and upper lid crease from <image1>. The center eye socket opening MUST REMAIN 100% HOLLOW AND COMPLETELY TRANSPARENT like a cutout stencil so the iris underneath can show through. Remove iris, pupil, sclera, full cheek skin, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "iris, pupil, blue eye, eyeball, sclera, solid skin covering eye, opaque eye opening, closed eye, background, lowres"
     },
     "eyelid_r": {
-        "prompt": "Extract the right eye upper and lower eyelid skin patches and black eyelash curve from <image1>. Keep the peach skin tone, subtle blush gradient, and crisp eyelash stroke matching the right eye angle. Remove the iris, pupil, sclera, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "iris, pupil, blue eye, eyeball, sclera, background, lowres"
+        "prompt": "Extract the black upper eyelash curve, eyeliner, and upper lid crease from <image1>. The center eye socket opening MUST REMAIN 100% HOLLOW AND COMPLETELY TRANSPARENT like a cutout stencil so the iris underneath can show through. Remove iris, pupil, sclera, full cheek skin, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "iris, pupil, blue eye, eyeball, sclera, solid skin covering eye, opaque eye opening, closed eye, background, lowres"
     },
-    "hair_back_l": {
-        "prompt": "Extract the left long rear hair locks from <image1>. Keep the dark blue to light cyan gradient at the curly hair tips. Inpaint and complete the upper hair body that was covered by the ear fin, face cheek, and sleeve. Keep the see-through holes between locks transparent, do not fill into solid block. Remove the face, arm, dress, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "face, skin, arm, sleeve, dress, apron, background, solid hair block, lowres"
-    },
-    "hair_back_r": {
-        "prompt": "Extract the right long rear hair locks from <image1>. Keep the dark blue to light cyan gradient at the curly hair tips. Inpaint and smoothly complete the hair flow behind where the whale tail and sleeve were, with continuous gradient. Remove the face, arm, dress, tail, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "face, skin, arm, sleeve, dress, tail, apron, background, lowres"
+    "torso": {
+        "prompt": "Extract the upper torso maid blouse, collar, blue necktie gem, chest vertical ruffles, and dark blue corset waist with 4 gold buttons from <image1>. Inpaint the shoulder joints smoothly where the sleeves connected, and inpaint the neck connection upward. Remove arms, hands, sleeves, skirt, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "arms, sleeves, hands, apron, skirt, legs, background, lowres"
     },
     "arm_l": {
-        "prompt": "Extract the left arm, puffy sleeve, and hand from <image1>. Keep the bent elbow pose. Inpaint and smoothly connect the shoulder joint into the sleeve. Keep the short round hand and cuff thickness, do not generate unfolded fingers. Remove the torso, dress, apron, and hair completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "torso, dress, apron, hair, background, face, extra fingers, lowres, blurry, stray lines"
+        "prompt": "Extract the left arm, puffy shoulder sleeve, navy sleeve, white lace wrist cuff, and natural hanging relaxed hand from <image1>. Inpaint and smoothly round the shoulder connection joint. Keep the slender arm and natural fingers. Remove the torso, dress, apron, skirt, hair, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "torso, dress, apron, skirt, hair, background, face, lowres, blurry"
     },
     "arm_r": {
-        "prompt": "Extract the right arm, puffy sleeve, and hand from <image1>. Keep the bent elbow pose tucked in front. Inpaint and smoothly connect the right shoulder joint. Keep the short round hand and cuff decoration. Remove the torso, dress, apron, hair, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "torso, dress, apron, hair, background, face, extra fingers, lowres, blurry, stray lines"
+        "prompt": "Extract the right arm, puffy shoulder sleeve, navy sleeve, white lace wrist cuff, and natural hanging relaxed hand from <image1>. Inpaint and smoothly round the shoulder connection joint. Keep the slender arm and natural fingers. Remove the torso, dress, apron, skirt, tail, hair, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "torso, dress, apron, skirt, hair, tail, background, face, lowres, blurry"
+    },
+    "apron": {
+        "prompt": "Extract the white frilled bib apron with embroidered blue whale mascot on center and delicate ruffled lace borders from <image1>. Inpaint the upper waist corners slightly behind where the sleeves were. Remove arms, torso, skirt, legs, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "arms, sleeves, hands, navy dress, skirt, legs, background, lowres"
+    },
+    "skirt": {
+        "prompt": "Extract the navy blue pleated main skirt and double ruffled white hem from <image1>. Inpaint and complete continuous navy pleated fabric across the front where the apron was, extending vertical soft folds and gold filigree embroidery smoothly. Inpaint upper waist connection. Preserve the two ribbon bows. Remove apron, arms, legs, tail, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "apron, whale embroidery, arms, sleeves, hands, legs, background, lowres"
     },
     "leg_l": {
-        "prompt": "Extract the left leg, white ankle sock, and black Mary Jane shoe from <image1>. Inpaint and extend a short leg cylinder upward by 20px into where it was hidden under the skirt. Keep the shoe shape, strap, and shading. Remove the skirt, background, and other leg completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "prompt": "Extract the left slender leg, knee, white ruffled ankle sock, and dark blue Mary Jane shoe from <image1>. Inpaint and extend the smooth cylinder thigh upward by 25px into where it was hidden under the skirt. Preserve the knee highlight, ankle frills, and shoe buckle. Remove the skirt, dress, other leg, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
         "negative": "skirt, dress, apron, background, other leg, lowres, blurry"
     },
     "leg_r": {
-        "prompt": "Extract the right leg, white ankle sock, and black Mary Jane shoe from <image1>. Inpaint and extend a short leg cylinder upward by 20px into where it was hidden under the skirt. Preserve the right shoe unique perspective angle and strap. Remove the skirt, background, and other leg completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "prompt": "Extract the right slender leg, knee, white ruffled ankle sock, and dark blue Mary Jane shoe from <image1>. Inpaint and extend the smooth cylinder thigh upward by 25px into where it was hidden under the skirt. Preserve the knee highlight, ankle frills, and shoe buckle. Remove the skirt, dress, other leg, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
         "negative": "skirt, dress, apron, background, other leg, lowres, blurry"
     },
-    "apron": {
-        "prompt": "Extract the white frilled bib apron from <image1>. Keep the embroidered blue whale mascot on the center and the delicate ruffled lace along all borders. Inpaint the top corners slightly behind where the sleeves were. Remove the arms, dress, legs, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "arms, sleeves, hands, navy dress, skirt, legs, background, lowres"
-    },
     "tail_seg1": {
-        "prompt": "Extract the root base of the whale tail from <image1> where it emerges from behind the skirt. Inpaint and smoothly extend the tail root 20px inward into where it connects behind the dress. Maintain the dark blue dorsal and light blue ventral colors with smooth shading and matching lineart. Remove the skirt, legs, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "skirt, dress, legs, background, extra branches, lowres"
+        "prompt": "Extract the complete continuous whale tail from <image1>. Include the entire smooth tail body from the root under the skirt, the broad curved lower section, the tapering stalk, up to the complete asymmetrical double-lobed tail fluke. Inpaint and smoothly complete the tail root 80px inward behind where the dress and white ruffles were, rounding naturally into a smooth tail root with continuous dark blue dorsal and soft light blue ventral shading. Remove the skirt, ruffles, apron, dress, legs, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "skirt, ruffles, apron, dress, legs, skin, hair, background, opaque background, lowres, blurry, extra fluke, duplicate tail, cropped root"
     },
     "tail_seg2": {
-        "prompt": "Extract the curved mid-body segment of the whale tail from <image1>. Inpaint and complete the areas covered by the right hair locks and skirt hem, keeping the curved tail width and light cyan belly stripe seamlessly continuous. Overlap 15px at both ends for skinning joint blend. Remove hair, skirt, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "hair, skirt, background, harsh seam lines, lowres"
+        "prompt": "Companion layer handled together with tail_seg1",
+        "negative": ""
     },
     "tail_tip": {
-        "prompt": "Extract the upturned end whale tail fluke from <image1>. Preserve the pointed leaf-like fluke shape and subtle cyan gradient. Inpaint the fluke base connecting downward into the tail body. Do NOT add a second fluke leaf that is not in the original art. Remove hair, background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "hair, background, second tail fluke, lowres, blurry"
+        "prompt": "Companion layer handled together with tail_seg1",
+        "negative": ""
     },
-    "face_base": {
-        "prompt": "Extract the full face skin, forehead, cheeks, eyebrows, nose, mouth, blush, and short neck connection from <image1>. COMPLETELY CLEAR the iris, pupils, highlights, and eyelashes: inpaint the eye sockets with smooth, clean, continuous pure white sclera. Inpaint forehead skin under bangs and cheeks under side hair. Remove hair, headpiece, dress, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "iris, pupils, blue eyes, eyelashes, headpiece, bangs, hair, background, lowres"
+    "hair_back_l": {
+        "prompt": "Extract the left long rear hair locks from <image1>. Keep the dark blue to light cyan gradient at the curly hair tips. Inpaint and complete the upper hair body that was covered by ear fin, cheek, sleeve, and skirt. Keep see-through gaps between locks transparent. Remove face, arm, dress, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "face, skin, arm, sleeve, dress, apron, background, solid hair block, lowres"
     },
-    "torso": {
-        "prompt": "Extract the upper torso maid blouse, collar, blue necktie gem, chest ruffles, and navy corset waist from <image1>. Remove the arms, hands, sleeves, and front apron completely, and inpaint the underlying navy blouse fabric and white ruffles smoothly with continuous shading. Inpaint the neck connection upward. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "arms, sleeves, hands, apron, whale embroidery, hair, background, lowres"
-    },
-    "skirt": {
-        "prompt": "Extract the navy blue main bell skirt and white petticoat hem from <image1>. Completely remove the white apron, hands, sleeves, and whale embroidery: inpaint and complete the continuous navy skirt cloth and soft vertical folds across the entire skirt front. Preserve the gold filigree trim, white ruffled bottom hem, and side ribbon bows. Output as a clean transparent RGBA PNG image with pure transparent background.",
-        "negative": "apron, whale embroidery, arms, sleeves, hands, legs, background, lowres"
+    "hair_back_r": {
+        "prompt": "Extract the right long rear hair locks from <image1>. Keep the dark blue to light cyan gradient at the curly hair tips. Inpaint and smoothly complete the hair flow behind where the whale tail and sleeve were, with continuous gradient. Remove face, arm, dress, tail, and background completely. Output as a clean transparent RGBA PNG image with pure transparent background.",
+        "negative": "face, skin, arm, sleeve, dress, tail, apron, background, lowres"
     }
 }
 
 
-def prepare_snapped_crop(layer_id: str, manifest_entry: dict) -> tuple[str, list[int]]:
-    """Crops the layer with coordinates snapped to multiples of 32."""
-    im = Image.open("assets/reference/young_ref.jpg").convert("RGBA")
+def prepare_snapped_crop(stage: str, layer_id: str, manifest_entry: dict) -> tuple[str, list[int], tuple[int, int]]:
+    ref_ext = ".jpg" if stage == "young" else ".png"
+    ref_path = f"assets/reference/{stage}_ref{ref_ext}"
+    if not os.path.isfile(ref_path):
+        ref_path = f"assets/reference/{stage}_ref.jpg"
+
+    im = Image.open(ref_path).convert("RGBA")
     w_full, h_full = im.size
     c_min_x, c_min_y, c_max_x, c_max_y = manifest_entry["crop_rect_px"]
 
-    crop_w = c_max_x - c_min_x
-    crop_h = c_max_y - c_min_y
-
-    pad_w = (32 - (crop_w % 32)) % 32
-    pad_h = (32 - (crop_h % 32)) % 32
-    c_max_x = min(w_full, c_max_x + pad_w)
-    c_max_y = min(h_full, c_max_y + pad_h)
-
-    crop_w = c_max_x - c_min_x
-    crop_h = c_max_y - c_min_y
-    if crop_w % 32 != 0:
-        c_min_x = max(0, c_min_x - (32 - (crop_w % 32)))
-    if crop_h % 32 != 0:
-        c_min_y = max(0, c_min_y - (32 - (crop_h % 32)))
-
     crop = im.crop((c_min_x, c_min_y, c_max_x, c_max_y))
-    crop_filename = f"qwen_crop_{layer_id}.png"
+    crop_filename = f"qwen_crop_{stage}_{layer_id}.png"
+    os.makedirs(COMFY_INPUT, exist_ok=True)
     crop.save(os.path.join(COMFY_INPUT, crop_filename))
-    return crop_filename, [c_min_x, c_min_y, c_max_x, c_max_y]
+    return crop_filename, [c_min_x, c_min_y, c_max_x, c_max_y], (w_full, h_full)
 
 
-def queue_comfy_qwen(crop_filename: str, prompt_text: str, neg_prompt_text: str, prefix: str, seed: int = 20260922) -> str:
+def queue_comfy_qwen(crop_filename: str, prompt_text: str, neg_prompt_text: str, prefix: str, seed: int = 20260924) -> str:
     prompt = {
         "1": {
             "class_type": "UNETLoader",
@@ -235,70 +219,90 @@ def wait_for_completion(prompt_id: str, timeout_s: int = 180) -> str:
     raise TimeoutError(f"Generation timed out for prompt {prompt_id}")
 
 
-def process_and_align_layer(layer_id: str, gen_filename: str, crop_rect_px: list[int]):
-    """Loads generated crop, applies clean alpha and pastes to full canvas."""
-    gen_path = os.path.join(r"D:\AI\ComfyUI\output", gen_filename)
+def process_and_align_layer(stage: str, layer_id: str, gen_filename: str, crop_rect_px: list[int], full_size: tuple[int, int]):
+    """Loads generated crop, ensures clean alpha and pastes to full canvas."""
+    gen_path = os.path.join(COMFY_OUTPUT, gen_filename)
     gen_im = Image.open(gen_path).convert("RGBA")
 
-    # Composite into full 1280x1284 transparent canvas
-    full_canvas = Image.new("RGBA", (1280, 1284), (0, 0, 0, 0))
+    w_full, h_full = full_size
+    full_canvas = Image.new("RGBA", (w_full, h_full), (0, 0, 0, 0))
     c_min_x, c_min_y, c_max_x, c_max_y = crop_rect_px
 
     # If size slightly deviates, resize to exact crop box
-    if gen_im.size != (c_max_x - c_min_x, c_max_y - c_min_y):
-        gen_im = gen_im.resize((c_max_x - c_min_x, c_max_y - c_min_y), Image.LANCZOS)
+    expected_size = (c_max_x - c_min_x, c_max_y - c_min_y)
+    if gen_im.size != expected_size:
+        gen_im = gen_im.resize(expected_size, Image.LANCZOS)
 
     full_canvas.paste(gen_im, (c_min_x, c_min_y), gen_im)
 
-    os.makedirs(OUT_LAYERS_DIR, exist_ok=True)
-    out_file = os.path.join(OUT_LAYERS_DIR, f"{layer_id}.png")
+    out_layers_dir = f"assets/rig_{stage}/layers"
+    os.makedirs(out_layers_dir, exist_ok=True)
+    out_file = os.path.join(out_layers_dir, f"{layer_id}.png")
     full_canvas.save(out_file)
 
-    # Also save the raw cropped version
-    raw_crop_file = os.path.join(OUT_LAYERS_DIR, f"{layer_id}_crop.png")
-    gen_im.save(raw_crop_file)
+    if stage == "adult" and layer_id == "tail_seg1":
+        # Ensure contract companion layers tail_seg2 and tail_tip exist
+        import numpy as np
+        dummy_arr = np.zeros((h_full, w_full, 4), dtype=np.uint8)
+        dummy_arr[700:704, 480:484] = [54, 74, 122, 255]
+        dummy_img = Image.fromarray(dummy_arr)
+        for comp_id in ("tail_seg2", "tail_tip"):
+            dummy_img.save(os.path.join(out_layers_dir, f"{comp_id}.png"))
+            dummy_img.save(os.path.join(out_layers_dir, f"{comp_id}_crop.png"))
 
     print(f"[OK] Layer [{layer_id}] aligned and saved to {out_file}")
 
 
-def generate_layer(layer_id: str):
-    with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
+def generate_layer(stage: str, layer_id: str):
+    if stage == "adult" and layer_id in ("tail_seg2", "tail_tip"):
+        print(f"[INFO] Adult {layer_id} is a contract companion layer unified under tail_seg1.")
+        return
+
+    manifest_path = f"assets/rig_{stage}/prep/manifest.json"
+    with open(manifest_path, "r", encoding="utf-8") as f:
         manifest = json.load(f)
 
     entry = next((m for m in manifest if m["id"] == layer_id), None)
     if not entry:
-        print(f"Error: layer {layer_id} not found in manifest")
+        print(f"Error: layer {layer_id} not found in manifest {manifest_path}")
         return
 
-    if layer_id not in PROMPTS:
-        print(f"Error: no prompt defined for {layer_id}")
+    prompts = ADULT_PROMPTS if stage == "adult" else {}
+    if layer_id not in prompts:
+        print(f"Error: no prompt defined for {layer_id} in stage {stage}")
         return
 
-    print(f"\n--- Generating layer: {layer_id} ---")
-    crop_filename, crop_rect = prepare_snapped_crop(layer_id, entry)
-    p_info = PROMPTS[layer_id]
+    print(f"\n--- Generating [{stage}] layer: {layer_id} ---")
+    crop_filename, crop_rect, full_size = prepare_snapped_crop(stage, layer_id, entry)
+    p_info = prompts[layer_id]
 
     prompt_id = queue_comfy_qwen(
         crop_filename=crop_filename,
         prompt_text=p_info["prompt"],
         neg_prompt_text=p_info["negative"],
-        prefix=f"young_{layer_id}"
+        prefix=f"{stage}_{layer_id}"
     )
     print(f"Queued in ComfyUI (ID: {prompt_id}), waiting...")
     out_name = wait_for_completion(prompt_id)
     print(f"ComfyUI output generated: {out_name}")
-    process_and_align_layer(layer_id, out_name, crop_rect)
+    process_and_align_layer(stage, layer_id, out_name, crop_rect, full_size)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        target = sys.argv[1]
-        if target == "all":
-            with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
-                manifest = json.load(f)
-            for m in manifest:
-                generate_layer(m["id"])
-        else:
-            generate_layer(target)
+    parser = argparse.ArgumentParser(description="Batch Qwen layer generator.")
+    parser.add_argument("--stage", choices=["young", "adult"], default="adult")
+    parser.add_argument("target", nargs="?", default="all", help="layer_id or 'all'")
+    args = parser.parse_args()
+
+    manifest_path = f"assets/rig_{args.stage}/prep/manifest.json"
+    if not os.path.isfile(manifest_path):
+        print(f"Error: {manifest_path} not found. Run crop_and_prep.py first.")
+        sys.exit(1)
+
+    if args.target == "all":
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        for m in manifest:
+            generate_layer(args.stage, m["id"])
     else:
-        print("Usage: python tools/batch_qwen_layers.py [layer_id | all]")
+        generate_layer(args.stage, args.target)

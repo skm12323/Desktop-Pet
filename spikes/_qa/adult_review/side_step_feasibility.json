@@ -1,0 +1,44 @@
+{
+  "scope": "Foot targets and ideal two-bone IK only; no skin, perspective, start/stop or clamp validation",
+  "speed_px_s_at_256": 45.0,
+  "cycles_per_second": 1.1,
+  "stance_ratio": 0.6,
+  "lift_px_at_256": 3.5,
+  "samples": 2400,
+  "max_stance_foot_speed_px_s": 2.8421709430404003e-09,
+  "max_bone_length_error_px": 6.394884621840902e-14,
+  "ranges": {
+    "pelvis_lower_px": [
+      1.0196327116025043,
+      3.1821441757806883
+    ],
+    "gap_px": [
+      17.99999999999997,
+      58.909090909090935
+    ],
+    "thigh_l": [
+      3.2735591358484,
+      18.459459021777036
+    ],
+    "knee_l": [
+      -29.077896973453477,
+      -3.560495915372345
+    ],
+    "ankle_counter_l": [
+      -12.334278631430676,
+      15.582964721272832
+    ],
+    "thigh_r": [
+      -19.377200002928642,
+      -4.126921274021476
+    ],
+    "knee_r": [
+      0.6837909413913705,
+      26.447994684459008
+    ],
+    "ankle_counter_r": [
+      -12.102319410486466,
+      15.893181577710228
+    ]
+  }
+}
