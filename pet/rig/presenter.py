@@ -528,6 +528,24 @@ class RigWindow(WindowBase):
         frame = self._engine.step(self._motion_inputs, 33.0)
         self._push_frame(frame)
 
+    def pause_render(self) -> None:
+        """暂停常驻运动+渲染循环（全屏/不可见时由 app 调用）。
+
+        Qt 最小化/遮挡会切 system timer 驱动动画，但不会替自定义 QTimer
+        停表（QQuickWidget 隐藏后 Python 侧 engine.step + setBonePose +
+        update() 仍在 30Hz 空转）。停表只停「渲染推进」；逻辑时钟保留——
+        衰减已用 wall-clock delta（app._apply_decay），恢复后数值正确、
+        姿态从暂停处继续。frames 后端无此方法，app 经 getattr 幂等旁路。
+        """
+        if self._motion_timer is not None and self._motion_timer.isActive():
+            self._motion_timer.stop()
+
+    def resume_render(self) -> None:
+        """恢复常驻运动+渲染循环（退出全屏/重新可见时由 app 调用）。"""
+        if (self._motion_timer is not None and self.rig_active
+                and not self._motion_timer.isActive()):
+            self._motion_timer.start()
+
     def _push_frame(self, frame) -> None:
         """把 MotionFrame 一次性写到 QML（body 变换 + 眨眼 + 部件角度）。"""
         r = self._root

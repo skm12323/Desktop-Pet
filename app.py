@@ -413,16 +413,25 @@ class PetApp:
         任一环抛错 → 该环降级为恒等/静态，返回的 EngineBridge 永不抛错。
         spec 为 None（无 manifest）时 motion 仍可出整身增量（呼吸/眨眼/
         squash），只是无部件角 —— 不因此回退。
+
+        CPU 优化：rig/paperdoll 后端下**不装配 MotionEnricher**。
+        RigWindow 自持 MotionEngine（presenter._motion_timer 30Hz step），
+        中间层这份 motion 的 body_angle/scale/part_angles/blink 在
+        RigWindow.apply_enrichment 里只取 shadow、其余算完即弃（纯浪费
+        20Hz 全量 FK/LBS）。rig 后端下 enricher 恒 NullEnricher，RigWindow
+        ._engine 是唯一 step 者；frames 后端仍要 body_y（呼吸）故保留 motion。
         """
+        presentation = self.cfg.get("presentation", "frames")
         enricher = NullEnricher()
-        try:
-            from pet.rig.spec import load_rig_spec
-            rig_root = os.path.join(os.path.dirname(__file__), "assets", "rig")
-            stage = self.store.get().stage.value
-            spec = load_rig_spec(os.path.join(rig_root, stage), stage)
-            enricher = MotionEnricher(spec)
-        except Exception:
-            self.logger.warning("新引擎运动增强装配失败，回退恒等", exc_info=True)
+        if presentation not in ("rig", "paperdoll"):
+            try:
+                from pet.rig.spec import load_rig_spec
+                rig_root = os.path.join(os.path.dirname(__file__), "assets", "rig")
+                stage = self.store.get().stage.value
+                spec = load_rig_spec(os.path.join(rig_root, stage), stage)
+                enricher = MotionEnricher(spec)
+            except Exception:
+                self.logger.warning("新引擎运动增强装配失败，回退恒等", exc_info=True)
         try:
             channels = ChannelEnricher(self.cfg)
         except Exception:
@@ -1343,11 +1352,19 @@ class PetApp:
             # 批次C/H2：气泡是独立 Tool|StaysOnTop 窗，不随 window.hide()
             # 收——不藏则久坐提醒/链式唤醒照样盖在全屏演示上
             self.bubble.hide()
+            # 进全屏停 rig 常驻 30Hz 运动/渲染循环（隐藏后仍在空转
+            # setBonePose/update）；frames 后端无此方法，getattr 幂等。
+            pause = getattr(self.window, "pause_render", None)
+            if callable(pause):
+                pause()
             self.logger.info("全屏检测：隐藏宠物（含气泡）")
         elif was and not fs:
             self._fullscreen = False
             self.fsm.handle_event("fullscreen_off")
             self.window.show()
+            resume = getattr(self.window, "resume_render", None)
+            if callable(resume):
+                resume()
             self.logger.info("全屏检测：恢复显示")
 
     # ---- v0.3 拖拽 ----

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -25,6 +26,11 @@ log = logging.getLogger("pet")
 
 # 黄赤交角（地球自转轴倾角，度）——用户点名的参数之一，显式具名便于调参
 OBLIQUITY_DEG = 23.44
+
+# 太阳位置重算节流：太阳 ~15°/小时（≈0.25°/分钟），50ms 重算是「便宜而
+# 没必要」的常驻轮询。refresh() 加时间门，重算次数 −1200×（对齐 wind.py
+# WeatherWindSource 的 poll 节流 + sensor_win 的 TTL 缓存同款模式）。
+_SUN_REFRESH_TTL_S = 60.0
 
 
 @dataclass(frozen=True)
@@ -172,6 +178,10 @@ class RealtimeSunSource(SunSource):
                     else system_tz_offset_hours())
         self._max_alpha = float(max_alpha)
         self._cache = self._compute()
+        # -1e9 哨兵：首拍 refresh 立即重算一次（对齐 wind 的「首拍必须触发」），
+        # 此后按 _SUN_REFRESH_TTL_S 节流（time.monotonic 近 0 起算，0.0 会让
+        # 首拍误判「未到期」）。
+        self._last_refresh = -1e9
 
     def _compute(self) -> Shadow:
         pos = solar_position(self._lat, self._lon, datetime.now(), self._tz)
@@ -181,7 +191,12 @@ class RealtimeSunSource(SunSource):
         return self._cache
 
     def refresh(self) -> None:
+        """到期才重算（太阳是慢变量）；未到期直接返回缓存。"""
+        now = time.monotonic()
+        if now - self._last_refresh < _SUN_REFRESH_TTL_S:
+            return
         self._cache = self._compute()
+        self._last_refresh = now
 
 
 def _cfg_shadow_alpha(cfg: dict, default: float) -> float:
