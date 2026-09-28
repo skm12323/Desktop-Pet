@@ -709,22 +709,30 @@ class PetApp:
                 or self._chat_emotion_model_path is None):
             return
         worker = self._chat_emotion_worker
-        if worker is not None and worker.isRunning():
-            return
+        if worker is not None:
+            import shiboken6
+            # 陈旧 worker（C++ 已随 finished→deleteLater 删除）会抛
+            # 「Internal C++ object already deleted」，先判有效性
+            if shiboken6.isValid(worker) and worker.isRunning():
+                return  # 已在预热，幂等
+            self._chat_emotion_worker = None  # 陈旧或已结束，清引用后重建
         worker = _ChatEmotionWarmWorker(
             self._chat_emotion_model_path,
             self._chat_emotion_cfg.get("confidence_threshold", .55),
             parent=self.app,
         )
-        worker.ready.connect(self._on_chat_emotion_warmed)
+        # lambda 默认参捕获 worker 判归属，替代 self.sender()（PetApp 非 QObject）
+        worker.ready.connect(
+            lambda engine, w=worker: self._on_chat_emotion_warmed(w, engine)
+        )
         # finished→deleteLater 唯一删除通道（销毁运行中 QThread = 原生崩溃）
         worker.finished.connect(worker.deleteLater)
         self._chat_emotion_worker = worker
         worker.start()
 
-    def _on_chat_emotion_warmed(self, engine) -> None:
+    def _on_chat_emotion_warmed(self, worker, engine) -> None:
         """预热完成，engine 投递回主线程（陈旧 worker 的迟到 ready 不覆盖）。"""
-        if self.sender() is not self._chat_emotion_worker:
+        if worker is not self._chat_emotion_worker:
             return
         self._chat_emotion_engine = engine
         self._chat_emotion_worker = None
@@ -1594,12 +1602,15 @@ class PetApp:
                     pass
         # ①′ 收口情绪预热 worker（防「销毁运行中 QThread」原生崩溃）
         _ew = getattr(self, "_chat_emotion_worker", None)
-        if _ew is not None and _ew.isRunning():
-            try:
-                _ew.quit()
-                _ew.wait(2000)
-            except Exception:
-                pass
+        if _ew is not None:
+            import shiboken6
+            if shiboken6.isValid(_ew) and _ew.isRunning():
+                try:
+                    _ew.quit()
+                    _ew.wait(2000)
+                except Exception:
+                    pass
+            self._chat_emotion_worker = None
         # ② v0.7 释放 EatMouseSession（停 CGEventTap + 回 idle）——v0.2.5 起占位
         # pass，v0.7 实体化。force_spit 幂等，未在吃也安全。
         if getattr(self, "_proactive", None) is not None:
