@@ -317,3 +317,11 @@ v0.11.0测试样例.md
 
 .commandcode
 config.json
+
+# 本地资源监控诊断产物（不推送）——CPU/内存采样 CSV、vmmap 快照、全内存分析脚本
+# 注：历史上已入库的 tools/monitor_pet_run.csv / monitor_pet_soak_30min*.csv
+# 不受本规则影响（已跟踪文件不理会 .gitignore）；如需一并移出版本控制用
+# `git rm --cached`（需另确认，未自动执行）。
+tools/monitor_pet_*.csv
+tools/monitor_pet_*.vmmap.txt
+tools/analyze_fullmem.py
