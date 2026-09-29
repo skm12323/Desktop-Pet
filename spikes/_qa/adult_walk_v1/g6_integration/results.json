@@ -77,32 +77,32 @@
  {
   "name": "seam clip->clip(a=1.00) @1.233s",
   "pass": true,
-  "detail": "diff 0.64/255, centroid 0.05 px, sole 0.0 px"
+  "detail": "diff 0.67/255, centroid 0.05 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=1.00) @1.267s",
   "pass": true,
-  "detail": "diff 0.65/255, centroid 0.05 px, sole 0.0 px"
+  "detail": "diff 0.67/255, centroid 0.05 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=1.00) @1.3s",
   "pass": true,
-  "detail": "diff 0.64/255, centroid 0.05 px, sole 0.0 px"
+  "detail": "diff 0.66/255, centroid 0.04 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=0.83) @1.333s",
   "pass": true,
-  "detail": "diff 1.28/255, centroid 0.04 px, sole 0.0 px"
+  "detail": "diff 1.31/255, centroid 0.04 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=0.50) @1.367s",
   "pass": true,
-  "detail": "diff 1.32/255, centroid 0.04 px, sole 0.0 px"
+  "detail": "diff 1.36/255, centroid 0.04 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=0.17) @1.4s",
   "pass": true,
-  "detail": "diff 1.33/255, centroid 0.04 px, sole 0.0 px"
+  "detail": "diff 1.36/255, centroid 0.04 px, sole 0.0 px"
  },
  {
   "name": "seam clip->side(a=1.00) @1.433s",
@@ -117,32 +117,32 @@
  {
   "name": "seam clip->clip(a=0.17) @8.233s",
   "pass": true,
-  "detail": "diff 1.29/255, centroid 0.04 px, sole 0.1 px"
+  "detail": "diff 1.32/255, centroid 0.04 px, sole 0.1 px"
  },
  {
   "name": "seam clip->clip(a=0.50) @8.267s",
   "pass": true,
-  "detail": "diff 1.29/255, centroid 0.04 px, sole 0.0 px"
+  "detail": "diff 1.32/255, centroid 0.04 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=0.83) @8.3s",
   "pass": true,
-  "detail": "diff 1.33/255, centroid 0.04 px, sole 0.0 px"
+  "detail": "diff 1.36/255, centroid 0.04 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=1.00) @8.333s",
   "pass": true,
-  "detail": "diff 0.63/255, centroid 0.04 px, sole 0.0 px"
+  "detail": "diff 0.65/255, centroid 0.04 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=1.00) @8.367s",
   "pass": true,
-  "detail": "diff 0.67/255, centroid 0.05 px, sole 0.0 px"
+  "detail": "diff 0.69/255, centroid 0.05 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=1.00) @8.4s",
   "pass": true,
-  "detail": "diff 0.67/255, centroid 0.05 px, sole 0.0 px"
+  "detail": "diff 0.70/255, centroid 0.05 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=1.00) @8.433s",

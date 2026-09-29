@@ -1,39 +1,35 @@
 {
   "rest_recovery": {
-    "canvas_mean_255": 0.006381175480782986,
-    "canvas_p99_255": 0.29411759972572327,
-    "disp256_mean_255": 0.0030891140922904015,
-    "disp256_p99_255": 0.03796812891960144,
-    "holes_frac": 0.0,
-    "spill_frac": 0.0,
+    "canvas_mean_255": 0.8674535751342773,
+    "canvas_p99_255": 15.333333015441895,
+    "disp256_mean_255": 0.7924652099609375,
+    "disp256_p99_255": 19.120258331298828,
+    "holes_frac": 0.0004023537695518785,
+    "spill_frac": 0.0009798059388161486,
     "pass": true
   },
   "extreme_poses": {
     "near_leg_fwd": {
-      "new_hole_max_disp_px2": 36.72766108935564,
-      "new_hole_total_disp_px2": 64.68351726593093,
-      "flipped_triangles": {
-        "leg_r": 1
-      },
+      "new_hole_max_disp_px2": 36.65930936276254,
+      "new_hole_total_disp_px2": 76.32609469562121,
+      "flipped_triangles": {},
       "pass": false
     },
     "near_leg_back": {
       "new_hole_max_disp_px2": 14.832324670701315,
-      "new_hole_total_disp_px2": 26.58882164471342,
-      "flipped_triangles": {
-        "leg_l": 1
-      },
+      "new_hole_total_disp_px2": 26.110359558561765,
+      "flipped_triangles": {},
       "pass": false
     },
     "passing": {
-      "new_hole_max_disp_px2": 49.486650053399785,
-      "new_hole_total_disp_px2": 57.64328942684229,
+      "new_hole_max_disp_px2": 3.8732645069419718,
+      "new_hole_total_disp_px2": 8.999644001423993,
       "flipped_triangles": {},
-      "pass": false
+      "pass": true
     }
   },
   "weights": {
-    "row_sum_max_err": 0.00010000000000010001,
+    "row_sum_max_err": 1.000000000139778e-06,
     "shoe_min_foot_w": {
       "leg_r": 1.0,
       "leg_l": 1.0

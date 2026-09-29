@@ -140,7 +140,7 @@ def main() -> None:
                         and all(v is not None and v >= 0.8 for v in wrep["shoe_min_foot_w"].values()))
     metrics["weights"] = wrep
     z = {l["id"]: l["z_order"] for l in json.loads((PKG / "spec.json").read_text(encoding="utf-8"))["layers"]}
-    metrics["z_order"] = {"near_leg_over_far": z["leg_l"] > z["leg_r"], "near_arm_over_far": z["arm_l"] > z["arm_r"]}
+    metrics["z_order"] = {"near_leg_over_far": z["leg_l"] > z["leg_r"], "near_arm_over_far": min(z[k] for k in z if k.startswith("arm_l")) > max(z[k] for k in z if k.startswith("arm_r"))}
     r.close()
 
     (OUT / "metrics.json").write_bytes(json.dumps(metrics, indent=2).encode("utf-8"))

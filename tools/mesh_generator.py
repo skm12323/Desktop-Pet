@@ -26,6 +26,107 @@ def dist_point_to_segment(p: np.ndarray, a: np.ndarray, b: np.ndarray) -> np.nda
     return np.linalg.norm(p - projection, axis=1)
 
 
+def _smooth(t: float) -> float:
+    t = min(1.0, max(0.0, t))
+    return t * t * (3.0 - 2.0 * t)
+
+
+def chain_weights(pts: np.ndarray, bones: list[str], bones_dict: dict, img_size: tuple[int, int],
+                  cfg: dict) -> tuple[list[list[str]], list[list[float]]]:
+    """Rigid-segment weights for a parent->child bone chain (long limbs, tail, hair strands).
+
+    The inverse-distance default spreads a joint's blend over a whole limb segment (measured on the
+    ADULT side rig: 51% of leg vertices had no bone >= 0.9, the knee blend ran ~200 px), so bending
+    turns limbs into rubber hoses. Here each vertex belongs to the bone of its nearest chain segment
+    and only blends with the neighbouring bone inside +-blend_px of the joint, measured across the
+    joint's bisector line. Using the nearest segment (not an infinite cut line alone) keeps curled
+    chains (the tail) from being sliced by a far joint.
+
+    cfg: {"mode": "chain", "blend_px": float | [per joint 1..n-1],
+          "inner": {"<joint bone name>": {"side": +1|-1, "blend_px": wider, "half_width_px": w}}}
+
+    "inner": a hinge (knee, elbow) bends one way only. Its inner (flexion) side creases - the calf
+    back meets the thigh back - and a narrow band folds triangles there (ADULT side leg: the knee
+    pivot sits at the front of the leg so IK keeps a forward knee, the knee back is ~87 px from it,
+    and a 26 px band folds at 25 deg; dual-complex skinning did not help - it is a sweep, not a
+    chord collapse). The inner side gets a wider band, ramped by the vertex's lateral offset from
+    the chain axis (side = sign of cross(bone dir, vertex offset) on the inner side), so the outer
+    contour (kneecap) stays crisp while the crease compresses (170 px: no fold up to 90 deg).
+    """
+    w_img, h_img = img_size
+    n = len(bones)
+    for a, b in zip(bones, bones[1:]):
+        if bones_dict[b].get("parent") != a:
+            raise ValueError(f"chain weights need a parent->child bone list: {bones}")
+    J = np.array([[bones_dict[b]["joint_pos"][0] * w_img, bones_dict[b]["joint_pos"][1] * h_img] for b in bones])
+    d = [(J[k + 1] - J[k]) / max(np.linalg.norm(J[k + 1] - J[k]), 1e-6) for k in range(n - 1)]
+    normals = [None]
+    for k in range(1, n):
+        v = d[k - 1] + d[k] if k <= n - 2 else d[k - 1]
+        normals.append(v / max(np.linalg.norm(v), 1e-6))
+    bp = cfg.get("blend_px", 24.0)
+    blend = [None] + (list(bp) if isinstance(bp, (list, tuple)) else [float(bp)] * (n - 1))
+    inner = cfg.get("inner", {})
+
+    def band(j: int, p: np.ndarray) -> tuple[float, float]:
+        """(parent-side, child-side) blend extents at joint j for vertex p.
+
+        On a hinge's inner side the band widens mostly into the PARENT segment (the crease is taken
+        up by the back of the thigh / front of the upper arm) and only "down_px" into the child: a
+        band reaching down the calf bends the shin (round-2 gate: shin straight within 8 deg),
+        while a child side that stays fully rigid concentrates the sweep and folds earlier.
+        """
+        spec_i = inner.get(bones[j])
+        if not spec_i:
+            return blend[j], blend[j]
+        axis = normals[j]
+        lateral = float(axis[0] * (p - J[j])[1] - axis[1] * (p - J[j])[0]) * spec_i["side"]
+        s = _smooth(lateral / float(spec_i.get("half_width_px", 40.0)))
+        down = float(spec_i.get("down_px", blend[j]))
+        return blend[j] + (float(spec_i["blend_px"]) - blend[j]) * s, blend[j] + (down - blend[j]) * s
+
+    out_b, out_w = [], []
+    for p in pts:
+        k = int(np.argmin([dist_point_to_segment(p[None, :], J[i], J[i + 1])[0] for i in range(n - 1)]))
+        w = {}
+        d_end = float(np.dot(p - J[k + 1], normals[k + 1]))
+        up, down = band(k + 1, p)
+        if d_end > -up:
+            t = _smooth((d_end + up) / (up + down))
+            w = {bones[k]: 1 - t, bones[k + 1]: t}
+        elif k > 0 and float(np.dot(p - J[k], normals[k])) < band(k, p)[1]:
+            up, down = band(k, p)
+            t = _smooth((float(np.dot(p - J[k], normals[k])) + up) / (up + down))
+            w = {bones[k - 1]: 1 - t, bones[k]: t}
+        else:
+            w = {bones[k]: 1.0}
+        w = {b: round(v, 6) for b, v in w.items() if v > 1e-4}
+        s = sum(w.values())
+        out_b.append(list(w))
+        out_w.append([round(v / s, 6) for v in w.values()])
+    return out_b, out_w
+
+
+def skirt_weights(pts: np.ndarray, cfg: dict) -> tuple[list[list[str]], list[list[float]]]:
+    """Skirt: waist band on the skirt root, lower skirt split front/back onto the two hem bones.
+
+    cfg: {"mode": "skirt", "root": bone, "hem_l": bone, "hem_r": bone, "y0": px, "y1": px,
+          "cx": px, "half_w": px}; hem share ramps 0 -> 1 from y0 to y1, the front/back split ramps
+    across cx +- half_w (the inverse-distance default left 76% of skirt vertices blended across all
+    four bones, so a hem swing dragged the waist).
+    """
+    out_b, out_w = [], []
+    for x, y in pts:
+        hem = _smooth((y - cfg["y0"]) / (cfg["y1"] - cfg["y0"]))
+        right = _smooth((x - (cfg["cx"] - cfg["half_w"])) / (2 * cfg["half_w"]))
+        w = {cfg["root"]: 1 - hem, cfg["hem_l"]: hem * (1 - right), cfg["hem_r"]: hem * right}
+        w = {b: v for b, v in w.items() if v > 1e-4}
+        s = sum(w.values())
+        out_b.append(list(w))
+        out_w.append([round(v / s, 6) for v in w.values()])
+    return out_b, out_w
+
+
 def generate_layer_mesh(
     layer_spec: dict,
     skeleton_spec: dict,
@@ -55,6 +156,20 @@ def generate_layer_mesh(
         sizes = np.bincount(labels.ravel())
         sizes[0] = 0
         mask = ndimage.binary_dilation(labels == sizes.argmax(), iterations=2)
+    min_px = layer_spec.get("min_component_px")
+    if min_px:
+        # Stray fragments (mis-assigned specks from the partition) must not get their own mesh
+        # cells: a cell bound to this layer's bones drags the speck along when the limb moves.
+        labels, count = ndimage.label(mask, structure=np.ones((3, 3), bool))
+        sizes = np.bincount(labels.ravel())
+        sizes[0] = 0
+        keep = sizes >= min_px
+        keep[0] = False
+        dropped = int(((~keep[labels]) & mask).sum())
+        mask = keep[labels]
+        if dropped:
+            print(f"  [{layer_id}] dropped {int((sizes[1:] < min_px).sum())} fragments < {min_px} px "
+                  f"({dropped} px) from the mesh support")
     ys, xs = np.where(mask)
     if not len(xs):
         return None
@@ -84,18 +199,31 @@ def generate_layer_mesh(
                 gy.append(ty)
     gy = sorted(set(gy))
     points, lookup, triangles = [], {}, []
-    def vertex(x, y):
-        key = (x, y)
+    # per_component: grid cells shared by two separate pieces (gap < one cell) used to weld them
+    # through common vertices (measured: 92 bridging triangles on the ADULT side rig). Each piece
+    # (mask dilated 2 px, 8-connected) now gets its own vertices; a cell touching two pieces is
+    # emitted once per piece.
+    if layer_spec.get("per_component"):
+        comp_lab, _ = ndimage.label(ndimage.binary_dilation(mask, iterations=2), structure=np.ones((3, 3), bool))
+        comp_lab = np.where(mask, comp_lab, 0)
+    else:
+        comp_lab = None
+
+    def vertex(x, y, c=0):
+        key = (c, x, y)
         if key not in lookup:
             lookup[key] = len(points)
-            points.append(key)
+            points.append((x, y))
         return lookup[key]
     for ya, yb in zip(gy, gy[1:]):
         for xa, xb in zip(gx, gx[1:]):
-            if not mask[int(ya):int(np.ceil(yb)), int(xa):int(np.ceil(xb))].any():
+            cell = (slice(int(ya), int(np.ceil(yb))), slice(int(xa), int(np.ceil(xb))))
+            if not mask[cell].any():
                 continue
-            ids = [vertex(xa, ya), vertex(xb, ya), vertex(xb, yb), vertex(xa, yb)]
-            triangles.extend([ids[0], ids[1], ids[2], ids[0], ids[2], ids[3]])
+            comps = [0] if comp_lab is None else [int(c) for c in np.unique(comp_lab[cell]) if c]
+            for c in comps:
+                ids = [vertex(xa, ya, c), vertex(xb, ya, c), vertex(xb, yb, c), vertex(xa, yb, c)]
+                triangles.extend([ids[0], ids[1], ids[2], ids[0], ids[2], ids[3]])
     vertices = [[round(x * scale_x + off_x, 4), round(y * scale_y + off_y, 4)] for x, y in points]
     uvs = [[x / tw, y / th] for x, y in points]
     pts_arr = np.array(vertices)
@@ -118,10 +246,16 @@ def generate_layer_mesh(
     weight_bones: list[list[str]] = []
     weight_values: list[list[float]] = []
 
+    wmode = (layer_spec.get("weights") or {}).get("mode")
     if len(influence_bones) == 1:
         single_bone = influence_bones[0]
         weight_bones = [[single_bone] for _ in range(len(vertices))]
         weight_values = [[1.0] for _ in range(len(vertices))]
+    elif wmode == "chain":
+        weight_bones, weight_values = chain_weights(pts_arr, influence_bones, bones_dict, (w_img, h_img),
+                                                    layer_spec["weights"])
+    elif wmode == "skirt":
+        weight_bones, weight_values = skirt_weights(pts_arr, layer_spec["weights"])
     else:
         # Multi-bone weighting
         # Collect bone joint positions and segments

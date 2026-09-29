@@ -1,0 +1,25 @@
+{
+ "note": "far arm (arm_r) redrawn whole by gpt-image-2.5 (run by the user, 2026-09-29) because the art hides most of it; white background keyed by border flood fill (near-white connected to the image border), registered to the art by minimising chamfer distance to the arm's TRUE silhouette edges (edges touching background/lower layers, not occlusion edges) + a spill penalty",
+ "source": {
+  "path": "assets/rig_adult_walk_v1/references/gpt_raw/arm_r_gpt_s1.png",
+  "sha256": "423e003dec38ae2b9270f065df3d276bf8653b74972bdf940274f1dd5f6fd8fa"
+ },
+ "matte": {
+  "path": "assets/rig_adult_walk_v1/references/gpt_raw/arm_r_gpt_s1_rgba.png",
+  "sha256": "924994575b5f8f4981fe40574239b1b58bb54ca522487aa72f74ae53edd7a3f2"
+ },
+ "registration": {
+  "scale": 0.4219313225186063,
+  "rot_deg": 0.055590799718171935,
+  "src_centre": [
+   529.8056140350877,
+   852.9024561403509
+  ],
+  "dst_centre": [
+   604.6370509897855,
+   707.4941060150361
+  ]
+ },
+ "output": "assets/rig_adult_walk_v1/prep/peel/arm_r_gpt_s1_canvas.png",
+ "output_sha256": "04f10453078c92af9ae0074e6a02c18db2a534d445402fecb7284f10d022e0e0"
+}

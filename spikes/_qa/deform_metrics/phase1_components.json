@@ -1,0 +1,138 @@
+{
+ "tag": "phase1_components",
+ "layers": {
+  "tail": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "hair_back": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 1
+  },
+  "ear_fin_r": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "arm_r": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 2.904,
+   "sigma_min": 0.692,
+   "welds": 2
+  },
+  "leg_r": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 2.493,
+   "sigma_min": 0.011,
+   "welds": 0
+  },
+  "leg_l": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.762,
+   "sigma_min": 0.025,
+   "welds": 0
+  },
+  "skirt": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.961,
+   "sigma_min": 0.634,
+   "welds": 2
+  },
+  "torso": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 2
+  },
+  "apron": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "hair_side_r": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "arm_l": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.618,
+   "sigma_min": 0.14,
+   "welds": 0
+  },
+  "shoulder_frill_l": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "head_base": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "eyelid_l": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "eyelid_r": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "ear_fin_l": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "ahoge": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "headdress": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  }
+ },
+ "summary": {
+  "folds_gait_frames": 0,
+  "folds_stress": 0,
+  "sigma_max": 2.904,
+  "sigma_min": 0.011,
+  "welds": 7
+ }
+}
