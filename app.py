@@ -90,6 +90,14 @@ _SAVE_DEBOUNCE_MS = 500       # 变更后 500ms 内多次只存一次
 _SAVE_PERIODIC_MS = 30_000    # 定时存档
 _DECAY_INTERVAL_MS = 1000     # 衰减 1s 一次（wall-clock delta）
 
+# GC 治理（长运行进程）：热身 _GC_FREEZE_DELAY_MS 后 collect+freeze 存量
+# + 放宽分配阈值。gen0=10000 是平衡点——每万次分配回收一次，gen0 扫描
+# （~1万个年轻对象，1–3ms）在 33ms 动画拍预算内；再大会出现可感知的
+# 单次停顿。freeze 后 gen2 全量扫描只含热身后新对象（量级骤降），
+# 故 gen1/gen2 倍数不必激进。见 PetApp._freeze_gc。
+_GC_FREEZE_DELAY_MS = 30_000
+_GC_THRESHOLD = (10_000, 50, 50)
+
 # 交互：kind → (数值字段, 气泡文案)
 _INTERACT_FIELD = {
     "pet": "mood",
@@ -407,6 +415,39 @@ class PetApp:
         self._sig_timer.timeout.connect(lambda: None)
         self._sig_timer.start(200)
         signal.signal(signal.SIGINT, lambda *_: self.shutdown())
+
+        # GC 治理：热身 30s（QML 引擎/纹理/部件模型/引擎状态全部建稳）后
+        # 冻结存量对象 + 放宽阈值（见 _freeze_gc）。放末尾：只依赖 app 已建好。
+        QTimer.singleShot(_GC_FREEZE_DELAY_MS, self._freeze_gc)
+
+    def _freeze_gc(self) -> None:
+        """长运行进程 GC 治理（idle 停顿与周期性回收治理）。
+
+        背景：30/66Hz 渲染拍持续产小对象流（dict/dataclass/QVariant 临时），
+        默认 (700,10,10) 阈值下 gen0 频繁回收、累积触发 gen2 全量扫描——
+        既是可感知停顿的候选来源，也与监控里周期性内存波动相关。
+
+        做法（CPython 长运行进程标准配方）：
+        1. ``collect()``：先清掉启动期的循环垃圾，只冻结"确认存活"的存量；
+        2. ``freeze()``：把当前全部被跟踪对象移入永久代——此后任何回收
+           都跳过它们（热身后的常驻结构：解释器/Qt 绑定/资产/引擎状态）；
+        3. ``set_threshold``：放宽 gen0 触发阈值，减少回收频率。
+
+        边界：freeze 后**新分配**（聊天 worker、换挡资产、情绪推理等运行期
+        对象）仍在正常代际，回收语义不变；freeze 只豁免"冻结时刻存活"的
+        对象——因此必须排在启动结构稳定之后（过早冻结会把启动临时物
+        变成永不回收的驻留）。"""
+        try:
+            import gc
+            gc.collect()
+            freeze = getattr(gc, "freeze", None)
+            if callable(freeze):            # PyPy/极简构建无 freeze，跳过不误伤
+                freeze()
+            gc.set_threshold(*_GC_THRESHOLD)
+            self.logger.info(
+                "GC 治理完成：存量冻结 + 阈值 (700,10,10)→%s", _GC_THRESHOLD)
+        except Exception:
+            self.logger.warning("GC 治理失败（忽略，不影响运行）", exc_info=True)
 
     def _build_engine_bridge(self) -> EngineBridge:
         """装配中间层（原有引擎 frames ← EngineBridge ← 新引擎有效部分）。
