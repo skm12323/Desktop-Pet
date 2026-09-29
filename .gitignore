@@ -333,3 +333,6 @@ assets/rig_adult_walk_v1/**/*.mp4
 
 # 本地诊断/重放临时目录
 .scratch/
+
+# 生成候选（未签字产物，搁置分支 exp/pipeline-v2 的 VACE 候选等）
+assets/*/candidates/
