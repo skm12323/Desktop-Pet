@@ -47,6 +47,19 @@ log = logging.getLogger("pet")
 
 _STAGE_KEYS = ("young", "adult", "final")
 
+# ---- 自适应逻辑拍（idle CPU 优化：静止期渲染频率减半）----
+# 三档：16ms = side 编排活跃（对齐旧 _apply_loco 的 60Hz clip 播放）；
+# 33ms = 活跃期（行走/空中/squash/眨眼/注视/步态窗口位移，与旧固定拍
+# 一致）；66ms = 静止期（只剩呼吸 3.2s / 漂移 15.5s / 尾巴头发慢摆
+# 1.8–2.9s 周期正弦——15Hz 采样每周期仍有 27+ 帧，视觉无差）。
+# 省的是「渲染侧」：QML 属性写 / setBonePose 桥调用 / QSG update()
+# （一帧重绘 + RHI 提交 + WindowServer 合成）随慢拍减半。引擎数学不
+# 受降频影响：spring_step 内部 16.6ms 子步 + 隐式阻尼（任意 dt 绝对
+# 稳定），相位量为线性累加。档位裁决统一收口 _adapt_tick。
+_TICK_LOCO_MS = 16
+_TICK_FAST_MS = 33
+_TICK_SLOW_MS = 66
+
 
 def figure_key_from_path(path: str) -> str | None:
     """静态立绘文件名反推 figure 名：``{stage}_{branch}_{mood}.png`` →
@@ -223,7 +236,7 @@ class RigWindow(WindowBase):
             self._quick_ok = True
             self._rig_pending = False
             self._motion_timer = QTimer(self)
-            self._motion_timer.setInterval(33)
+            self._motion_timer.setInterval(_TICK_FAST_MS)
             self._motion_timer.timeout.connect(self._motion_tick)
             self._motion_timer.start()
             self._mix_anim = QPropertyAnimation(self._root, b"mix", self)
@@ -344,8 +357,7 @@ class RigWindow(WindowBase):
         self._loco = None
         self._side_item = None
         self._loco_vx = 0.0
-        if self._motion_timer is not None:
-            self._motion_timer.setInterval(33)
+        # interval 回落交 _adapt_tick 下一拍裁决（33/66ms）
 
     def locomotion_available(self) -> bool:
         return self._loco is not None and self.rig_active
@@ -373,8 +385,11 @@ class RigWindow(WindowBase):
                 if self._motion_inputs is not None:
                     self._motion_inputs.facing = int(lf.facing)
             self._set_prop("facing", int(lf.facing))
-        if self._motion_timer is not None and self._loco is not None:
-            self._motion_timer.setInterval(16 if self._loco.active else 33)
+        if (self._motion_timer is not None and self._loco is not None
+                and self._loco.active):
+            # 升频沿即时设（interrupt/侧身启动不等下一拍）；降频统一由
+            # _adapt_tick 裁决（active=False 时下一拍回落 33/66ms）
+            self._motion_timer.setInterval(_TICK_LOCO_MS)
         if mode == 1 and lf.clip is not None:
             fr = lf.clip.frames[lf.clip_index]
             x, y, w, h = fr.canvas_rect
@@ -491,6 +506,8 @@ class RigWindow(WindowBase):
         grounded = bool(self._motion_inputs.grounded) if self._motion_inputs else True
         out = solver.update(dt, self._gait_desired_vx, (self.x(), self.y()),
                             is_grounded=grounded, is_dragged=dragged)
+        # 窗口位移残差供 _adapt_tick 判档（停步残余收敛期不可降慢拍）
+        self._gait_last_dx = out.delta_window_x
         if abs(out.delta_window_x) > 1e-9 and not dragged:
             # 与姿态同帧提交窗口位移（严禁跨帧延迟）
             self.move(int(round(solver.window_x_float)), self.y())
@@ -767,9 +784,13 @@ class RigWindow(WindowBase):
         """运动逻辑拍：单调时钟实测 dt（§5.1，摒弃固定 33ms）。
 
         掉帧/卡顿恢复的巨帧被钳到 0.25s（后台暂停回来不瞬移）；dt 交给
-        MotionEngine（弹簧/相位内部自适应子步）与步态求解器（≤5ms 相位
-        子步），30/60Hz 与不均匀 dt 的轨迹一致（§7 时间一致性）。
-        """
+        MotionEngine（弹簧 16.6ms 内部子步 + 隐式阻尼，任意 dt 绝对稳定）
+        与步态求解器（≤5ms 相位子步），30/60Hz 与不均匀 dt 的轨迹一致
+        （§7 时间一致性）。
+
+        拍间自适应（idle CPU 优化）：interval 由 _adapt_tick 按活跃度
+        三档切换（16/33/66ms）——静止期渲染侧（QML 属性写 / setBonePose
+        桥调用 / QSG update）随慢拍减半。"""
         if not self.rig_active or self._engine is None:
             return
         now = time.perf_counter()
@@ -795,9 +816,61 @@ class RigWindow(WindowBase):
             if lf.mode == "front":
                 self._push_frame(self._settle_frame(frame, lf.settle))
             self._apply_loco(lf, frame)
+            self._adapt_tick(frame, lf)
             return
         self._push_frame(frame)
         self._gait_tick(dt)
+        self._adapt_tick(frame)
+
+    def _adapt_tick(self, frame, lf=None) -> None:
+        """按活跃度三档切换 motion timer：16 / 33 / 66ms。
+
+        - 16ms：side 编排活跃（loco.active，转身 clip 60Hz 播放 + 侧身
+          步态）。升频沿由 _apply_loco 即时设置（interrupt 等边沿不等
+          下一拍），这里兜底一致；
+        - 33ms（快拍，任一命中）：
+          · walking / airborne：步态 bob·rot·四肢与空中物理；
+          · gait_k > 0.01：停步后步态包络仍在衰减（τ=150ms，~750ms）；
+          · squash 弹簧未收敛：压缩→过冲→回弹是全动画最快瞬态，
+            慢拍会把回弹曲线采成折线（见 squash_settled）；
+          · blink 脉冲内：130ms 脉冲在慢拍下只剩 2 帧（进入沿最多迟
+            66ms——3–6s 一次的眨眼无感）；
+          · look_at_busy：注视仍在收敛（动眼期）；
+          · loco 非 front（clip/side）或 front 回正过渡（settle<1）；
+          · 正面步态求解器仍在驱动窗口位移（desired_vx≠0 或上拍
+            delta_window_x≠0——停步残余收敛期窗口移动不能降频）。
+        - 66ms（慢拍）：只剩呼吸（3.2s）/漂移（15.5s）/尾巴头发慢摆
+          （1.8–2.9s 周期正弦）——15Hz 采样视觉平滑，安全降频。"""
+        loco = self._loco
+        if loco is not None and loco.active:
+            want = _TICK_LOCO_MS
+        else:
+            eng = self._engine
+            inp = self._motion_inputs
+            fast = (
+                bool(inp is not None and inp.walking)
+                or self._air_prev                   # set_motion_params 存的当前拍空中态
+                or (eng is not None and eng.gait_k > 0.01)
+                or (eng is not None and not eng.squash_settled)
+                or bool(frame is not None and frame.blink_on)
+                or (eng is not None and eng.look_at_busy)
+                or bool(lf is not None
+                        and (lf.mode != "front" or lf.settle < 0.999))
+                or self._gait_moving()
+            )
+            want = _TICK_FAST_MS if fast else _TICK_SLOW_MS
+        timer = self._motion_timer
+        # 不查 isActive：QA 工艺是停表手动步进 _motion_tick（qa_skinned_visual
+        # 等皆 stop() 接管），守卫会让手动步进下切换永不发生；真实运行中本
+        # 方法只经活跃 timer 的 timeout 进入，无停表路径。
+        if timer is not None and timer.interval() != want:
+            timer.setInterval(want)
+
+    def _gait_moving(self) -> bool:
+        """正面步态求解器是否仍在驱动窗口/姿态（降频会掉位移平滑度）。"""
+        if getattr(self, "_gait_desired_vx", 0.0):
+            return True
+        return abs(getattr(self, "_gait_last_dx", 0.0)) > 1e-9
 
     def pause_render(self) -> None:
         """暂停常驻运动+渲染循环（全屏/不可见时由 app 调用）。

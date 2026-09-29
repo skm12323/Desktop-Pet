@@ -157,6 +157,7 @@ class MotionEngine:
         self._bone_vels: dict[str, float] = {}
         self._look_x: float = 0.0
         self._look_y: float = 0.0
+        self._look_busy: bool = False   # 注视目标是否仍在收敛（降频判据）
         self._look_smoothing_ms = float(
             (self._face_mechanics.get("look_at") or {}).get("smoothing_time_ms", 75.0))
         self._eye_center = (0.46, 0.45)
@@ -195,6 +196,7 @@ class MotionEngine:
         self._bone_vels.clear()
         self._look_x = 0.0
         self._look_y = 0.0
+        self._look_busy = False
 
     def _reset_blink(self) -> None:
         """眨眼调度器复位：首拍即闭眼（对齐旧行为），随后随机间隔 3–6s。
@@ -237,6 +239,23 @@ class MotionEngine:
     @property
     def squash_at(self) -> float:
         return self._squash_at
+
+    # ---- 降频判据（presenter 自适应 16/33/66ms 拍用，只读快照区补充）----
+
+    @property
+    def squash_settled(self) -> bool:
+        """落地 squash 弹簧是否已收敛（位移/速度均入静差带）。
+
+        **活跃期保持快拍**的理由：弹簧数值稳定性已由 spring_step 内部
+        16.6ms 子步 + 隐式阻尼保证（任意 dt 不发散），但压缩→过冲→
+        回弹是全动画最快的瞬态——慢拍（66ms）会把回弹曲线采成折线。
+        presenter 据本判据在未收敛时钉住 33ms 快拍。"""
+        return (abs(self._squash_s) < 0.005 and abs(self._squash_v) < 0.005)
+
+    @property
+    def look_at_busy(self) -> bool:
+        """注视是否仍在向目标收敛（True=降慢拍会掉动眼平滑度）。"""
+        return self._look_busy
 
     def step(self, inputs: MotionInputs, dt_ms: float) -> MotionFrame:
         """推进一帧，返回 MotionFrame。顺序刻意对齐 QML onTriggered 后的
@@ -285,6 +304,11 @@ class MotionEngine:
         k_look = 1.0 - math.exp(-dt / max(1.0, self._look_smoothing_ms))
         self._look_x += (target_lx - self._look_x) * k_look
         self._look_y += (target_ly - self._look_y) * k_look
+        # 降频判据：注视仍在向目标收敛（残余差 > 0.02，归一化 [-1,1] 尺度）
+        # —— 收敛后瞳位视觉静止，可安全降到慢拍；光标一动 target 变、
+        # 残余差反弹回快拍（慢拍下检测延迟 ≤66ms，动眼无感）。
+        self._look_busy = (abs(target_lx - self._look_x) > 0.02
+                           or abs(target_ly - self._look_y) > 0.02)
 
         # L2 步态：相位累加器（hz 变化只改斜率，不瞬移——v14 rM1 修）+ gaitK 包络
         gait_hz = inputs.walk_hz if inputs.walk_hz > 0 else self._GAIT_DEFAULT_HZ

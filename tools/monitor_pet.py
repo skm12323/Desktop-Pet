@@ -48,6 +48,50 @@ IDLE_CPU_PCT = 1.0
 
 
 # --------------------------------------------------------------------------- #
+# macOS 内存细项
+# --------------------------------------------------------------------------- #
+# psutil 的 memory_full_info 在 macOS 只给 rss/uss，拿不到 Activity Monitor 口径
+# 的「物理足迹 phys_footprint」（= resident + compressed − purgeable）。这里用
+# libproc proc_pid_rusage(RUSAGE_INFO_V2) 读 ri_phys_footprint（struct rusage_info_v2
+# 偏移 72）。rss 与 phys_footprint 的差值可判定某次 RSS 突降是「真释放」还是
+# 「被 macOS 压缩」，是定位 ~13min 周期性释放事件的关键。
+try:
+    import ctypes
+    import ctypes.util as _ctu
+
+    _libproc = ctypes.CDLL(_ctu.find_library("proc"))
+    _libproc.proc_pid_rusage.restype = ctypes.c_int
+    _libproc.proc_pid_rusage.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_void_p]
+
+    def _phys_footprint_bytes(pid: int) -> int | None:
+        buf = (ctypes.c_uint8 * 256)()
+        rc = _libproc.proc_pid_rusage(pid, 2, ctypes.cast(buf, ctypes.c_void_p))
+        if rc != 0:
+            return None
+        return ctypes.c_uint64.from_buffer(buf, 72).value
+
+    def _is_macos() -> bool:
+        return sys.platform == "darwin"
+
+    def _vmmap_summary(pid: int) -> str:
+        try:
+            return subprocess.run(
+                ["vmmap", "-summary", str(pid)],
+                capture_output=True, text=True, timeout=30,
+            ).stdout
+        except Exception:
+            return ""
+except Exception:  # pragma: no cover —— 非 macOS / 无 libproc 时优雅降级
+    _phys_footprint_bytes = None
+
+    def _is_macos() -> bool:
+        return False
+
+    def _vmmap_summary(pid: int) -> str:
+        return ""
+
+
+# --------------------------------------------------------------------------- #
 # 进程发现
 # --------------------------------------------------------------------------- #
 def find_pet_process() -> psutil.Process:
@@ -83,9 +127,10 @@ def find_pet_process() -> psutil.Process:
 # 采样器
 # --------------------------------------------------------------------------- #
 class Sampler:
-    def __init__(self, pid: int, include_tree: bool) -> None:
+    def __init__(self, pid: int, include_tree: bool, full_mem: bool = False) -> None:
         self.pid = pid
         self.include_tree = include_tree
+        self.full_mem = full_mem
         # pid -> Process。psutil 的 cpu_percent 基线缓存在 Process 实例上，
         # 因此必须跨采样复用同一实例，否则每次都返回 0.0。
         self._cache: dict[int, psutil.Process] = {}
@@ -123,6 +168,7 @@ class Sampler:
     def sample(self) -> dict | None:
         total_cpu = 0.0
         total_rss = 0.0
+        total_pf = 0.0
         total_threads = 0
         seen = 0
         for pid in self._pids():
@@ -136,16 +182,19 @@ class Sampler:
             total_cpu += data["cpu_pct"]
             total_rss += data["rss_mb"]
             total_threads += data["threads"]
+            total_pf += data.get("phys_footprint_mb", 0.0)
         if seen == 0:
             return None
-        return {
+        result = {
             "cpu_pct": total_cpu,
             "rss_mb": total_rss,
             "threads": total_threads,
         }
+        if self.full_mem:
+            result["phys_footprint_mb"] = total_pf
+        return result
 
-    @staticmethod
-    def _read(proc: psutil.Process) -> dict | None:
+    def _read(self, proc: psutil.Process) -> dict | None:
         try:
             with proc.oneshot():
                 cpu = proc.cpu_percent(interval=None)
@@ -153,11 +202,20 @@ class Sampler:
                 threads = proc.num_threads()
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             return None
-        return {
+        data = {
             "cpu_pct": cpu,
             "rss_mb": mem.rss / (1024 * 1024),
             "threads": threads,
         }
+        # phys_footprint 走 libproc proc_pid_rusage（对他人进程可用）；USS 走
+        # psutil memory_full_info 在 macOS 对他人进程会 AccessDenied（SIP 限
+        # PROC_PIDREGIONINFO），故不采 USS。rss vs phys_footprint 已够判定
+        # 某次 RSS 突降是「真释放」还是「被 macOS 压缩」。
+        if self.full_mem and _phys_footprint_bytes is not None:
+            pf = _phys_footprint_bytes(proc.pid)
+            if pf is not None:
+                data["phys_footprint_mb"] = pf / (1024 * 1024)
+        return data
 
 
 # --------------------------------------------------------------------------- #
@@ -178,6 +236,9 @@ def fmt_summary(samples: list[dict], pid: int, tree: bool) -> str:
 
     duration = samples[-1]["elapsed_s"] - samples[0]["elapsed_s"]
     rss_growth = samples[-1]["rss_mb"] - samples[0]["rss_mb"]
+    has_pf = "phys_footprint_mb" in samples[0]
+    if has_pf:
+        pf_avg, pf_min, pf_max, pf_p95 = stats("phys_footprint_mb")
 
     lines = [
         "",
@@ -196,6 +257,15 @@ def fmt_summary(samples: list[dict], pid: int, tree: bool) -> str:
         "  常驻内存 RSS:",
         f"    平均 {rss_avg:7.1f}MB  最小 {rss_min:7.1f}MB  峰值 {rss_max:7.1f}MB  P95 {rss_p95:7.1f}MB",
         f"    首末变化 {rss_growth:+7.1f}MB",
+        *(
+            [
+                "",
+                "  物理足迹 phys_footprint（含压缩，Activity Monitor 口径）:",
+                f"    平均 {pf_avg:7.1f}MB  最小 {pf_min:7.1f}MB  峰值 {pf_max:7.1f}MB  P95 {pf_p95:7.1f}MB",
+            ]
+            if has_pf
+            else []
+        ),
         "",
         f"  线程数：平均 {thr_avg:.1f}  最大 {thr_max}",
         "",
@@ -232,6 +302,11 @@ def main() -> int:
                     help="CSV 输出路径；默认 tools/monitor_pet_<时间戳>.csv")
     ap.add_argument("--tree", action="store_true",
                     help="汇总主进程及其子进程的 CPU / 内存")
+    ap.add_argument("--full-mem", action="store_true",
+                    help="追加 phys_footprint 采样，并周期性抓 vmmap -summary"
+                         "（macOS，定位周期性内存释放事件）")
+    ap.add_argument("--vmmap-every", type=float, default=60.0,
+                    help="--full-mem 时每隔 N 秒抓一次 vmmap -summary（默认 60）")
     ap.add_argument("--quiet", action="store_true",
                     help="不逐行打印，仅在结束输出摘要")
     ap.add_argument("--print-every", type=int, default=1,
@@ -256,7 +331,7 @@ def main() -> int:
         pid = proc.pid
         print(f"[monitor] 附加到桌宠进程 PID={pid}")
 
-    sampler = Sampler(pid, include_tree=args.tree)
+    sampler = Sampler(pid, include_tree=args.tree, full_mem=args.full_mem)
 
     out_path = args.out or str(
         REPO_ROOT / "tools" / f"monitor_pet_{datetime.now():%Y%m%d_%H%M%S}.csv"
@@ -277,7 +352,15 @@ def main() -> int:
     signal.signal(signal.SIGTERM, stop_handler)
 
     header = ["ts", "elapsed_s", "cpu_pct", "cpu_norm_pct", "rss_mb", "threads"]
+    if args.full_mem:
+        header[5:5] = ["phys_footprint_mb"]
     cpu_cores = psutil.cpu_count() or 1
+    vmmap_path = None
+    last_vmmap_at = 0.0
+    recent_rss: list[float] = []
+    drop_detected = False
+    if args.full_mem and _is_macos():
+        vmmap_path = str(Path(out_path).with_suffix(".vmmap.txt"))
     print(f"[monitor] 采样间隔 {args.interval}s，结果写入 {out_path}")
     if not args.quiet:
         print("  " + "  ".join(header))
@@ -302,8 +385,10 @@ def main() -> int:
                     f"{data['cpu_pct']:.2f}",
                     f"{data['cpu_pct'] / cpu_cores:.2f}",
                     f"{data['rss_mb']:.2f}",
-                    data["threads"],
                 ]
+                if args.full_mem:
+                    row += [f"{data.get('phys_footprint_mb', 0.0):.2f}"]
+                row.append(data["threads"])
                 writer.writerow(row)
                 fh.flush()
 
@@ -313,7 +398,38 @@ def main() -> int:
                     "rss_mb": data["rss_mb"],
                     "threads": data["threads"],
                 }
+                if args.full_mem:
+                    record["phys_footprint_mb"] = data.get("phys_footprint_mb", 0.0)
                 samples.append(record)
+
+                # --full-mem（macOS）：周期性 vmmap -summary + RSS 突降触发快照，
+                # 用于定位周期性内存释放事件（wiki 内存优化页待测项）
+                if vmmap_path is not None:
+                    recent_rss.append(data["rss_mb"])
+                    if len(recent_rss) > 30:
+                        recent_rss.pop(0)
+                    snapshot_reason = None
+                    if (not drop_detected and len(recent_rss) >= 10
+                            and max(recent_rss[:-1]) - data["rss_mb"] >= 25.0):
+                        snapshot_reason = "DROP"
+                        drop_detected = True
+                    elif elapsed - last_vmmap_at >= args.vmmap_every:
+                        snapshot_reason = "periodic"
+                    if snapshot_reason is not None:
+                        with open(vmmap_path, "a") as vf:
+                            vf.write(
+                                f"\n===== {snapshot_reason} t={elapsed:.1f}s "
+                                f"rss={data['rss_mb']:.1f}MB "
+                                f"pf={data.get('phys_footprint_mb', 0.0):.1f}MB =====\n"
+                            )
+                            vf.write(_vmmap_summary(pid))
+                        last_vmmap_at = elapsed
+                        if snapshot_reason == "DROP":
+                            print(
+                                f"\n[monitor] ⚠ RSS 突降 "
+                                f"{max(recent_rss[:-1]):.1f}→{data['rss_mb']:.1f}MB，"
+                                f"已抓 vmmap 快照"
+                            )
 
                 if not args.quiet and idx % args.print_every == 0:
                     print(
