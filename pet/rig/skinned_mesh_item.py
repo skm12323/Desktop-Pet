@@ -1571,11 +1571,10 @@ class SkinnedMeshItem(QQuickItem):
         补片缓存（_patch_tex_cache，视角关键形态 16 级量化纹理）同为自建
         QSGTexture，随主缓存一并显式释放；_patch_step 随之归零。
         """
-        import shiboken6
         for cache in (self._tex_cache, self._patch_tex_cache):
             for texture in cache.values():
                 try:
-                    shiboken6.delete(texture)
+                    texture.deleteLater()   # 渲染线程安全延迟删除（Qt 惯例）
                 except Exception:  # noqa: BLE001 —— 释放失败不阻断重建
                     log.warning("QSGTexture 释放失败（忽略）", exc_info=True)
             cache.clear()
