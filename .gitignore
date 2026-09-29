@@ -325,3 +325,8 @@ config.json
 tools/monitor_pet_*.csv
 tools/monitor_pet_*.vmmap.txt
 tools/analyze_fullmem.py
+
+# ADULT 侧身行走（docs/ADULT转身视频过渡与侧身骨骼行走方案-2026-09-27.md）：
+# 原始视频与生成候选体积大，不入库；只入库定稿帧、生成记录与门禁证据
+assets/rig_adult_walk_v1/**/raw/
+assets/rig_adult_walk_v1/**/*.mp4

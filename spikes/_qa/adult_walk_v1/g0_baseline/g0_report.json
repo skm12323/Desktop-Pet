@@ -1,0 +1,465 @@
+{
+  "gate": "G0",
+  "checks": {
+    "rest_render_reproducible": {
+      "max_abs_diff_255": 0,
+      "threshold": 1,
+      "pass": true
+    },
+    "canvas_to_256_mapping_geometry": {
+      "centroid_dx": -0.011,
+      "centroid_dy": -0.026,
+      "sole_dy": -0.021,
+      "threshold_px": 0.25,
+      "pass": true
+    },
+    "canvas_to_256_mapping_photometric": {
+      "mean_abs_diff_255": 3.726,
+      "p99_abs_diff_255": 24.303,
+      "threshold_mean": 2.0,
+      "pass": false
+    }
+  },
+  "info_not_gated": {
+    "live_idle_t0_vs_rest_256": {
+      "mean_abs_diff_255": 3.542,
+      "p99_abs_diff_255": 62.725,
+      "meaning": "idle never passes through rest; runtime must settle springs/breath/gaze before a turn clip"
+    },
+    "mapping": {
+      "fit": 0.1509433962264151,
+      "offset_x": 55.54716981132076,
+      "offset_y": 0.0,
+      "ground_shift": 13.28301886792454
+    }
+  },
+  "rest_pose_angles": {
+    "upper_arm_l": 4.0,
+    "forearm_l": -12.0,
+    "upper_arm_r": -4.0,
+    "forearm_r": 12.0
+  },
+  "ground_anchor_y_px": 1608.0,
+  "canvas": [
+    960,
+    1696
+  ],
+  "env": {
+    "git_head": "83918e6be28924e24b3a26b4e263acc12d48a323",
+    "python": "3.13.9",
+    "pyside6": "6.9.2",
+    "platform": "Windows-11-10.0.26200-SP0"
+  },
+  "production_assets": [
+    {
+      "path": "assets/rig/adult/figs/healthy_neutral.png",
+      "sha256": "56850e18b35ad297503c50531e71dd15c506c9257839d2eee496b01ad21cd612",
+      "bytes": 1087800
+    },
+    {
+      "path": "assets/rig/adult/figs/neglected_neutral.png",
+      "sha256": "fcb106982ab3bc054714651e795e4d023d5f9dd98c8bd5da002058165eaff5b5",
+      "bytes": 1195922
+    },
+    {
+      "path": "assets/rig/adult/manifest.json",
+      "sha256": "0c15424aaca938819a8db67413557828998b15bfcc12c2472ca7ddf6daf8831d",
+      "bytes": 1879
+    },
+    {
+      "path": "assets/rig/adult/parts/leg_l_healthy_neutral.png",
+      "sha256": "43bd37a84120de6cc66e37214158b51c22a85c57c80dd8c76d2197f3f08171d2",
+      "bytes": 47261
+    },
+    {
+      "path": "assets/rig/adult/parts/leg_l_neglected_neutral.png",
+      "sha256": "8d55dd583e4c9eb5748e4b0042f7b7133d1b3756172765d3d6ab4f6d0a7115de",
+      "bytes": 48514
+    },
+    {
+      "path": "assets/rig/adult/parts/leg_r_healthy_neutral.png",
+      "sha256": "4188e8d33dc0eab0ed06b5635830d09735f9551ab35a3c6cbca3d35b6044a9e9",
+      "bytes": 47227
+    },
+    {
+      "path": "assets/rig/adult/parts/leg_r_neglected_neutral.png",
+      "sha256": "bdd9c4927e74e3c7063a3fb1b813d57589f5b631ee7e329c79b33610aaa2419f",
+      "bytes": 48286
+    },
+    {
+      "path": "assets/rig_adult/backup_hair/hair_back_l.png",
+      "sha256": "a413fbcb5a4559922efa8893a718025a359840dc629b1603a32be58bbbb000df",
+      "bytes": 264349
+    },
+    {
+      "path": "assets/rig_adult/backup_hair/hair_back_r.png",
+      "sha256": "6dfc3c02dc11c22ca2be3a710e082b769337cc1a46c948749bb2a947b7060412",
+      "bytes": 277748
+    },
+    {
+      "path": "assets/rig_adult/backup_tail/tail_tip_orig.png",
+      "sha256": "bd64c77ac7110016ae5e6095429d71166f8fb2f0ba24b988c3b42e93de817cfb",
+      "bytes": 78082
+    },
+    {
+      "path": "assets/rig_adult/comp_shoulders_crop.png",
+      "sha256": "7f6717fa18f2de2a5c6b07a27ecfd8bd9933e6d0477db9945bb0f48fb2d93ddd",
+      "bytes": 284572
+    },
+    {
+      "path": "assets/rig_adult/composite_preview.png",
+      "sha256": "e44daf90d3ce738b53924689273c71e13fdda3f83f9b53abc03b48e09294c883",
+      "bytes": 1089154
+    },
+    {
+      "path": "assets/rig_adult/full_head_composite.png",
+      "sha256": "3f9cc32f40621cc43cbd164fedfaa0aad02dce6b0eb085a185ba93e1146b6d7c",
+      "bytes": 164935
+    },
+    {
+      "path": "assets/rig_adult/layers/ahoge_headdress.png",
+      "sha256": "1d5a66d79303074b4798e9cc98e83571cf3d9a0eb295c5386d2f791883ab30a2",
+      "bytes": 108273
+    },
+    {
+      "path": "assets/rig_adult/layers/ahoge_headdress_crop.png",
+      "sha256": "43128539824e5d248671662a644187aed9114e0c28106d159832e7dfb65bb813",
+      "bytes": 149441
+    },
+    {
+      "path": "assets/rig_adult/layers/apron.png",
+      "sha256": "cfd7700937be1320428e387f7d0b559d12e9cf06a01ac507eedf2cada726b156",
+      "bytes": 228201
+    },
+    {
+      "path": "assets/rig_adult/layers/apron_crop.png",
+      "sha256": "4f19399c4ee05dd96e2465248ff59e7986b22f3154af0eed1cb82d3c575044ae",
+      "bytes": 262719
+    },
+    {
+      "path": "assets/rig_adult/layers/arm_l.png",
+      "sha256": "04f97d0638490d9c253a2e6548e38ca7115ed20b52fb98a3e511c694fde8c658",
+      "bytes": 144207
+    },
+    {
+      "path": "assets/rig_adult/layers/arm_l_crop.png",
+      "sha256": "603b5c544e846182daa8176a1c377885e69d04ee612146c7007928f1c56aecac",
+      "bytes": 174412
+    },
+    {
+      "path": "assets/rig_adult/layers/arm_r.png",
+      "sha256": "046ac4ebfaf18eaa326e1b91bda21114680029f9e03742660cb306c9496ca9c7",
+      "bytes": 136975
+    },
+    {
+      "path": "assets/rig_adult/layers/arm_r_crop.png",
+      "sha256": "c299662d168cd5092da6ce946033ebd79ad4daf8968335835a9382fd9efff38f",
+      "bytes": 174219
+    },
+    {
+      "path": "assets/rig_adult/layers/bangs.png",
+      "sha256": "27b1658d07b42bfc860321b16e6c96ca0c705e7aa9f448c641a907d00c874a16",
+      "bytes": 214407
+    },
+    {
+      "path": "assets/rig_adult/layers/bangs_crop.png",
+      "sha256": "82c841e4b9e7f7001e573aafa7760d67e0cae290afbd6e332b6d92b557309412",
+      "bytes": 266517
+    },
+    {
+      "path": "assets/rig_adult/layers/ear_fin_l.png",
+      "sha256": "fb565e7ef6ede0eb6e0707f9b09a66f1b46e2cb2c377c9a722899cc57d5b4e43",
+      "bytes": 37451
+    },
+    {
+      "path": "assets/rig_adult/layers/ear_fin_l_crop.png",
+      "sha256": "4e4d9fb8ad2bf18823abb062b591771543a6113ea1130d2241739ff882af0a35",
+      "bytes": 40881
+    },
+    {
+      "path": "assets/rig_adult/layers/ear_fin_r.png",
+      "sha256": "2eec86c8b4f72018a5090906918457a31742fa7228607cb4dbfdb49a9ec7c9a5",
+      "bytes": 45595
+    },
+    {
+      "path": "assets/rig_adult/layers/ear_fin_r_crop.png",
+      "sha256": "6ac2772b6cfc3acadcbce4875479c26f8e427a2a6b835137cb6e1a262845ed66",
+      "bytes": 51949
+    },
+    {
+      "path": "assets/rig_adult/layers/eyelid_l.png",
+      "sha256": "ee46ce8e311fdb7bde0880791caab525b5b54687ec5768696b9fe5cb26924cc3",
+      "bytes": 17997
+    },
+    {
+      "path": "assets/rig_adult/layers/eyelid_l_crop.png",
+      "sha256": "dbf65bccd567a37358e084f735afc10b7d457275e49458a3f1f887e2785fc3b9",
+      "bytes": 38065
+    },
+    {
+      "path": "assets/rig_adult/layers/eyelid_r.png",
+      "sha256": "2c133397ae6ae2a8849a79a71e96e66da947097aab1b5653b48525ef7bd9575e",
+      "bytes": 19412
+    },
+    {
+      "path": "assets/rig_adult/layers/eyelid_r_crop.png",
+      "sha256": "b05d403ed7da9e671f3e4b2c0eab9e5dda1e3cf5a63977e222f66776491dbccb",
+      "bytes": 40715
+    },
+    {
+      "path": "assets/rig_adult/layers/hair_back_l.png",
+      "sha256": "d4c62a37a5eeb95b646eb7cc7ead9028519cdebcaef775c9be8aba8214462232",
+      "bytes": 276107
+    },
+    {
+      "path": "assets/rig_adult/layers/hair_back_l_crop.png",
+      "sha256": "55ff041ee499d096e9078a0ebb9b82edd3b3adf8e5604f5cc913deea6cc87e6b",
+      "bytes": 359511
+    },
+    {
+      "path": "assets/rig_adult/layers/hair_back_r.png",
+      "sha256": "63808e0d3bb15ef25c9fa783d9d4064690b885815bf0283cf3c9c5f544d18d06",
+      "bytes": 300081
+    },
+    {
+      "path": "assets/rig_adult/layers/hair_back_r_crop.png",
+      "sha256": "7a5f58560f06d8d0903d452a854526770fb544d89804ad9664d74d2eb337c76a",
+      "bytes": 379736
+    },
+    {
+      "path": "assets/rig_adult/layers/head_base.png",
+      "sha256": "5447890241287ef1bfd66af4a8ad1c26cf61ecd8fb90565006f185dadaf42c6c",
+      "bytes": 73264
+    },
+    {
+      "path": "assets/rig_adult/layers/head_base_crop.png",
+      "sha256": "cdc25e44e1e42f629c7567bd5c53ed431aa521f598c056179e2614783a726828",
+      "bytes": 88690
+    },
+    {
+      "path": "assets/rig_adult/layers/leg_l.png",
+      "sha256": "e2ceb8cd4cb2c6e7576189600900c44fa9026480de12dbf06e70b688836d9615",
+      "bytes": 97900
+    },
+    {
+      "path": "assets/rig_adult/layers/leg_l_crop.png",
+      "sha256": "5d0f9de8dcce2f4f92c3d75105a82840fe1692622ed66951ed4c06eaa5bb326d",
+      "bytes": 113121
+    },
+    {
+      "path": "assets/rig_adult/layers/leg_r.png",
+      "sha256": "34ec5b877e41c3e648f98f77db13f63d1d3311a850aa2e79ff0cc6731b9838df",
+      "bytes": 97142
+    },
+    {
+      "path": "assets/rig_adult/layers/leg_r_crop.png",
+      "sha256": "d76444f274a8dd21b3d130890b6d28e9e7143afb469681791a26f5abbe47ad1d",
+      "bytes": 120985
+    },
+    {
+      "path": "assets/rig_adult/layers/pupil_l.png",
+      "sha256": "f7ad6a73f5b288611305004a3c495bad4404dd86dc52225b7331bcb6a70ed763",
+      "bytes": 1638631
+    },
+    {
+      "path": "assets/rig_adult/layers/pupil_l_crop.png",
+      "sha256": "ed760b7070ed54f03a1a20d26df5326b5f75360591336484edaa9b3066e9fc87",
+      "bytes": 18338
+    },
+    {
+      "path": "assets/rig_adult/layers/pupil_r.png",
+      "sha256": "cade15b6dfc08b86365e1b59868c82b68a542b0c522370128f5ce9a5167dd142",
+      "bytes": 12994
+    },
+    {
+      "path": "assets/rig_adult/layers/pupil_r_crop.png",
+      "sha256": "1f6d0fa083072ebbb2eecffa23258bf9a2c2bffdbd0743cde76b564c87968700",
+      "bytes": 21366
+    },
+    {
+      "path": "assets/rig_adult/layers/skirt.png",
+      "sha256": "998583a0f8a2d890cfa24e910828f9b1079bb8659b5ab6b55856f900270fab6b",
+      "bytes": 406552
+    },
+    {
+      "path": "assets/rig_adult/layers/skirt_crop.png",
+      "sha256": "b61a773b90cffe744a9470a391c11ef677c0c3f5898820098cc48216a7bb128c",
+      "bytes": 475129
+    },
+    {
+      "path": "assets/rig_adult/layers/tail_seg1.png",
+      "sha256": "b5916c739bdb7ccfe1dfe4b450bfe7465e322b8741b1437be9a0d7421564303e",
+      "bytes": 157449
+    },
+    {
+      "path": "assets/rig_adult/layers/tail_seg1_crop.png",
+      "sha256": "62d678a18c3128dad8f4a494b7b1bfec51a63bae89b55d12821f7f1f1cd4c818",
+      "bytes": 80729
+    },
+    {
+      "path": "assets/rig_adult/layers/tail_seg2.png",
+      "sha256": "760627084d56c3c5bf25bade512f60697650dd0167413bc45a14c1993e679b9d",
+      "bytes": 6433
+    },
+    {
+      "path": "assets/rig_adult/layers/tail_seg2_crop.png",
+      "sha256": "6612fa986ecac99084b4b081c8478b38fbe229803294ae2243e2744aceb67c39",
+      "bytes": 139102
+    },
+    {
+      "path": "assets/rig_adult/layers/tail_tip.png",
+      "sha256": "760627084d56c3c5bf25bade512f60697650dd0167413bc45a14c1993e679b9d",
+      "bytes": 6433
+    },
+    {
+      "path": "assets/rig_adult/layers/tail_tip_crop.png",
+      "sha256": "9b18da0ee297dadcb866435e891aec5ca85126fca89c3141fa76acf61b259504",
+      "bytes": 130861
+    },
+    {
+      "path": "assets/rig_adult/layers/torso.png",
+      "sha256": "224d14810d336ecb196c47b790e7eea28433a25d133a3fad539d098df9edbde3",
+      "bytes": 157384
+    },
+    {
+      "path": "assets/rig_adult/layers/torso_crop.png",
+      "sha256": "18cae14e1eb9f44f8680f8f591cd732e3122bd77dc61e09540bab259e728c73f",
+      "bytes": 177303
+    },
+    {
+      "path": "assets/rig_adult/mesh/mesh_data.json",
+      "sha256": "0a74e4ca160b53ce5dcc9f9d067dcf89c463539084247dc4e4daa793497447b6",
+      "bytes": 786963
+    },
+    {
+      "path": "assets/rig_adult/prep/all_layers_bboxes.png",
+      "sha256": "8274483cf062635024f2beea068b9c6ba0d226c5d82d9daaa52dabccd086e503",
+      "bytes": 1598870
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/ahoge_headdress_crop.png",
+      "sha256": "212769fa44f00f6d115da2dcf22412139ebee3807c7ee57acce2d087f9203b67",
+      "bytes": 203215
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/apron_crop.png",
+      "sha256": "35eea5450f90916808454e39fc8423c9a7ccaa5353ef1bdde5cf9fd612227b82",
+      "bytes": 436610
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/arm_l_crop.png",
+      "sha256": "8b16563ebeeaffab4755258cc97e25e80342e0be33bd77e781806ec16fe576d2",
+      "bytes": 353755
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/arm_r_crop.png",
+      "sha256": "5424853bb007a729794f234b19a1f1ee26012894ba963e126e779e47dc12f99b",
+      "bytes": 347131
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/bangs_crop.png",
+      "sha256": "f8ddf25ddfdf01e07f812d9a06e8c85939f4a01a8982f0cac6ccba08c1e45fbc",
+      "bytes": 460123
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/ear_fin_l_crop.png",
+      "sha256": "69941f1a65f9f919f84a41245ada044af4888831da9ef1a27c32beead90e213d",
+      "bytes": 65391
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/ear_fin_r_crop.png",
+      "sha256": "6de0a661ee86d37a1060d15c3190a3edfb2a1f7ee5e90faca966ef30eaca8f27",
+      "bytes": 69240
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/eyelid_l_crop.png",
+      "sha256": "8d20f6e6c45eeee4297939122ad4c8866ca8649548d39d6a256c959639074856",
+      "bytes": 57851
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/eyelid_r_crop.png",
+      "sha256": "30ac6aa369923183a41e91c2abc6e9a4f5c889fa6c256debf759329502bbbe6c",
+      "bytes": 59126
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/hair_back_l_crop.png",
+      "sha256": "a902aea38dfce2ebf8d0ce67743fef32c3243aac72e7f85b7af938a2227fb995",
+      "bytes": 565952
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/hair_back_r_crop.png",
+      "sha256": "0fd5905f27f05010f905360eeb3375229c1b66d957ec70dbca6ca336867f31ab",
+      "bytes": 631275
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/head_base_crop.png",
+      "sha256": "7374e2b4c535b0d7b0e156140e4e43189d07fe6902cda57891cfe366f10111fd",
+      "bytes": 213637
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/leg_l_crop.png",
+      "sha256": "d736748fa9fcddd4c9523b3004c9c1d7913b7c18b1d05a835c944454dd86ca4d",
+      "bytes": 115481
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/leg_r_crop.png",
+      "sha256": "f231f8991b61c25857bc4f9525e966a92eb70501f5650653f7f2b37553cc0b9c",
+      "bytes": 114307
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/pupil_l_crop.png",
+      "sha256": "8b073f0d42185b60b693f811e2fa5294d0223a89124d48316f750cd3c0d1f368",
+      "bytes": 31048
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/pupil_r_crop.png",
+      "sha256": "221fcacc382a7b95aee0d1bee4c1f6482d456caa748a61592af262bf340432f8",
+      "bytes": 31707
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/skirt_crop.png",
+      "sha256": "e91361f142bb6b9943f9d29ced2141c2d8246b688fc75d36dd16b5357ba8fa09",
+      "bytes": 644559
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/tail_seg1_crop.png",
+      "sha256": "afc837968fa908f7c046fb72b3ee735107a19f044565b4a4cdceadd083b3c789",
+      "bytes": 169507
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/tail_seg2_crop.png",
+      "sha256": "2160f616d011924cd3ebf13810a7d49bc41d1f5db17b4074720dd99f5831a2ff",
+      "bytes": 123058
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/tail_tip_crop.png",
+      "sha256": "f46f83e7bab5f1c92720ad57563d64be7a24f52484d680e4a436ecd3cd75ada2",
+      "bytes": 125160
+    },
+    {
+      "path": "assets/rig_adult/prep/crops/torso_crop.png",
+      "sha256": "d94cea0bcf0e931475e3a465ad41feaec5606090e5bb53b871323faf8b86174c",
+      "bytes": 290407
+    },
+    {
+      "path": "assets/rig_adult/prep/manifest.json",
+      "sha256": "c0953219fdea50e0f5714ce9f749b67fe8345f118eba6e2ad54801922ebe407d",
+      "bytes": 11846
+    },
+    {
+      "path": "assets/rig_adult/preview_skinned_adult_live.png",
+      "sha256": "b49917940660c0deaacdbdd072ed35cc0b96c229d3ab4a9210c4b27834586405",
+      "bytes": 653369
+    },
+    {
+      "path": "assets/rig_adult/spec.json",
+      "sha256": "29ece745a2124f40dc558f48fcd6de6890a79f9657b86bfea2eb7f4279002ab6",
+      "bytes": 27410
+    },
+    {
+      "path": "assets/rig_adult/test_shifted_head_eye.png",
+      "sha256": "f599310802fc29d765ce4d276e29adf9182c425cffdfc3e9a96663af51d10c1b",
+      "bytes": 12457
+    }
+  ]
+}

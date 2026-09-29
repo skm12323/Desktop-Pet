@@ -1,0 +1,70 @@
+{
+  "clip": "assets/rig_adult_walk_v1/clips/raw/wan/dryrun4_l160r40_s1.mp4",
+  "frames": 81,
+  "fps": 16.0,
+  "source_size": [
+    480,
+    848
+  ],
+  "colour_fit": {
+    "gains": [
+      0.9341423511505127,
+      0.9274783730506897,
+      0.9035034775733948
+    ],
+    "offsets": [
+      11.873822212219238,
+      13.433084487915039,
+      18.684070587158203
+    ]
+  },
+  "g2": {
+    "first_frame_match": {
+      "mean_abs_255": 10.182615280151367,
+      "block8_p95_255": 16.44942855834961,
+      "soft_iou": 0.9759723544120789,
+      "pass": false
+    },
+    "last_frame_match": {
+      "mean_abs_255": 14.805660247802734,
+      "block8_p95_255": 21.639318466186523,
+      "soft_iou": 0.9750066995620728,
+      "pass": false
+    },
+    "scale_stability": {
+      "height_ratio_min": 0.9980719685554504,
+      "height_ratio_max": 1.0115680694580078,
+      "pass": true
+    },
+    "grounding": {
+      "sole_dev_disp_px_max": 0.9056603908538818,
+      "pass": true
+    },
+    "temporal_continuity": {
+      "max_step": 0.07720118761062622,
+      "median_step": 0.03142860531806946,
+      "pass": true
+    },
+    "no_floor_or_shadow": {
+      "max_frac_alpha_below_ground": 0.0,
+      "pass": true
+    },
+    "stays_in_frame": {
+      "frames_touching_left_right_top_edge": [],
+      "pass": true
+    },
+    "no_flash": {
+      "flash_frames": [],
+      "max_luma_dev": 0.64,
+      "threshold": 4.0,
+      "pass": true
+    }
+  },
+  "g3_screen": {
+    "residual_green_p99_255": 0.0,
+    "residual_green_pass": true,
+    "endpoint_alpha_flicker_max": 0.049467221790981585,
+    "endpoint_alpha_flicker_pass": false
+  },
+  "g2_numeric_pass": false
+}

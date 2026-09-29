@@ -153,8 +153,9 @@ def test_ik_math() -> None:
     names = {s.value for s in GaitPhaseState}
     expect = {"idle_front", "turn_to_side", "walk_start", "walk_loop",
               "walk_brake", "walk_stop", "turn_to_front", "idle_side",
-              "turn_reverse", "airborne", "landing"}
-    check("GaitPhaseState 11 态齐全", names == expect,
+              "turn_reverse", "airborne", "landing",
+              "walk_park"}          # 2026-09-28 侧身停步收脚（park_feet，正面包不使用）
+    check("GaitPhaseState 12 态齐全", names == expect,
           f"diff: {names ^ expect}")
 
 

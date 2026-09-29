@@ -1,0 +1,67 @@
+{
+  "candidate": "assets/rig_adult_walk_v1/references/qwen_raw/side_key_qwen_s1.png",
+  "aligned": "spikes/_qa/adult_walk_v1/g1_side_key/g1_check.png",
+  "alignment": {
+    "scale_applied": 1.0,
+    "offset_px": [
+      0,
+      0
+    ],
+    "feet_offset_vs_front_canvas_px": 52.0,
+    "front": {
+      "sole": 1604,
+      "top": 48,
+      "height": 1556,
+      "feet_cx": 464.6744186046512
+    },
+    "candidate_before": {
+      "sole": 1604,
+      "top": 48,
+      "height": 1556,
+      "feet_cx": 516.6785714285714
+    }
+  },
+  "g1_numeric": {
+    "canvas": {
+      "size": [
+        960,
+        1696
+      ],
+      "real_alpha": true,
+      "touches_canvas_edge": false,
+      "pass": true
+    },
+    "ground_line": {
+      "sole_y": 1604,
+      "front_sole_y": 1604,
+      "feet_levels": [
+        1604,
+        1576
+      ],
+      "far_foot_depth_offset_px": 28,
+      "pass": true
+    },
+    "turn_in_place": {
+      "feet_offset_vs_front_px": 52.0,
+      "pass": true
+    },
+    "height_vs_front": {
+      "side": 1556,
+      "front": 1556,
+      "ratio": 1.0,
+      "pass": true
+    },
+    "colour_de2000": {
+      "per_family": {
+        "hair_mid_blue": 2.41,
+        "dress_navy": 2.84,
+        "apron_white": 0.53,
+        "skin": 1.11,
+        "light_blue_tips": 2.91
+      },
+      "threshold": 6.0,
+      "pass": true
+    }
+  },
+  "g1_numeric_pass": true
+}

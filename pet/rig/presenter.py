@@ -39,6 +39,7 @@ from ..asset_provider import SpriteRef
 from ..window import WindowBase
 from . import skinned_mesh_item  # noqa: F401 —— 注册 PetRig 1.0 QML 模块
 from .gait import GaitSolver
+from .side_locomotion import SideLocomotion, TurnClip
 from .motion import MotionEngine, MotionInputs
 from .spec import RigSpec, load_rig_spec
 
@@ -145,6 +146,13 @@ class RigWindow(WindowBase):
         self._gait: GaitSolver | None = None
         self._gait_desired_vx = 0.0
         self._last_tick_s: float | None = None      # perf_counter 单调时钟
+        # ---- G6 ADULT 侧身行走（side_locomotion）：缺省关闭，app 按配置启用 ----
+        self._loco: SideLocomotion | None = None
+        self._loco_pkg = ""
+        self._loco_vx = 0.0
+        self._side_item = None
+        self._loco_last = None             # 最近一帧 LocoFrame（测试/门禁观察）
+        self._loco_pending = ""            # defer_quick 期间收到的启用请求
         self._setup_gait_solver()
         if spec is not None:
             if defer_quick:
@@ -222,6 +230,8 @@ class RigWindow(WindowBase):
             self._root.setProperty("partsModel", parts)
             self._set_prop("facing", int(getattr(self, "_facing", 1)))
             self._setup_skinned_mesh()
+            if getattr(self, "_loco_pending", ""):
+                self.enable_side_locomotion(self._loco_pending)
             if os.path.isfile(self._sprite.path):
                 self._show_now(self._sprite.path)
             else:
@@ -276,6 +286,167 @@ class RigWindow(WindowBase):
             self._root.setProperty("skinnedMeshEnabled", False)
             self._root.setProperty("skinnedGroundYPx", 0.0)
             self._skinned_item = None
+
+    # ---------------- G6：ADULT 侧身行走 ----------------
+    def enable_side_locomotion(self, pkg_dir: str) -> bool:
+        """启用侧身行走编排（ADULT）：pkg_dir = assets/rig_adult_walk_v1。
+
+        资产缺件 / 非 ADULT / 蒙皮不可用 → 返回 False 并保持旧路径（回退铁律）。"""
+        self.disable_side_locomotion()
+        if not self.rig_active and getattr(self, "_rig_pending", False):
+            self._loco_pending = pkg_dir          # 场景延迟初始化（defer_quick）：就绪后再启用
+            return True
+        self._loco_pending = ""
+        if not self.rig_active or self._spec is None or self._spec.stage != "adult":
+            return False
+        spec_file = os.path.join(pkg_dir, "spec.json")
+        mesh_file = os.path.join(pkg_dir, "mesh", "mesh_data.json")
+        layers = os.path.join(pkg_dir, "layers")
+        # 片段按窗口高度选 1×（256 高）/ 2×（512 高）帧集（内存门禁：单条解码 ≤ 12 MB）
+        suffix = "_h256" if float(self.height() or 256) <= 320 else ""
+        clip_out = os.path.join(pkg_dir, "clips", "turn_front_to_side" + suffix)
+        clip_in = os.path.join(pkg_dir, "clips", "turn_side_to_front" + suffix)
+        if suffix and not os.path.isfile(os.path.join(clip_out, "clip.json")):
+            clip_out = os.path.join(pkg_dir, "clips", "turn_front_to_side")
+            clip_in = os.path.join(pkg_dir, "clips", "turn_side_to_front")
+        try:
+            needed = (spec_file, mesh_file, os.path.join(clip_out, "clip.json"),
+                      os.path.join(clip_in, "clip.json"))
+            if not all(os.path.isfile(x) for x in needed):
+                raise FileNotFoundError("side rig / clip assets missing")
+            if not self._root.property("skinnedMeshEnabled"):
+                raise RuntimeError("front skinned mesh not active")
+            with open(spec_file, "r", encoding="utf-8") as f:
+                side_spec = json.load(f)
+            from PySide6.QtQuick import QQuickItem
+            self._root.setProperty("sideSpecFile", spec_file)
+            self._root.setProperty("sideMeshDataFile", mesh_file)
+            self._root.setProperty("sideLayersDir", layers)
+            item = self._root.findChild(QQuickItem, "sideMesh")
+            if item is None or not item.prepare():
+                raise RuntimeError("side mesh item failed to prepare")
+            scale = float(self.height() or 256) / 1696.0
+            self._loco = SideLocomotion(side_spec, TurnClip(clip_out), TurnClip(clip_in), scale)
+            self._side_item = item
+            self._loco_pkg = pkg_dir
+            self._root.setProperty("sideMeshEnabled", True)
+            log.info("ADULT 侧身行走已启用：%s", pkg_dir)
+            return True
+        except Exception as e:
+            log.warning("侧身行走不可用，保持旧行走路径：%s", e)
+            self.disable_side_locomotion()
+            return False
+
+    def disable_side_locomotion(self) -> None:
+        if self._root is not None:
+            self._root.setProperty("locoMode", 0)
+            self._root.setProperty("sideMeshEnabled", False)
+        self._loco = None
+        self._side_item = None
+        self._loco_vx = 0.0
+        if self._motion_timer is not None:
+            self._motion_timer.setInterval(33)
+
+    def locomotion_available(self) -> bool:
+        return self._loco is not None and self.rig_active
+
+    def set_locomotion_intent(self, desired_vx: float) -> None:
+        """行为层行走意图（逻辑 px/s，带方向；0 = 停）。会话内窗口 x 由编排驱动。"""
+        self._loco_vx = float(desired_vx or 0.0)
+
+    def locomotion_controls_x(self) -> bool:
+        return self._loco is not None and self._loco.active
+
+    def locomotion_interrupt(self) -> None:
+        if self._loco is not None and self._loco.active:
+            self._apply_loco(self._loco.interrupt(), None)
+
+    def _apply_loco(self, lf, frame) -> None:
+        """LocoFrame → 场景（显示模式 / 片段帧 / 姿态推入 / 窗口 x）。"""
+        self._loco_last = lf
+        r = self._root
+        mode = {"front": 0, "clip": 1, "side": 2}[lf.mode]
+        r.setProperty("locoMode", mode)
+        if lf.controls_x or mode:
+            if getattr(self, "_facing", 1) != lf.facing:
+                self._facing = lf.facing
+                if self._motion_inputs is not None:
+                    self._motion_inputs.facing = int(lf.facing)
+            self._set_prop("facing", int(lf.facing))
+        if self._motion_timer is not None and self._loco is not None:
+            self._motion_timer.setInterval(16 if self._loco.active else 33)
+        if mode == 1 and lf.clip is not None:
+            fr = lf.clip.frames[lf.clip_index]
+            x, y, w, h = fr.canvas_rect
+            r.setProperty("clipCanvasX", float(x))
+            r.setProperty("clipCanvasY", float(y))
+            r.setProperty("clipCanvasW", float(w))
+            r.setProperty("clipCanvasH", float(h))
+            r.setProperty("clipFrameSrc", _file_url(fr.path))
+            r.setProperty("clipOpacity", float(lf.clip_alpha))
+            under = {"front": 0, "side": 2}.get(lf.under, -1)
+            r.setProperty("clipUnder", under)
+            r.setProperty("clipUnderOpacity", float(lf.under_alpha))
+            if under == 2 and self._side_item is not None:
+                self._pose_rest(self._side_item, {})
+            elif under == 0 and self._skinned_item is not None:
+                self._pose_rest(self._skinned_item, getattr(self._spec, "rest_pose_angles", {}) or {})
+        if mode and frame is not None:
+            # 片段/侧身：整体变换归零（片段帧是静止画面；侧身起伏由骨盆 dip 负责）
+            r.setProperty("bodyAngle", 0.0)
+            r.setProperty("bodyY", 0.0)
+            r.setProperty("bodyScaleX", 1.0)
+            r.setProperty("bodyScaleY", 1.0)
+        if mode == 2 and frame is not None and self._side_item is not None:
+            item = self._side_item
+            f = self._settle_frame(frame, lf.settle, rest={})   # 侧身静止 = 全骨 0
+            for b, deg in f.bone_angles.items():
+                if b in item._rt.bone_index:
+                    item.setBonePose(b, deg, f.bone_tx.get(b, 0.0), f.bone_ty.get(b, 0.0))
+            item.setBlink(f.blink_progress)
+            g = lf.gait
+            if g is not None:
+                k = float(lf.gait_scale)
+                for bone, rad in g.bone_rotations.items():
+                    item.setBonePose(bone, math.degrees(rad) * k)
+                sway, dip = g.pelvis_offset
+                item.setBonePose("root_hip", math.degrees(g.bone_rotations.get("root_hip", 0.0)) * k,
+                                 tx=sway * k, ty=dip * k)
+        if mode == 2 and lf.window_x is not None:
+            nx = int(round(lf.window_x))
+            if nx != self.x():
+                self.move(nx, self.y())
+
+    @staticmethod
+    def _pose_rest(item, rest: dict) -> None:
+        """骨骼项摆到静止姿态（片段两端交叉淡化时垫在片段下方）。"""
+        rt = getattr(item, "_rt", None)
+        if rt is None:
+            return
+        for b in rt.bone_index:
+            item.setBonePose(b, float(rest.get(b, 0.0)), 0.0, 0.0)
+        item.setBlink(0.0)
+        item.setLookAt(0.0, 0.0)
+
+    def _settle_frame(self, frame, w: float, rest: dict | None = None):
+        """骨骼姿态向静止姿态混合（转身片段首尾帧 = 静止渲染）；rest 缺省 = 正面 rest_pose_angles。"""
+        if w <= 0.0:
+            return frame
+        import copy
+        if rest is None:
+            rest = getattr(self._spec, "rest_pose_angles", {}) or {}
+        f = copy.copy(frame)
+        k = 1.0 - w
+        f.bone_angles = {b: a * k + w * float(rest.get(b, 0.0)) for b, a in frame.bone_angles.items()}
+        f.bone_tx = {b: v * k for b, v in frame.bone_tx.items()}
+        f.bone_ty = {b: v * k for b, v in frame.bone_ty.items()}
+        f.blink_progress = frame.blink_progress * k
+        f.look_at = (frame.look_at[0] * k, frame.look_at[1] * k)
+        f.body_angle = frame.body_angle * k
+        f.body_y = frame.body_y * k
+        f.body_scale_x = math.copysign(1.0 + (abs(frame.body_scale_x) - 1.0) * k, frame.body_scale_x)
+        f.body_scale_y = 1.0 + (frame.body_scale_y - 1.0) * k
+        return f
 
     def _setup_gait_solver(self) -> None:
         """装配步态求解器（spec 带 gait 配置时；失败静默保持旧路径）。
@@ -380,6 +551,8 @@ class RigWindow(WindowBase):
             return
         self._root.setProperty("partsModel", self._parts_model(spec))
         self._setup_skinned_mesh()
+        if self._loco is not None and stage != "adult":
+            self.disable_side_locomotion()
         # 当前画面按新 spec 重解析（帧序列播放中不动——收尾路径自然重解）
         if self._walk_showing and self._walk_sprite is not None:
             self._show_now(self._walk_sprite.path)
@@ -613,6 +786,14 @@ class RigWindow(WindowBase):
             except Exception:
                 pass
         frame = self._engine.step(self._motion_inputs, dt * 1000.0)
+        if self._loco is not None:
+            lf = self._loco.update(dt, self._loco_vx, float(self.x()),
+                                   grounded=bool(self._motion_inputs.grounded),
+                                   dragged=bool(getattr(self, "_dragging", False)))
+            if lf.mode == "front":
+                self._push_frame(self._settle_frame(frame, lf.settle))
+            self._apply_loco(lf, frame)
+            return
         self._push_frame(frame)
         self._gait_tick(dt)
 

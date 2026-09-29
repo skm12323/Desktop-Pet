@@ -95,7 +95,8 @@ def prep_layers(spec_path: str, ref_image_path: str, out_dir: str, stage: str = 
             "inpaint_targets": layer.get("inpaint_targets", []),
             "self_completion_guide": layer.get("self_completion_guide", ""),
             "inpaint_guide": layer.get("inpaint_guide", ""),
-            "target_layer_png": f"assets/rig_{stage}/layers/{layer_id}.png"
+            "target_layer_png": os.path.normpath(
+                os.path.join(out_dir, "..", "layers", f"{layer_id}.png")).replace("\\", "/")
         })
 
     debug_path = os.path.join(out_dir, "all_layers_bboxes.png")
@@ -109,16 +110,40 @@ def prep_layers(spec_path: str, ref_image_path: str, out_dir: str, stage: str = 
     print(f"Debug overlay saved to {debug_path}")
 
 
+PRODUCTION_PREP_DIRS = ("assets/rig_young/prep", "assets/rig_adult/prep")
+
+
+def _is_production(path: str) -> bool:
+    p = os.path.normpath(path).replace("\\", "/").lower()
+    return any(p.endswith(d) for d in PRODUCTION_PREP_DIRS)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Crop and prep rig layers.")
     parser.add_argument("--stage", choices=["young", "adult", "final"], default="young")
+    parser.add_argument("--spec", default="", help="layer spec json (default assets/reference/{stage}_rig_spec.json)")
+    parser.add_argument("--ref", default="", help="reference image (default assets/reference/{stage}_ref.png|jpg)")
+    parser.add_argument("--out", default="", help="prep dir (default assets/rig_{stage}/prep); layers go to ../layers")
+    parser.add_argument("--overwrite-production", action="store_true",
+                        help="allow rewriting an existing production prep dir (assets/rig_young|rig_adult)")
+    parser.add_argument("--dry-run", action="store_true", help="print resolved paths and exit")
     args = parser.parse_args()
 
     ref_ext = ".jpg" if args.stage == "young" else ".png"
-    spec = f"assets/reference/{args.stage}_rig_spec.json"
-    ref = f"assets/reference/{args.stage}_ref{ref_ext}"
-    if not os.path.isfile(ref):
+    spec = args.spec or f"assets/reference/{args.stage}_rig_spec.json"
+    ref = args.ref or f"assets/reference/{args.stage}_ref{ref_ext}"
+    if not args.ref and not os.path.isfile(ref):
         ref = f"assets/reference/{args.stage}_ref.jpg"
-    out = f"assets/rig_{args.stage}/prep"
+    out = args.out or f"assets/rig_{args.stage}/prep"
+
+    if args.dry_run:
+        print(json.dumps({"spec": spec, "ref": ref, "out": out,
+                          "layers_dir": os.path.normpath(os.path.join(out, "..", "layers")),
+                          "production": _is_production(out)}, indent=2))
+        raise SystemExit(0)
+    if _is_production(out) and os.path.isfile(os.path.join(out, "manifest.json")) \
+            and not args.overwrite_production:
+        raise SystemExit(f"refusing to rewrite production prep dir {out} "
+                         "(pass --out for a new package, or --overwrite-production)")
 
     prep_layers(spec, ref, out, stage=args.stage)

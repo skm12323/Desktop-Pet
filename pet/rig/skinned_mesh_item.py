@@ -395,6 +395,8 @@ class RigRuntime:
     ~1e-4，见 attach_view_keyforms）。
     """
 
+    texture_mipmaps: bool = False    # spec "texture_mipmaps"（load 时赋值）
+
     def __init__(self, bones: list[_BoneDef], parent_idx: np.ndarray,
                  a_local_rest: np.ndarray, inv_w_rest: np.ndarray,
                  layers: list[_LayerSkin], look: _LookAtCfg,
@@ -702,6 +704,9 @@ class RigRuntime:
 
         rt = cls(bones, parent_idx, a_local, inv_w_rest, layers, look_cfg,
                  img_w, img_h)
+        # 按阶段可选：源图缩到 ~15% 显示时无 mipmap 会锯齿/闪烁，且与视频片段帧
+        # 观感不一致（G0 实测 12.1→3.7/255）。缺省关闭，YOUNG 保持原样。
+        rt.texture_mipmaps = bool(raw_spec.get("texture_mipmaps", False))
         if keyforms_file:
             rt.attach_view_keyforms(keyforms_file)
         log.info("蒙皮核就绪：%d 骨 / %d 层 / 源图 %.0f×%.0f%s",
@@ -1228,6 +1233,15 @@ class SkinnedMeshItem(QQuickItem):
             sg.material.setTexture(tex)
             sg.node.markDirty(QSGNode.DirtyState.DirtyMaterial)
 
+    def _mipmaps(self) -> bool:
+        return bool(self._rt is not None and self._rt.texture_mipmaps)
+
+    def _create_texture(self, win, img: QImage) -> QSGTexture:
+        if self._mipmaps():
+            return win.createTextureFromImage(
+                img, QQuickWindow.CreateTextureOption.TextureHasMipmaps)
+        return win.createTextureFromImage(img)
+
     def _patch_texture(self, sg: "_LayerSG", step: int, win) -> QSGTexture:
         key = (id(sg), step)
         tex = self._patch_tex_cache.get(key)
@@ -1245,7 +1259,7 @@ class SkinnedMeshItem(QQuickItem):
             out = QImage(arr.data, w, h, w * 4, QImage.Format_ARGB32)
             out = out.copy()          # arr 生命周期与 QImage 解耦
             img = out
-        tex = win.createTextureFromImage(img)
+        tex = self._create_texture(win, img)
         self._patch_tex_cache[key] = tex
         if len(self._patch_tex_cache) > 256:     # LRU 粗截断（补片×步数有界）
             self._patch_tex_cache.clear()
@@ -1384,10 +1398,11 @@ class SkinnedMeshItem(QQuickItem):
                           win: QQuickWindow) -> _LayerSG:
         # 每层每次重建都新建纹理并登记；_tex_cache 仅作所有权登记用于显式释放，
         # 不做跨重建复用（_build_scene_graph 每次先 _release_textures 清空）。
+        # mipmap（spec texture_mipmaps，G0 决策7）：经 _create_texture 统一创建。
         img = QImage(layer.texture_path)
         if img.isNull():
             raise ValueError(f"纹理缺失/不可读：{layer.texture_path}")
-        texture = win.createTextureFromImage(img)
+        texture = self._create_texture(win, img)
         self._tex_cache[layer.layer_id] = texture
         material: QSGTextureMaterial | None = None
         vcount = layer.rest.shape[0]
@@ -1396,6 +1411,8 @@ class SkinnedMeshItem(QQuickItem):
         material = QSGTextureMaterial()
         material.setTexture(texture)
         material.setFiltering(QSGTexture.Filtering.Linear)
+        if self._mipmaps():
+            material.setMipmapFiltering(QSGTexture.Filtering.Linear)   # 三线性
         material.setFlag(QSGMaterial.Flag.Blending, True)
         node = QSGGeometryNode()
         node.setMaterial(material)

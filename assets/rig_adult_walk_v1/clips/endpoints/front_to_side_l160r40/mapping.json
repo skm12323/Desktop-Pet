@@ -1,0 +1,60 @@
+{
+  "first": {
+    "canvas_size": [
+      960,
+      1696
+    ],
+    "video_size": [
+      1080,
+      1920
+    ],
+    "frame_origin_canvas": [
+      -160,
+      -354
+    ],
+    "frame_size_canvas": [
+      1160,
+      2062
+    ],
+    "scale_video_per_canvas": 0.9310344827586207,
+    "note": "video_xy = (canvas_xy - frame_origin_canvas) * scale_video_per_canvas",
+    "key_rgb": [
+      0,
+      177,
+      64
+    ],
+    "ground_y_canvas": 1608.0,
+    "ground_y_video": 1826.6896551724137,
+    "source": "../assets/rig_adult_walk_v1/references/front_rest.png",
+    "source_sha256": "de7ef40e697e17efa2a00fc77ae44138ac057025f3af6b60e1e9cc1690069b48"
+  },
+  "last": {
+    "canvas_size": [
+      960,
+      1696
+    ],
+    "video_size": [
+      1080,
+      1920
+    ],
+    "frame_origin_canvas": [
+      -160,
+      -354
+    ],
+    "frame_size_canvas": [
+      1160,
+      2062
+    ],
+    "scale_video_per_canvas": 0.9310344827586207,
+    "note": "video_xy = (canvas_xy - frame_origin_canvas) * scale_video_per_canvas",
+    "key_rgb": [
+      0,
+      177,
+      64
+    ],
+    "ground_y_canvas": 1608.0,
+    "ground_y_video": 1826.6896551724137,
+    "source": "../assets/rig_adult_walk_v1/references/side_key.png",
+    "source_sha256": "fac361eb310d616d2a457850359ef8a07b71e6bb98f4e1b7dda761edd8310175"
+  }
+}

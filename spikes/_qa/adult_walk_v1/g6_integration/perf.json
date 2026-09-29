@@ -1,0 +1,29 @@
+{
+  "rss_front_mb": 557.502464,
+  "rss_enabled_mb": 566.23104,
+  "seconds": 240.0,
+  "rss_end_mb": 521.363456,
+  "rss_growth_second_half_mb": -75.59168,
+  "rss_trace_mb_every_15s": [
+    569.5,
+    564.3,
+    592.4,
+    592.7,
+    593.3,
+    593.8,
+    595.7,
+    596.3,
+    597.0,
+    597.2,
+    597.5,
+    598.1,
+    599.0,
+    598.5,
+    492.0,
+    493.2
+  ],
+  "tick_ms_p50": 0.3314,
+  "tick_ms_p95": 1.4772249999999998,
+  "tick_ms_max": 10.9818,
+  "note": "offscreen; tick = presenter logic + scene sync/render via processEvents (no grab)"
+}

@@ -1,0 +1,26 @@
+{
+  "tool": "tools/qwen_edit.py",
+  "models": {
+    "unet": "qwen_image_2.1_int8_convrot.safetensors",
+    "clip": "qwen3vl_8b_w4a8.safetensors",
+    "vae": "qwen_image_2.1_vae_bf16.safetensors"
+  },
+  "comfy_prompt_id": "37837e6c-598f-475e-be26-6bdb8c0b07fa",
+  "seconds": 48.4,
+  "seed": 1,
+  "steps": 25,
+  "resolution": 0,
+  "flatten_alpha_onto_white": true,
+  "images": [
+    {
+      "slot": "image1",
+      "path": "assets/rig_adult_walk_v1/prep/peel/arm_r_crop.png",
+      "sha256": "daf89a022a9dc9958f264631c53f1073de17e18778ec22fa9ae815a049fb59f4"
+    }
+  ],
+  "mask": null,
+  "prompt": "Keep only the arm that hangs down on the right side of <image1> and draw it complete: the puffy navy shoulder sleeve at the top, the long navy sleeve, the gold-trimmed navy cuff, the white lace cuff frill and the relaxed hand below it. Paint the parts of this arm that are hidden behind the hair, the dress and the white apron frill. Remove everything else (hair, bodice, apron, skirt) and leave a plain white background. Keep the arm exactly in the same position, angle and size, same clean anime line art and flat cel shading.",
+  "negative": "hair, apron, skirt, bodice, second arm, extra fingers, blurry, lowres, text, watermark",
+  "output": "assets/rig_adult_walk_v1/prep/peel/arm_r_extract_s1.png",
+  "output_sha256": "83ad33d04d7a7ac2e49ba27e6dc6a1dd28fe2882f076c698832dc33fd466f25f"
+}

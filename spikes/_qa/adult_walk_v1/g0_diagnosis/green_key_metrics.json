@@ -1,0 +1,25 @@
+{
+  "palette": {
+    "frac_opaque_pixels_within_40deg_of_key_hue": 0.0,
+    "opaque_pixels_G_minus_maxRB_p99": -0.9999999403953552,
+    "opaque_pixels_G_minus_maxRB_max": 2.999999761581421
+  },
+  "crf18": {
+    "source_scale_alpha_MAE_in_edge_band": 0.17820975184440613,
+    "source_scale_px_alpha_err_gt_0.25": 11072,
+    "display256_alpha_MAE_edge": 0.030003048479557037,
+    "display256_px_alpha_err_gt_0.1": 56,
+    "display256_opaque_px": 15215,
+    "display256_green_cast_p99": 0.0,
+    "display256_color_MAE_opaque": 1.3790193796157837
+  },
+  "crf28": {
+    "source_scale_alpha_MAE_in_edge_band": 0.17976661026477814,
+    "source_scale_px_alpha_err_gt_0.25": 11208,
+    "display256_alpha_MAE_edge": 0.03261652588844299,
+    "display256_px_alpha_err_gt_0.1": 73,
+    "display256_opaque_px": 15215,
+    "display256_green_cast_p99": 0.0,
+    "display256_color_MAE_opaque": 1.7240523099899292
+  }
+}

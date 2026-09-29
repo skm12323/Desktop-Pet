@@ -106,11 +106,26 @@ ADULT_PROMPTS = {
 }
 
 
-def prepare_snapped_crop(stage: str, layer_id: str, manifest_entry: dict) -> tuple[str, list[int], tuple[int, int]]:
+PROMPT_SETS = {"adult": ADULT_PROMPTS}
+PRODUCTION_LAYER_DIRS = ("assets/rig_young/layers", "assets/rig_adult/layers")
+
+
+def default_ref(stage: str) -> str:
     ref_ext = ".jpg" if stage == "young" else ".png"
     ref_path = f"assets/reference/{stage}_ref{ref_ext}"
     if not os.path.isfile(ref_path):
         ref_path = f"assets/reference/{stage}_ref.jpg"
+    return ref_path
+
+
+def is_production_layers(path: str) -> bool:
+    p = os.path.normpath(path).replace("\\", "/").lower()
+    return any(p.endswith(d) for d in PRODUCTION_LAYER_DIRS)
+
+
+def prepare_snapped_crop(stage: str, layer_id: str, manifest_entry: dict,
+                         ref_path: str = "") -> tuple[str, list[int], tuple[int, int]]:
+    ref_path = ref_path or default_ref(stage)
 
     im = Image.open(ref_path).convert("RGBA")
     w_full, h_full = im.size
@@ -219,8 +234,16 @@ def wait_for_completion(prompt_id: str, timeout_s: int = 180) -> str:
     raise TimeoutError(f"Generation timed out for prompt {prompt_id}")
 
 
-def process_and_align_layer(stage: str, layer_id: str, gen_filename: str, crop_rect_px: list[int], full_size: tuple[int, int]):
+def process_and_align_layer(stage: str, layer_id: str, gen_filename: str, crop_rect_px: list[int],
+                            full_size: tuple[int, int], out_layers_dir: str = "",
+                            prompt_set: str = "", overwrite_production: bool = False):
     """Loads generated crop, ensures clean alpha and pastes to full canvas."""
+    out_layers_dir = out_layers_dir or f"assets/rig_{stage}/layers"
+    prompt_set = prompt_set or stage
+    out_file = os.path.join(out_layers_dir, f"{layer_id}.png")
+    if is_production_layers(out_layers_dir) and os.path.isfile(out_file) and not overwrite_production:
+        raise SystemExit(f"refusing to overwrite production layer {out_file} "
+                         "(pass --layers-out for a new package, or --overwrite-production)")
     gen_path = os.path.join(COMFY_OUTPUT, gen_filename)
     gen_im = Image.open(gen_path).convert("RGBA")
 
@@ -235,12 +258,10 @@ def process_and_align_layer(stage: str, layer_id: str, gen_filename: str, crop_r
 
     full_canvas.paste(gen_im, (c_min_x, c_min_y), gen_im)
 
-    out_layers_dir = f"assets/rig_{stage}/layers"
     os.makedirs(out_layers_dir, exist_ok=True)
-    out_file = os.path.join(out_layers_dir, f"{layer_id}.png")
     full_canvas.save(out_file)
 
-    if stage == "adult" and layer_id == "tail_seg1":
+    if prompt_set == "adult" and layer_id == "tail_seg1":
         # Ensure contract companion layers tail_seg2 and tail_tip exist
         import numpy as np
         dummy_arr = np.zeros((h_full, w_full, 4), dtype=np.uint8)
@@ -253,12 +274,14 @@ def process_and_align_layer(stage: str, layer_id: str, gen_filename: str, crop_r
     print(f"[OK] Layer [{layer_id}] aligned and saved to {out_file}")
 
 
-def generate_layer(stage: str, layer_id: str):
-    if stage == "adult" and layer_id in ("tail_seg2", "tail_tip"):
+def generate_layer(stage: str, layer_id: str, manifest_path: str = "", ref_path: str = "",
+                   layers_out: str = "", prompt_set: str = "", overwrite_production: bool = False):
+    prompt_set = prompt_set or stage
+    if prompt_set == "adult" and layer_id in ("tail_seg2", "tail_tip"):
         print(f"[INFO] Adult {layer_id} is a contract companion layer unified under tail_seg1.")
         return
 
-    manifest_path = f"assets/rig_{stage}/prep/manifest.json"
+    manifest_path = manifest_path or f"assets/rig_{stage}/prep/manifest.json"
     with open(manifest_path, "r", encoding="utf-8") as f:
         manifest = json.load(f)
 
@@ -267,13 +290,19 @@ def generate_layer(stage: str, layer_id: str):
         print(f"Error: layer {layer_id} not found in manifest {manifest_path}")
         return
 
-    prompts = ADULT_PROMPTS if stage == "adult" else {}
+    prompts = PROMPT_SETS.get(prompt_set, {})
     if layer_id not in prompts:
-        print(f"Error: no prompt defined for {layer_id} in stage {stage}")
+        print(f"Error: no prompt defined for {layer_id} in prompt set {prompt_set}")
         return
 
-    print(f"\n--- Generating [{stage}] layer: {layer_id} ---")
-    crop_filename, crop_rect, full_size = prepare_snapped_crop(stage, layer_id, entry)
+    out_dir = layers_out or f"assets/rig_{stage}/layers"
+    if is_production_layers(out_dir) and os.path.isfile(os.path.join(out_dir, f"{layer_id}.png")) \
+            and not overwrite_production:
+        raise SystemExit(f"refusing to overwrite production layer {out_dir}/{layer_id}.png "
+                         "(pass --layers-out for a new package, or --overwrite-production)")
+
+    print(f"\n--- Generating [{prompt_set}] layer: {layer_id} ---")
+    crop_filename, crop_rect, full_size = prepare_snapped_crop(stage, layer_id, entry, ref_path)
     p_info = prompts[layer_id]
 
     prompt_id = queue_comfy_qwen(
@@ -285,24 +314,45 @@ def generate_layer(stage: str, layer_id: str):
     print(f"Queued in ComfyUI (ID: {prompt_id}), waiting...")
     out_name = wait_for_completion(prompt_id)
     print(f"ComfyUI output generated: {out_name}")
-    process_and_align_layer(stage, layer_id, out_name, crop_rect, full_size)
+    process_and_align_layer(stage, layer_id, out_name, crop_rect, full_size,
+                            out_layers_dir=layers_out, prompt_set=prompt_set,
+                            overwrite_production=overwrite_production)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Batch Qwen layer generator.")
     parser.add_argument("--stage", choices=["young", "adult"], default="adult")
     parser.add_argument("target", nargs="?", default="all", help="layer_id or 'all'")
+    parser.add_argument("--ref", default="", help="reference image (default assets/reference/{stage}_ref.*)")
+    parser.add_argument("--prep-dir", default="", help="dir with manifest.json (default assets/rig_{stage}/prep)")
+    parser.add_argument("--layers-out", default="", help="output layers dir (default assets/rig_{stage}/layers)")
+    parser.add_argument("--prompt-set", default="", choices=["", *PROMPT_SETS],
+                        help="prompt table (default = stage)")
+    parser.add_argument("--overwrite-production", action="store_true",
+                        help="allow overwriting existing layers in assets/rig_young|rig_adult/layers")
+    parser.add_argument("--dry-run", action="store_true", help="print resolved paths and exit")
     args = parser.parse_args()
 
-    manifest_path = f"assets/rig_{args.stage}/prep/manifest.json"
+    prep_dir = args.prep_dir or f"assets/rig_{args.stage}/prep"
+    manifest_path = os.path.join(prep_dir, "manifest.json")
+    layers_out = args.layers_out or f"assets/rig_{args.stage}/layers"
+    ref_path = args.ref or default_ref(args.stage)
+    prompt_set = args.prompt_set or args.stage
+    if args.dry_run:
+        print(json.dumps({"manifest": manifest_path, "ref": ref_path, "layers_out": layers_out,
+                          "prompt_set": prompt_set,
+                          "production_layers": is_production_layers(layers_out)}, indent=2))
+        sys.exit(0)
     if not os.path.isfile(manifest_path):
         print(f"Error: {manifest_path} not found. Run crop_and_prep.py first.")
         sys.exit(1)
 
+    kwargs = dict(manifest_path=manifest_path, ref_path=ref_path, layers_out=layers_out,
+                  prompt_set=prompt_set, overwrite_production=args.overwrite_production)
     if args.target == "all":
         with open(manifest_path, "r", encoding="utf-8") as f:
             manifest = json.load(f)
         for m in manifest:
-            generate_layer(args.stage, m["id"])
+            generate_layer(args.stage, m["id"], **kwargs)
     else:
-        generate_layer(args.stage, args.target)
+        generate_layer(args.stage, args.target, **kwargs)

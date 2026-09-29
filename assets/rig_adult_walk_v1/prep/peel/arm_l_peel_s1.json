@@ -1,0 +1,26 @@
+{
+  "tool": "tools/qwen_edit.py",
+  "models": {
+    "unet": "qwen_image_2.1_int8_convrot.safetensors",
+    "clip": "qwen3vl_8b_w4a8.safetensors",
+    "vae": "qwen_image_2.1_vae_bf16.safetensors"
+  },
+  "comfy_prompt_id": "11ae769e-a9a7-452b-93a6-ed6b5ea4a121",
+  "seconds": 80.5,
+  "seed": 1,
+  "steps": 25,
+  "resolution": 0,
+  "flatten_alpha_onto_white": true,
+  "images": [
+    {
+      "slot": "image1",
+      "path": "assets/rig_adult_walk_v1/prep/peel/arm_l_crop.png",
+      "sha256": "6bd14a9bc7ab135259501f71372a24a5aa5dce35263ef962c43603ea377c769c"
+    }
+  ],
+  "mask": "assets/rig_adult_walk_v1/prep/peel/arm_l_mask.png",
+  "prompt": "Remove the arm on the left side of <image1> completely: the navy sleeve, the gold-trimmed cuff, the white lace cuff frill and the hand. Paint what is hidden behind the arm, continuing the surrounding picture: the long wavy blue hair with its light-blue gradient on the left, the white apron bow and the navy dress bodice at her side, and the navy skirt with the gold embroidery band below. Same clean anime line art and flat cel shading. Keep everything else exactly unchanged.",
+  "negative": "arm, sleeve, hand, fingers, cuff, blurry, lowres, extra limbs, text, watermark",
+  "output": "assets/rig_adult_walk_v1/prep/peel/arm_l_peel_s1.png",
+  "output_sha256": "215a29bfa95d329af867d47511cc20b30c3e3a9ebc7f613d656e7c4773c75d09"
+}

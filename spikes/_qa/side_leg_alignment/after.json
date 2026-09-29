@@ -1,0 +1,10 @@
+{
+  "leg_l": {
+    "mean_root_shift_px": 0.15349919552838653,
+    "max_abs_root_shift_px": 0.34569787079433223
+  },
+  "leg_r": {
+    "mean_root_shift_px": 0.1512886199891661,
+    "max_abs_root_shift_px": 0.36084214696344336
+  }
+}

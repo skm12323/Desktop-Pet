@@ -1,0 +1,10 @@
+[
+ {"id": "t_face", "crop": [400, 220, 640, 460], "text": "face", "threshold": 0.3},
+ {"id": "t_eyes", "crop": [420, 260, 620, 380], "text": "eye", "threshold": 0.3},
+ {"id": "t_belt", "crop": [380, 560, 660, 720], "text": "corset belt", "threshold": 0.3},
+ {"id": "t_waistband", "crop": [380, 620, 660, 740], "text": "apron waistband", "threshold": 0.3},
+ {"id": "t_sleeve_l", "crop": [180, 400, 480, 960], "text": "sleeve", "threshold": 0.3},
+ {"id": "t_hand_l", "crop": [180, 780, 360, 960], "text": "hand", "threshold": 0.3},
+ {"id": "t_cuff_l", "crop": [200, 740, 380, 880], "text": "sleeve cuff", "threshold": 0.3},
+ {"id": "t_frills_chest", "crop": [320, 400, 640, 720], "text": "white frills", "threshold": 0.3}
+]

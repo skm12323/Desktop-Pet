@@ -11,6 +11,7 @@
   },
   "provider": "ai",
   "presentation": "frames",
+  "adult_locomotion": "side_rig",
   "wind": {
     "enabled": false,
     "latitude": 0.0,

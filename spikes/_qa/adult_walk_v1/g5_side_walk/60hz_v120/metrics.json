@@ -1,0 +1,21 @@
+{
+  "dt_mode": "60hz_v120",
+  "frames": 421,
+  "foot_lock_drift_disp_px": {
+    "l": 0.0,
+    "r": 0.0
+  },
+  "foot_lock_pass": true,
+  "penetration_disp_px": 0.0,
+  "penetration_pass": true,
+  "swing_clearance_disp_px": {
+    "l": 5.18,
+    "r": 5.8
+  },
+  "clearance_pass": true,
+  "speed_measured": 119.81959511801675,
+  "speed_cmd": 120.0,
+  "speed_expected_from_gait": 120.0,
+  "stop_settled_at_s": 5.9,
+  "knee_rate_max_rad_s": 10.9
+}

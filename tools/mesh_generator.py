@@ -185,6 +185,20 @@ def generate_layer_mesh(
             weight_bones[index] = list(weights)
             weight_values[index] = [round(v, 6) for v in weights.values()]
 
+    # rigid_below: vertices below y belong to one bone (shoe -> foot, hand -> hand), with a
+    # smoothstep blend band above it (optional; side rig G4 weight gate: shoe foot weight >= 0.8)
+    for rb in layer_spec.get("rigid_below", []):
+        t = np.clip((pts_arr[:, 1] - (rb["y"] - rb.get("blend", 20))) / max(rb.get("blend", 20), 1e-6), 0, 1)
+        t = t * t * (3 - 2 * t)
+        for index, blend in enumerate(t):
+            if blend <= 0:
+                continue
+            weights = {b: w * (1 - blend) for b, w in zip(weight_bones[index], weight_values[index])}
+            weights[rb["bone"]] = weights.get(rb["bone"], 0) + blend
+            weights = {b: w for b, w in weights.items() if w > 1e-6}
+            weight_bones[index] = list(weights)
+            weight_values[index] = [round(v, 6) for v in weights.values()]
+
     blink_delta = np.zeros_like(pts_arr)
     for cx, top, bottom, radius in layer_spec.get("blink_zones", []):
         x, y = pts_arr[:, 0], pts_arr[:, 1]

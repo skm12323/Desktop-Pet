@@ -225,8 +225,10 @@ class PetApp:
             set_stage = getattr(self.window, "set_stage", None)
             if callable(set_stage):
                 set_stage(s.stage.value)
+            self._setup_side_locomotion()
 
         self.store.on_change(_on_stage_maybe_changed)
+        self._setup_side_locomotion()
         # 每次启动都以中性聊天表情开始，不恢复上次退出前的短时状态。
         if self._chat_emotion_store is not None:
             self._reset_chat_emotion_to_neutral()
@@ -1387,6 +1389,53 @@ class PetApp:
         self.fsm.handle_event(f"motion_mode:{mode}")
         self.window.set_motion_mode(self.fsm.motion_mode)
 
+    # ---- G6 ADULT 侧身行走（config adult_locomotion = "side_rig"）----
+    _LOCO_SPEED_CAP = 200.0     # px/s；跟随模式 600 px/s 限速到步行上限（方案 §8 决策 4 缺省）
+    _LOCO_BREAK_MODES = ("fall", "thrown", "drag", "climb", "eat_approach", "eat_mouse")
+
+    def _locomotion_pre_step(self) -> bool:
+        avail = getattr(self.window, "locomotion_available", None)
+        if not (callable(avail) and avail()):
+            self.fsm.hold_x = False
+            return False
+        if self.window.locomotion_controls_x():
+            self.fsm.sync_x(self.window.x() + self.window.width() / 2.0)
+            self.fsm.hold_x = True
+        else:
+            self.fsm.hold_x = False
+        return True
+
+    def _locomotion_post_step(self) -> None:
+        mode = self.fsm.mode
+        if mode in self._LOCO_BREAK_MODES:
+            self.window.set_locomotion_intent(0.0)
+            self.window.locomotion_interrupt()
+            self.fsm.hold_x = False
+            return
+        target = self.fsm.walk_target
+        if mode == "walk" and target is not None:
+            dx = target[0] - self.fsm.pos[0]
+            speed = min(abs(self.fsm.velocity[0]) or self.fsm._speed, self._LOCO_SPEED_CAP)
+            speed = max(speed, min(self.fsm._speed, self._LOCO_SPEED_CAP))
+            self.window.set_locomotion_intent(speed if dx > 0 else -speed)
+        else:
+            self.window.set_locomotion_intent(0.0)
+
+    def _setup_side_locomotion(self) -> None:
+        """ADULT + adult_locomotion=side_rig + 资产齐 → 启用侧身行走；否则旧路径。"""
+        enable = getattr(self.window, "enable_side_locomotion", None)
+        disable = getattr(self.window, "disable_side_locomotion", None)
+        stage = getattr(self.store.get(), "stage", None)
+        stage = getattr(stage, "value", stage)
+        if not callable(enable):
+            return
+        if self.cfg.get("adult_locomotion", "side_rig") == "side_rig" and stage == "adult":
+            pkg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "rig_adult_walk_v1")
+            if not enable(pkg):
+                self.logger.warning("adult_locomotion=side_rig 但侧身行走资产不可用，回退旧路径")
+        elif callable(disable):
+            disable()
+
     def _tick(self) -> None:
         # 可见性看门狗：非全屏被隐藏（异常/竞态）→ 立即恢复并留痕
         if not getattr(self, "_fullscreen", False) and not self.window.isVisible():
@@ -1416,7 +1465,10 @@ class PetApp:
         now = _time.monotonic()
         dt = min(0.25, max(0.01, now - getattr(self, "_last_tick_at", now)))
         self._last_tick_at = now
+        loco = self._locomotion_pre_step()
         action = self.fsm.step(self.store.get(), self.sensors, dt)
+        if loco:
+            self._locomotion_post_step()
         if action.type == ActionType.ANIMATE and action.params.get("name"):
             self._play_animate(action.params["name"])
         # v0.7.3 两段式吃鼠标：FSM 奔到光标（EAT_APPROACH→EAT_MOUSE 转换）

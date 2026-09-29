@@ -1,0 +1,1240 @@
+{
+  "source_facing": 1,
+  "texture_mipmaps": true,
+  "ground_anchor_y_px": 1608,
+  "rest_pose_angles": {},
+  "view": "side_right_three_quarter",
+  "skeleton": {
+    "bones": [
+      {
+        "bone_name": "root_hip",
+        "parent": null,
+        "joint_pos": [
+          0.55208,
+          0.45991
+        ],
+        "angle_clamp": [
+          -6,
+          6
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "spine",
+        "parent": "root_hip",
+        "joint_pos": [
+          0.54688,
+          0.40684
+        ],
+        "angle_clamp": [
+          -5,
+          5
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "chest",
+        "parent": "spine",
+        "joint_pos": [
+          0.54167,
+          0.33019
+        ],
+        "angle_clamp": [
+          -6,
+          6
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "neck",
+        "parent": "chest",
+        "joint_pos": [
+          0.53333,
+          0.26651
+        ],
+        "angle_clamp": [
+          -6,
+          6
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "head",
+        "parent": "neck",
+        "joint_pos": [
+          0.53125,
+          0.24175
+        ],
+        "angle_clamp": [
+          -12,
+          12
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "tail_01",
+        "parent": "root_hip",
+        "joint_pos": [
+          0.39583,
+          0.67807
+        ],
+        "angle_clamp": [
+          -15,
+          15
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "tail_02",
+        "parent": "tail_01",
+        "joint_pos": [
+          0.27083,
+          0.72229
+        ],
+        "angle_clamp": [
+          -20,
+          20
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "tail_03",
+        "parent": "tail_02",
+        "joint_pos": [
+          0.13542,
+          0.68986
+        ],
+        "angle_clamp": [
+          -24,
+          24
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "tail_fluke",
+        "parent": "tail_03",
+        "joint_pos": [
+          0.07812,
+          0.61321
+        ],
+        "angle_clamp": [
+          -30,
+          30
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "hair_back_l_01",
+        "parent": "head",
+        "joint_pos": [
+          0.34375,
+          0.25354
+        ],
+        "angle_clamp": [
+          -8,
+          8
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "hair_back_l_02",
+        "parent": "hair_back_l_01",
+        "joint_pos": [
+          0.26042,
+          0.34198
+        ],
+        "angle_clamp": [
+          -12,
+          12
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "hair_back_l_03",
+        "parent": "hair_back_l_02",
+        "joint_pos": [
+          0.19792,
+          0.41274
+        ],
+        "angle_clamp": [
+          -16,
+          16
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "hair_side_r_01",
+        "parent": "head",
+        "joint_pos": [
+          0.59896,
+          0.25354
+        ],
+        "angle_clamp": [
+          -8,
+          8
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "hair_side_r_02",
+        "parent": "hair_side_r_01",
+        "joint_pos": [
+          0.65104,
+          0.35377
+        ],
+        "angle_clamp": [
+          -12,
+          12
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "upper_leg_l",
+        "parent": "root_hip",
+        "joint_pos": [
+          0.51042,
+          0.48939
+        ],
+        "angle_clamp": [
+          -50,
+          50
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "lower_leg_l",
+        "parent": "upper_leg_l",
+        "joint_pos": [
+          0.4875,
+          0.72229
+        ],
+        "angle_clamp": [
+          -10,
+          85
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "foot_l",
+        "parent": "lower_leg_l",
+        "joint_pos": [
+          0.45833,
+          0.86203
+        ],
+        "angle_clamp": [
+          -85,
+          85
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "upper_leg_r",
+        "parent": "root_hip",
+        "joint_pos": [
+          0.58854,
+          0.48349
+        ],
+        "angle_clamp": [
+          -50,
+          50
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "lower_leg_r",
+        "parent": "upper_leg_r",
+        "joint_pos": [
+          0.59167,
+          0.71639
+        ],
+        "angle_clamp": [
+          -10,
+          85
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "foot_r",
+        "parent": "lower_leg_r",
+        "joint_pos": [
+          0.56667,
+          0.8579
+        ],
+        "angle_clamp": [
+          -85,
+          85
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "ear_fin_l",
+        "parent": "head",
+        "joint_pos": [
+          0.39583,
+          0.20755
+        ],
+        "angle_clamp": [
+          -12,
+          12
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "ear_fin_r",
+        "parent": "head",
+        "joint_pos": [
+          0.59167,
+          0.21934
+        ],
+        "angle_clamp": [
+          -12,
+          12
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "skirt_root",
+        "parent": "root_hip",
+        "joint_pos": [
+          0.54167,
+          0.44811
+        ],
+        "angle_clamp": [
+          -5,
+          5
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "skirt_hem_l",
+        "parent": "skirt_root",
+        "joint_pos": [
+          0.26042,
+          0.63679
+        ],
+        "angle_clamp": [
+          -10,
+          10
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "skirt_hem_r",
+        "parent": "skirt_root",
+        "joint_pos": [
+          0.76042,
+          0.63679
+        ],
+        "angle_clamp": [
+          -10,
+          10
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "apron_root",
+        "parent": "spine",
+        "joint_pos": [
+          0.58333,
+          0.40684
+        ],
+        "angle_clamp": [
+          -4,
+          4
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "apron_tip",
+        "parent": "apron_root",
+        "joint_pos": [
+          0.625,
+          0.58962
+        ],
+        "angle_clamp": [
+          -10,
+          10
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "upper_arm_l",
+        "parent": "chest",
+        "joint_pos": [
+          0.40833,
+          0.28597
+        ],
+        "angle_clamp": [
+          -30,
+          30
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "forearm_l",
+        "parent": "upper_arm_l",
+        "joint_pos": [
+          0.35938,
+          0.38325
+        ],
+        "angle_clamp": [
+          -30,
+          20
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "hand_l",
+        "parent": "forearm_l",
+        "joint_pos": [
+          0.30417,
+          0.48821
+        ],
+        "angle_clamp": [
+          -15,
+          15
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "upper_arm_r",
+        "parent": "chest",
+        "joint_pos": [
+          0.62292,
+          0.30071
+        ],
+        "angle_clamp": [
+          -30,
+          30
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "forearm_r",
+        "parent": "upper_arm_r",
+        "joint_pos": [
+          0.65833,
+          0.3921
+        ],
+        "angle_clamp": [
+          -30,
+          20
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "hand_r",
+        "parent": "forearm_r",
+        "joint_pos": [
+          0.69583,
+          0.49057
+        ],
+        "angle_clamp": [
+          -15,
+          15
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "eyelid_l",
+        "parent": "head",
+        "joint_pos": [
+          0.49792,
+          0.17689
+        ],
+        "angle_clamp": [
+          0,
+          0
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "eyelid_r",
+        "parent": "head",
+        "joint_pos": [
+          0.57917,
+          0.17925
+        ],
+        "angle_clamp": [
+          0,
+          0
+        ],
+        "is_chain": false
+      },
+      {
+        "bone_name": "ahoge_01",
+        "parent": "head",
+        "joint_pos": [
+          0.46354,
+          0.06958
+        ],
+        "angle_clamp": [
+          -15,
+          15
+        ],
+        "is_chain": true
+      },
+      {
+        "bone_name": "ahoge_02",
+        "parent": "ahoge_01",
+        "joint_pos": [
+          0.40625,
+          0.03538
+        ],
+        "angle_clamp": [
+          -25,
+          25
+        ],
+        "is_chain": true
+      }
+    ],
+    "source_reference": {
+      "file": "references/side_key.png",
+      "image_size_px": [
+        960,
+        1696
+      ]
+    }
+  },
+  "face_mechanics": {
+    "blink": {
+      "close_ratio_upper": 0.78,
+      "close_ratio_lower": 0.22,
+      "duration_ms": 220,
+      "timing_curve": "half_sine_decay"
+    }
+  },
+  "physics_presets": {
+    "spring_damper": {
+      "tail_01": {
+        "freq": 1.5,
+        "zeta": 0.72
+      },
+      "tail_02": {
+        "freq": 1.3,
+        "zeta": 0.65
+      },
+      "tail_03": {
+        "freq": 1.1,
+        "zeta": 0.6
+      },
+      "tail_fluke": {
+        "freq": 0.95,
+        "zeta": 0.55
+      },
+      "hair_back_l_01": {
+        "freq": 1.2,
+        "zeta": 0.6
+      },
+      "hair_back_l_02": {
+        "freq": 1.0,
+        "zeta": 0.55
+      },
+      "hair_back_l_03": {
+        "freq": 0.85,
+        "zeta": 0.5
+      },
+      "ahoge_01": {
+        "freq": 4.0,
+        "zeta": 0.5
+      },
+      "ahoge_02": {
+        "freq": 3.5,
+        "zeta": 0.45
+      },
+      "ear_fin_l": {
+        "freq": 3.0,
+        "zeta": 0.55
+      },
+      "ear_fin_r": {
+        "freq": 3.0,
+        "zeta": 0.55
+      },
+      "skirt_hem_l": {
+        "freq": 1.2,
+        "zeta": 0.65
+      },
+      "skirt_hem_r": {
+        "freq": 1.2,
+        "zeta": 0.65
+      },
+      "apron_tip": {
+        "freq": 1.3,
+        "zeta": 0.68
+      },
+      "forearm_l": {
+        "freq": 2.5,
+        "zeta": 0.7
+      },
+      "forearm_r": {
+        "freq": 2.5,
+        "zeta": 0.7
+      },
+      "hair_side_r_01": {
+        "freq": 1.3,
+        "zeta": 0.6
+      },
+      "hair_side_r_02": {
+        "freq": 1.1,
+        "zeta": 0.6
+      }
+    },
+    "spring_groups": [
+      {
+        "id": "tail_01",
+        "bones": [
+          "tail_01"
+        ],
+        "natural_frequency_hz": 1.5,
+        "damping_ratio": 0.72
+      },
+      {
+        "id": "tail_02",
+        "bones": [
+          "tail_02"
+        ],
+        "natural_frequency_hz": 1.3,
+        "damping_ratio": 0.65
+      },
+      {
+        "id": "tail_03",
+        "bones": [
+          "tail_03"
+        ],
+        "natural_frequency_hz": 1.1,
+        "damping_ratio": 0.6
+      },
+      {
+        "id": "tail_fluke",
+        "bones": [
+          "tail_fluke"
+        ],
+        "natural_frequency_hz": 0.95,
+        "damping_ratio": 0.55
+      },
+      {
+        "id": "hair_back_l_01",
+        "bones": [
+          "hair_back_l_01"
+        ],
+        "natural_frequency_hz": 1.2,
+        "damping_ratio": 0.6
+      },
+      {
+        "id": "hair_back_l_02",
+        "bones": [
+          "hair_back_l_02"
+        ],
+        "natural_frequency_hz": 1.0,
+        "damping_ratio": 0.55
+      },
+      {
+        "id": "hair_back_l_03",
+        "bones": [
+          "hair_back_l_03"
+        ],
+        "natural_frequency_hz": 0.85,
+        "damping_ratio": 0.5
+      },
+      {
+        "id": "ahoge_01",
+        "bones": [
+          "ahoge_01"
+        ],
+        "natural_frequency_hz": 4.0,
+        "damping_ratio": 0.5
+      },
+      {
+        "id": "ahoge_02",
+        "bones": [
+          "ahoge_02"
+        ],
+        "natural_frequency_hz": 3.5,
+        "damping_ratio": 0.45
+      },
+      {
+        "id": "ear_fin_l",
+        "bones": [
+          "ear_fin_l"
+        ],
+        "natural_frequency_hz": 3.0,
+        "damping_ratio": 0.55
+      },
+      {
+        "id": "ear_fin_r",
+        "bones": [
+          "ear_fin_r"
+        ],
+        "natural_frequency_hz": 3.0,
+        "damping_ratio": 0.55
+      },
+      {
+        "id": "skirt_hem_l",
+        "bones": [
+          "skirt_hem_l"
+        ],
+        "natural_frequency_hz": 1.2,
+        "damping_ratio": 0.65
+      },
+      {
+        "id": "skirt_hem_r",
+        "bones": [
+          "skirt_hem_r"
+        ],
+        "natural_frequency_hz": 1.2,
+        "damping_ratio": 0.65
+      },
+      {
+        "id": "apron_tip",
+        "bones": [
+          "apron_tip"
+        ],
+        "natural_frequency_hz": 1.3,
+        "damping_ratio": 0.68
+      },
+      {
+        "id": "forearm_l",
+        "bones": [
+          "forearm_l"
+        ],
+        "natural_frequency_hz": 2.5,
+        "damping_ratio": 0.7
+      },
+      {
+        "id": "forearm_r",
+        "bones": [
+          "forearm_r"
+        ],
+        "natural_frequency_hz": 2.5,
+        "damping_ratio": 0.7
+      },
+      {
+        "id": "hair_side_r_01",
+        "bones": [
+          "hair_side_r_01"
+        ],
+        "natural_frequency_hz": 1.3,
+        "damping_ratio": 0.6
+      },
+      {
+        "id": "hair_side_r_02",
+        "bones": [
+          "hair_side_r_02"
+        ],
+        "natural_frequency_hz": 1.1,
+        "damping_ratio": 0.6
+      }
+    ]
+  },
+  "contact_markers": {
+    "heel_l": [
+      -25,
+      134
+    ],
+    "sole_l": [
+      35,
+      141
+    ],
+    "forefoot_l": [
+      95,
+      138
+    ],
+    "heel_r": [
+      -34,
+      97
+    ],
+    "sole_r": [
+      31,
+      111
+    ],
+    "forefoot_r": [
+      91,
+      107
+    ]
+  },
+  "gait": {
+    "frequency_hz": 1.6,
+    "speed_world_px_s": 120.0,
+    "stance_ratio": 0.6,
+    "swing_lift_world_px": 4.0,
+    "foot_track_sep_world_px": 0.0,
+    "turn_duration_s": 0.02,
+    "per_side_ground": 1.0,
+    "sway_world_px": 0.0,
+    "arm_swing_deg": 12.0,
+    "forearm_bend_deg": 8.0,
+    "brake_linear_s": 0.4,
+    "dip_geometric": 1.0,
+    "track_from_rest": 1.0,
+    "speed_cap_world_px_s": 200.0,
+    "knee_bend_direction": -1,
+    "park_feet": true,
+    "stance_extension": 0.985,
+    "adaptive_cadence": true
+  },
+  "layers": [
+    {
+      "id": "tail",
+      "description": "side rig layer tail (pixel-exact cut of side_key.png)",
+      "bind_bone": "tail_01",
+      "influence_bones": [
+        "tail_01",
+        "tail_02",
+        "tail_03",
+        "tail_fluke"
+      ],
+      "z_order": 0,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "trim_offset_px": [
+        3,
+        805
+      ]
+    },
+    {
+      "id": "hair_back",
+      "description": "side rig layer hair_back (pixel-exact cut of side_key.png)",
+      "bind_bone": "head",
+      "influence_bones": [
+        "head",
+        "hair_back_l_01",
+        "hair_back_l_02",
+        "hair_back_l_03"
+      ],
+      "z_order": 5,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "root_lock": {
+        "bone": "head",
+        "full_before_y": 430,
+        "free_after_y": 560
+      },
+      "trim_offset_px": [
+        113,
+        122
+      ]
+    },
+    {
+      "id": "ear_fin_r",
+      "description": "side rig layer ear_fin_r (pixel-exact cut of side_key.png)",
+      "bind_bone": "ear_fin_r",
+      "influence_bones": [
+        "ear_fin_r"
+      ],
+      "z_order": 8,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "trim_offset_px": [
+        563,
+        348
+      ]
+    },
+    {
+      "id": "arm_r",
+      "description": "side rig layer arm_r (pixel-exact cut of side_key.png)",
+      "bind_bone": "upper_arm_r",
+      "influence_bones": [
+        "upper_arm_r",
+        "forearm_r",
+        "hand_r"
+      ],
+      "z_order": 10,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "rigid_below": [
+        {
+          "bone": "hand_r",
+          "y": 840,
+          "blend": 20
+        }
+      ],
+      "trim_offset_px": [
+        520,
+        436
+      ]
+    },
+    {
+      "id": "leg_r",
+      "description": "side rig layer leg_r (pixel-exact cut of side_key.png)",
+      "bind_bone": "upper_leg_r",
+      "influence_bones": [
+        "upper_leg_r",
+        "lower_leg_r",
+        "foot_r"
+      ],
+      "z_order": 15,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "rigid_below": [
+        {
+          "bone": "foot_r",
+          "y": 1478,
+          "blend": 22
+        }
+      ],
+      "trim_offset_px": [
+        490,
+        852
+      ]
+    },
+    {
+      "id": "leg_l",
+      "description": "side rig layer leg_l (pixel-exact cut of side_key.png)",
+      "bind_bone": "upper_leg_l",
+      "influence_bones": [
+        "upper_leg_l",
+        "lower_leg_l",
+        "foot_l"
+      ],
+      "z_order": 18,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "rigid_below": [
+        {
+          "bone": "foot_l",
+          "y": 1485,
+          "blend": 22
+        }
+      ],
+      "trim_offset_px": [
+        262,
+        852
+      ]
+    },
+    {
+      "id": "skirt",
+      "description": "side rig layer skirt (pixel-exact cut of side_key.png)",
+      "bind_bone": "skirt_root",
+      "influence_bones": [
+        "root_hip",
+        "skirt_root",
+        "skirt_hem_l",
+        "skirt_hem_r"
+      ],
+      "z_order": 20,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "root_lock": {
+        "bone": "root_hip",
+        "full_before_y": 800,
+        "free_after_y": 960
+      },
+      "trim_offset_px": [
+        178,
+        611
+      ]
+    },
+    {
+      "id": "torso",
+      "description": "side rig layer torso (pixel-exact cut of side_key.png)",
+      "bind_bone": "chest",
+      "influence_bones": [
+        "spine",
+        "chest",
+        "neck"
+      ],
+      "z_order": 25,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "trim_offset_px": [
+        306,
+        398
+      ]
+    },
+    {
+      "id": "apron",
+      "description": "side rig layer apron (pixel-exact cut of side_key.png)",
+      "bind_bone": "apron_root",
+      "influence_bones": [
+        "apron_root",
+        "apron_tip"
+      ],
+      "z_order": 30,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "root_lock": {
+        "bone": "apron_root",
+        "full_before_y": 760,
+        "free_after_y": 900
+      },
+      "trim_offset_px": [
+        406,
+        665
+      ]
+    },
+    {
+      "id": "hair_side_r",
+      "description": "side rig layer hair_side_r (pixel-exact cut of side_key.png)",
+      "bind_bone": "head",
+      "influence_bones": [
+        "head",
+        "hair_side_r_01",
+        "hair_side_r_02"
+      ],
+      "z_order": 35,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "root_lock": {
+        "bone": "head",
+        "full_before_y": 440,
+        "free_after_y": 520
+      },
+      "trim_offset_px": [
+        546,
+        397
+      ]
+    },
+    {
+      "id": "arm_l",
+      "description": "side rig layer arm_l (pixel-exact cut of side_key.png)",
+      "bind_bone": "upper_arm_l",
+      "influence_bones": [
+        "upper_arm_l",
+        "forearm_l",
+        "hand_l"
+      ],
+      "z_order": 40,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "rigid_below": [
+        {
+          "bone": "hand_l",
+          "y": 835,
+          "blend": 20
+        }
+      ],
+      "trim_offset_px": [
+        214,
+        450
+      ]
+    },
+    {
+      "id": "shoulder_frill_l",
+      "description": "side rig layer shoulder_frill_l (pixel-exact cut of side_key.png)",
+      "bind_bone": "chest",
+      "influence_bones": [
+        "chest"
+      ],
+      "z_order": 45,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "trim_offset_px": [
+        332,
+        425
+      ]
+    },
+    {
+      "id": "head_base",
+      "description": "side rig layer head_base (pixel-exact cut of side_key.png)",
+      "bind_bone": "head",
+      "influence_bones": [
+        "head"
+      ],
+      "z_order": 50,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "blink_zones": [
+        [
+          478,
+          300,
+          341,
+          32
+        ],
+        [
+          556,
+          304,
+          343,
+          16
+        ]
+      ],
+      "trim_offset_px": [
+        441,
+        236
+      ]
+    },
+    {
+      "id": "eyelid_l",
+      "description": "side rig layer eyelid_l (pixel-exact cut of side_key.png)",
+      "bind_bone": "eyelid_l",
+      "influence_bones": [
+        "head",
+        "eyelid_l"
+      ],
+      "z_order": 51,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "blink_zones": [
+        [
+          478,
+          300,
+          341,
+          32
+        ]
+      ],
+      "trim_offset_px": [
+        445,
+        298
+      ]
+    },
+    {
+      "id": "eyelid_r",
+      "description": "side rig layer eyelid_r (pixel-exact cut of side_key.png)",
+      "bind_bone": "eyelid_r",
+      "influence_bones": [
+        "head",
+        "eyelid_r"
+      ],
+      "z_order": 52,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "blink_zones": [
+        [
+          556,
+          304,
+          343,
+          16
+        ]
+      ],
+      "trim_offset_px": [
+        543,
+        302
+      ]
+    },
+    {
+      "id": "ear_fin_l",
+      "description": "side rig layer ear_fin_l (pixel-exact cut of side_key.png)",
+      "bind_bone": "ear_fin_l",
+      "influence_bones": [
+        "ear_fin_l"
+      ],
+      "z_order": 55,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "trim_offset_px": [
+        246,
+        281
+      ]
+    },
+    {
+      "id": "ahoge",
+      "description": "side rig layer ahoge (pixel-exact cut of side_key.png)",
+      "bind_bone": "ahoge_01",
+      "influence_bones": [
+        "ahoge_01",
+        "ahoge_02"
+      ],
+      "z_order": 60,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "trim_offset_px": [
+        331,
+        42
+      ]
+    },
+    {
+      "id": "headdress",
+      "description": "side rig layer headdress (pixel-exact cut of side_key.png)",
+      "bind_bone": "head",
+      "influence_bones": [
+        "head"
+      ],
+      "z_order": 65,
+      "requires_inpaint": false,
+      "bbox_hint": [
+        0,
+        0,
+        1,
+        1
+      ],
+      "trim_offset_px": [
+        346,
+        84
+      ]
+    }
+  ]
+}

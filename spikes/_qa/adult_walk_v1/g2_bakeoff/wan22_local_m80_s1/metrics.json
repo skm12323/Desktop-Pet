@@ -1,0 +1,84 @@
+{
+  "clip": "assets/rig_adult_walk_v1/clips/raw/wan/dryrun3_m80_s1.mp4",
+  "frames": 81,
+  "fps": 16.0,
+  "source_size": [
+    480,
+    848
+  ],
+  "colour_fit": {
+    "gains": [
+      0.9374867677688599,
+      0.9337523579597473,
+      0.9071177244186401
+    ],
+    "offsets": [
+      11.246574401855469,
+      12.858583450317383,
+      18.45049476623535
+    ]
+  },
+  "g2": {
+    "first_frame_match": {
+      "mean_abs_255": 9.962109565734863,
+      "block8_p95_255": 15.588021278381348,
+      "soft_iou": 0.9762704968452454,
+      "pass": false
+    },
+    "last_frame_match": {
+      "mean_abs_255": 13.203686714172363,
+      "block8_p95_255": 18.947437286376953,
+      "soft_iou": 0.9770277738571167,
+      "pass": false
+    },
+    "scale_stability": {
+      "height_ratio_min": 1.0006426572799683,
+      "height_ratio_max": 1.009640097618103,
+      "pass": true
+    },
+    "grounding": {
+      "sole_dev_disp_px_max": 0.7547169923782349,
+      "pass": true
+    },
+    "temporal_continuity": {
+      "max_step": 0.0592118501663208,
+      "median_step": 0.025704681873321533,
+      "pass": true
+    },
+    "no_floor_or_shadow": {
+      "max_frac_alpha_below_ground": 0.0,
+      "pass": true
+    },
+    "stays_in_frame": {
+      "frames_touching_left_right_top_edge": [
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66
+      ],
+      "pass": false
+    },
+    "no_flash": {
+      "flash_frames": [],
+      "max_luma_dev": 0.68,
+      "threshold": 4.0,
+      "pass": true
+    }
+  },
+  "g3_screen": {
+    "residual_green_p99_255": 0.0,
+    "residual_green_pass": true,
+    "endpoint_alpha_flicker_max": 0.056322162771050406,
+    "endpoint_alpha_flicker_pass": false
+  },
+  "g2_numeric_pass": false
+}

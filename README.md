@@ -86,6 +86,7 @@ python app.py --verbose
 常用配置包括：
 
 - `provider`：立绘来源，`emoji`（表情占位）或 `ai`（AI 立绘，缺图自动回退表情）。
+- `adult_locomotion`：ADULT 在 `presentation: "rig"` 下默认使用 `side_rig`（转身、侧身行走、依次收脚）；设为 `legacy` 可回退正面步态，侧身资产缺失时也会自动回退。
 - `presentation`：展示后端，`frames`（默认帧动画）、`rig`（v0.13 分层绑骨：交叉淡化、呼吸律动与部件弹簧）或 `paperdoll`（v0.14 部件驱动步态：侧身前后腿 + 正面双腿 limb 摆动）；需 `assets/rig/{stage}/` 资产，缺件自动回退 frames。
 - `interaction_gain`：摸摸、喂食、洗澡和戳一戳的数值影响。
 - `behavior`：行走和跟随速度、游走间隔、边缘距离等桌面行为参数。

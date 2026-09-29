@@ -1,0 +1,30 @@
+{
+  "canvas_size": [
+    960,
+    1696
+  ],
+  "video_size": [
+    1080,
+    1920
+  ],
+  "frame_origin_canvas": [
+    -240,
+    -756
+  ],
+  "frame_size_canvas": [
+    1440,
+    2560
+  ],
+  "scale_video_per_canvas": 0.75,
+  "note": "video_xy = (canvas_xy - frame_origin_canvas) * scale_video_per_canvas",
+  "key_rgb": [
+    0,
+    177,
+    64
+  ],
+  "ground_y_canvas": 1608.0,
+  "ground_y_video": 1773.0,
+  "source_png": "assets/rig_adult_walk_v1/references/front_rest.png",
+  "pose": "relaxed",
+  "figure": "healthy_neutral"
+}

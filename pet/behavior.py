@@ -148,6 +148,17 @@ class BehaviorFSM:
         self._hunger_factor = 1.0   # 饱食低 → 缩短 idle（觅食感），>1 更频繁走动
         self._mood_factor = 1.0     # 心情低 → 拉长 idle（发呆），>1 更呆
 
+    # ---- G6 ADULT 侧身行走：会话期间窗口 x 由呈现层步态驱动 ----
+    hold_x = False          # True：_step_walk 不自行积分 x，只做到达/地形判定
+
+    def sync_x(self, x: float) -> None:
+        """会话期间每 tick 从窗口回读 x（底边中心）。"""
+        self._pos = (float(x), self._pos[1])
+
+    @property
+    def walk_target(self) -> tuple | None:
+        return self._target if self._mode == _WALK else None
+
     def set_pet_height(self, h: float) -> None:
         """真实身位高（app 按 sprite 显示尺寸喂入，随阶段进化更新）——
         净空钻行判定用。"""
@@ -675,8 +686,13 @@ class BehaviorFSM:
         x, cur_y = self._pos
         tx, _ty = self._target
         stride = (self._follow_speed if self._follow else self._speed) * dt
-        nx = x + (stride if tx > x else -stride)
-        nx = self._clamp_x(nx)
+        if self.hold_x:
+            # 侧身行走会话：x 已由 sync_x 回读（转身片段期间不动、行走期间随步态），
+            # 这里不积分，只判定到达 / 走出边缘 / 攀爬
+            nx = self._clamp_x(x)
+        else:
+            nx = x + (stride if tx > x else -stride)
+            nx = self._clamp_x(nx)
         # 批次F/H3（REVIEW-2026-08-28）：行走速度回写 _vx——app 的步频
         # （0.9+|vx|/400）与倾斜（vx/140）映射此前是死代码：_step_walk 从
         # 不写 _vx，velocity 恒 (0,0)，follow 600px/s 仍 0.9Hz 慢踏滑步。
@@ -713,8 +729,9 @@ class BehaviorFSM:
             return Action(ActionType.FALL, {"pos": self._pos})
 
         if abs(tx - nx) <= stride or (tx > x) != (tx > nx):
-            # 到达目标
-            self._pos = (tx, ns)
+            # 到达目标（侧身行走会话：位置保持窗口实际 x——步态仍在收步，吸附到目标点
+            # 会让 app 把窗口往回拽一拍）
+            self._pos = ((nx if self.hold_x else tx), ns)
             self._vx = 0.0   # 行走收尾：速度归零（停步 tilt/hz 即刻回落）
             self._mode = _IDLE
             self._idle_left = self._new_idle()

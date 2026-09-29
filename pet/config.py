@@ -66,6 +66,8 @@ _SAFE_DEFAULTS: dict = {
     # 批次J/L14（F23）：以下段补 schema 校验，safe defaults 同步补齐
     "provider": "emoji",
     "presentation": "frames",
+    # G6：ADULT 行走——legacy = 正面原地步态（旧行为）；side_rig = 转身片段 + 侧身骨骼行走
+    "adult_locomotion": "side_rig",
     "log_level": "INFO",
     "sleepy_idle_minutes": 10,
     "hotkeys": {},
@@ -202,6 +204,7 @@ _SECTION_SCHEMAS: dict[str, dict] = {
     # 非法值（如 presentation 拼错）静默漏过，行为与预期脱节无告警
     "provider": {"enum": ["emoji", "ai", "commission"]},
     "presentation": {"enum": ["frames", "rig", "paperdoll"]},
+    "adult_locomotion": {"enum": ["legacy", "side_rig"]},
     "log_level": {"enum": ["DEBUG", "INFO", "WARNING", "ERROR"]},
     # 批次C/P3-10（REVIEW-2026-09-05）：user_name 入 schema——此前只被
     # app 读取（ToolContext.user_name）却无处可配（示例/校验双缺，改值

@@ -29,6 +29,25 @@ Item {
     property real blinkProgress: 0.0
     // 连续视角朝向（v0.19，度；步态/转身路径推入，蒙皮项据此做关键形态插值）
     property real viewYaw: 0.0
+    // ---- ADULT 侧身行走（G6，pet/rig/side_locomotion.py）----
+    // locoMode：0 = 正面蒙皮，1 = 转身片段帧，2 = 侧身蒙皮。三者共用同一画布映射
+    // （skinnedFit + skinnedGroundShift）——groundShift 绑定正面蒙皮"可用"而非"可见"，
+    // 片段/侧身显示期间不会竖直跳变（计划 §3 G6 注明的坑）。
+    property int locoMode: 0
+    property bool sideMeshEnabled: false
+    property string sideSpecFile: ""
+    property string sideMeshDataFile: ""
+    property string sideLayersDir: ""
+    property url clipFrameSrc: ""
+    property real clipCanvasX: 0.0
+    property real clipCanvasY: 0.0
+    property real clipCanvasW: 0.0
+    property real clipCanvasH: 0.0
+    property real clipOpacity: 1.0
+    property int clipUnder: -1          // 片段下方垫的骨骼：0 = 正面，2 = 侧身，-1 = 无（交叉淡化）
+    property real clipUnderOpacity: 1.0
+    readonly property real skinnedOffX: (width - skinnedSourceW * skinnedFit) / 2
+    readonly property real skinnedOffY: (height - skinnedSourceH * skinnedFit) / 2
     // 蒙皮源图的真实脚底线；-1/0 表示此阶段不做脚底对齐。
     property real skinnedGroundYPx: 0.0
     property real skinnedSourceW: 960.0
@@ -139,6 +158,8 @@ Item {
                 objectName: "skinnedMesh"
                 anchors.fill: parent
                 visible: root.skinnedMeshVisible
+                    && (root.locoMode === 0 || (root.locoMode === 1 && root.clipUnder === 0))
+                opacity: root.locoMode === 1 ? root.clipUnderOpacity : 1.0
                 specFile: root.specFile
                 meshDataFile: root.meshDataFile
                 layersDir: root.layersDir
@@ -146,6 +167,38 @@ Item {
                 lookAtY: root.lookAtY
                 blinkProgress: root.blinkProgress
                 viewYaw: root.viewYaw
+            }
+
+            // 侧身蒙皮（G6）：与正面同画布尺寸、同脚底锚点，显示变换完全一致
+            SkinnedMeshItem {
+                id: sideMesh
+                objectName: "sideMesh"
+                anchors.fill: parent
+                visible: root.skinnedMeshVisible && root.sideMeshEnabled
+                    && (root.locoMode === 2 || (root.locoMode === 1 && root.clipUnder === 2))
+                opacity: root.locoMode === 1 ? root.clipUnderOpacity : 1.0
+                specFile: root.sideSpecFile
+                meshDataFile: root.sideMeshDataFile
+                layersDir: root.sideLayersDir
+            }
+
+            // 转身片段帧（G6）：画布矩形 → 与蒙皮相同的 fit/偏移；mipmap 与蒙皮纹理同一 GPU 缩放路径
+            Image {
+                id: clipFrame
+                objectName: "clipFrame"
+                z: 10          // 显式置顶：交叉淡化时片段必须盖在垫底骨骼之上
+                visible: root.skinnedMeshVisible && root.locoMode === 1 && root.clipOpacity > 0.001
+                opacity: root.clipOpacity
+                source: root.clipFrameSrc
+                x: root.skinnedOffX + root.clipCanvasX * root.skinnedFit
+                y: root.skinnedOffY + root.clipCanvasY * root.skinnedFit
+                width: root.clipCanvasW * root.skinnedFit
+                height: root.clipCanvasH * root.skinnedFit
+                fillMode: Image.Stretch
+                smooth: true
+                mipmap: true
+                asynchronous: false
+                cache: true
             }
 
             // ---- under_core 部件（压在主体下，接缝被核心图遮住）----

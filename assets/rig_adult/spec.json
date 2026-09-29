@@ -1,5 +1,6 @@
 {
   "source_facing": 1,
+  "texture_mipmaps": true,
   "ground_anchor_y_px": 1608,
   "rest_pose_angles": {
     "upper_arm_l": 4,
