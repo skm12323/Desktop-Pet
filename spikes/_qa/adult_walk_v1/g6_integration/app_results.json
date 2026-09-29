@@ -7,7 +7,7 @@
  {
   "name": "walk_right: window fixed during settle + turn clip",
   "pass": true,
-  "detail": "860.0..860.0"
+  "detail": "862.0..862.0"
  },
  {
   "name": "walk_right: window never steps backwards while walking (no FSM/gait tug-of-war)",
@@ -27,12 +27,12 @@
  {
   "name": "walk_right: travelled ~260 px",
   "pass": true,
-  "detail": "287 px"
+  "detail": "305 px"
  },
  {
   "name": "walk_left: window fixed during settle + turn clip",
   "pass": true,
-  "detail": "1139.0..1139.0"
+  "detail": "1150.0..1150.0"
  },
  {
   "name": "walk_left: window never steps backwards while walking (no FSM/gait tug-of-war)",
@@ -52,7 +52,7 @@
  {
   "name": "walk_left: travelled ~260 px",
   "pass": true,
-  "detail": "-304 px"
+  "detail": "-305 px"
  },
  {
   "name": "drag interrupts to front",

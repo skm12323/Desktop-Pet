@@ -141,9 +141,11 @@ GAIT = {"frequency_hz": 1.6, "speed_world_px_s": 120.0, "stance_ratio": 0.6,
         "adaptive_cadence": True,
         "lean_degrees": 1.8, "skirt_follow_gain": 0.8,
         "swing_lift_world_px": 4.0, "foot_track_sep_world_px": 0.0, "turn_duration_s": 0.02,
-        "per_side_ground": 1.0, "sway_world_px": 0.0, "arm_swing_deg": 9.0, "forearm_bend_deg": 26.0,
-        "forearm_base_deg": 8.0, "arm_phase_lag": 0.06, "hand_follow": 0.35, "far_arm_scale": 0.55, "track_offset_px": -30.0, "toe_off_end_deg": 35.0, "torso_lean_deg": 3.0,
-        "brake_linear_s": 0.4, "dip_geometric": 1.0, "track_from_rest": 1.0, "speed_cap_world_px_s": 200.0}
+        "per_side_ground": 1.0, "sway_world_px": 0.0, "arm_swing_deg": 15.0, "forearm_bend_deg": 22.0,
+        "forearm_base_deg": 12.0, "arm_phase_lag": 0.06, "hand_follow": 0.35, "far_arm_scale": 0.85, "track_offset_px": 0.0, "leg_shift_px": -36.0, "toe_off_end_deg": 35.0, "torso_lean_deg": 3.0,
+        "brake_linear_s": 0.4, "dip_geometric": 1.0, "track_from_rest": 1.0, "speed_cap_world_px_s": 200.0,
+        # normal human joint curves (docs/ADULT行走修复-2026-09-29.md §4); cadence/stride unchanged
+        "reference_curves": True}
 
 
 def write_eyelids() -> None:

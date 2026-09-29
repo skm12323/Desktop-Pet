@@ -767,19 +767,21 @@
     "turn_duration_s": 0.02,
     "per_side_ground": 1.0,
     "sway_world_px": 0.0,
-    "arm_swing_deg": 9.0,
-    "forearm_bend_deg": 26.0,
-    "forearm_base_deg": 8.0,
+    "arm_swing_deg": 15.0,
+    "forearm_bend_deg": 22.0,
+    "forearm_base_deg": 12.0,
     "arm_phase_lag": 0.06,
     "hand_follow": 0.35,
-    "far_arm_scale": 0.55,
-    "track_offset_px": -30.0,
+    "far_arm_scale": 0.85,
+    "track_offset_px": 0.0,
+    "leg_shift_px": -36.0,
     "toe_off_end_deg": 35.0,
     "torso_lean_deg": 3.0,
     "brake_linear_s": 0.4,
     "dip_geometric": 1.0,
     "track_from_rest": 1.0,
-    "speed_cap_world_px_s": 200.0
+    "speed_cap_world_px_s": 200.0,
+    "reference_curves": true
   },
   "layers": [
     {

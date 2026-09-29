@@ -67,6 +67,8 @@ SOFT_REACH_D0_PX = 6.0           # 软收缩渐近尺度 d0
 HEEL_STRIKE_DEG = -15.0          # 后跟着地仰角（§3.3）
 FOREFOOT_ROLL_DEG = 35.0         # 前掌蹬地仰角
 TOE_OFF_END_DEG = 18.0           # 趾离地段结束仰角（防摆动早期穿地，见模块 docstring）
+REF_DIP_RATE_PX_S = 120.0       # reference_curves：骨盆高度目标最大变化速率（画布 px/s）
+REF_MAX_EXTENSION = 0.996       # reference_curves：支撑腿最大伸展率（伸直处 IK 奇异，脚跟一抬膝角突跳）
 TOE_OFF_SPAN = 0.10              # 趾离地段占整周期比例（过短会使前掌长臂以 >20rad/s 甩动膝角）
 STANCE_RATIO = 0.60              # 支撑相占比
 DEFAULT_STRIDE_HZ = 1.25         # 步频初值（§3.4）
@@ -129,6 +131,8 @@ class GaitOutputs:
     left_foot_contact: ContactType
     right_foot_contact: ContactType
     foot_slide_drift_px: float                   # 本帧接触点世界漂移（QA 监测）
+    # 骨骼局部平移（画布 px）：行走时双腿整体后移（leg_shift_px），不改任何角度
+    bone_offsets: Dict[str, Tuple[float, float]] = field(default_factory=dict)
 
 
 # ============================ 闭式 2-Bone IK（§3.1） ============================
@@ -259,6 +263,10 @@ class _FootState:
     land_world_x: float = 0.0
     land_pitch: float = 0.0
     applied: Optional[Tuple[float, float, float]] = None
+    swing_th0: Optional[float] = None           # 参考曲线摆动：起始大腿/膝局部角（rad）
+    swing_kn0: float = 0.0
+    swing_u0: float = 0.0                       # 规划时的摆动进度（起步可在摆动半途切入）
+    swing_last_wx: Optional[float] = None       # 参考轨迹世界 x（单调前进约束）
     knee_prev: Optional[float] = None
     knee_rate: float = 0.0
     settle_active: bool = False            # 静止放平进行中
@@ -424,6 +432,15 @@ class GaitSolver:
         self.lean_degrees = float(g.get("lean_degrees", -1.8))
         # 侧身：裙摆前/后缘跟随最前/最后的大腿摆动（腿在裙下前后摆，裙子不能纹丝不动）
         self.skirt_follow = float(g.get("skirt_follow_gain", 0.0))
+        #   reference_curves  关节角按正常人步态参考曲线成形（docs/ADULT行走修复-2026-09-29.md §4）：
+        #   摆动期 = 参考大腿/膝角的正向运动学轨迹（末段并入规划落点）；支撑期骨盆高度由
+        #   领先腿的参考膝角（承重缓冲 → 近伸直）反求，而非"两腿取最差"（旧规则 = 全程半蹲）
+        self.ref_curves = bool(g.get("reference_curves", False))
+        #   leg_shift_px  行走时两条腿作为整体沿水平方向平移（canvas px，负 = 向后；随行走包络渐入）
+        self.leg_shift = float(g.get("leg_shift_px", 0.0))
+        self.ref_swing_knee_peak = math.radians(float(g.get("ref_swing_knee_peak_deg", 58.0)))
+        self.ref_load_knee = math.radians(float(g.get("ref_loading_knee_deg", 16.0)))
+        self.ref_mid_knee = math.radians(float(g.get("ref_midstance_knee_deg", 4.0)))
         self._park_order: list[str] = []
         self._park_start: dict = {}
         self._park_step_s = 0.30          # 收脚一步的时长
@@ -487,7 +504,9 @@ class GaitSolver:
         # 支撑子相位边界（§3.3 比例外推到可配 stance_ratio）
         self.heel_end = 0.25 * self.stance_ratio
         self.flat_end = 0.75 * self.stance_ratio
-        self.toe_off_end = self.stance_ratio + TOE_OFF_SPAN
+        # reference_curves: toe leaves at ~62% like a human; a 10% anchored toe drags the thigh back
+        self.toe_off_span = 0.03 if self.ref_curves else TOE_OFF_SPAN
+        self.toe_off_end = self.stance_ratio + self.toe_off_span
 
         # ---- 运行态 ----
         self._t = 0.0                     # 状态机局部时钟
@@ -662,6 +681,13 @@ class GaitSolver:
                                   self._ground_side.get(side, self.ground_y)
                                   + heel_above_sole - hy])
         foot.swing_pitch0 = foot.pitch_now
+        if foot.applied is not None:
+            foot.swing_th0, foot.swing_kn0 = foot.applied[0], foot.applied[1]
+            tau = (self.phase + foot.phase_offset) % 1.0
+            foot.swing_u0 = min(0.95, max(0.0, (tau - self.toe_off_end) / max(1.0 - self.toe_off_end, 1e-6)))
+            foot.swing_last_wx = None
+        else:
+            foot.swing_th0 = None
         foot.swing_planned = True
 
     def _swing_ankle(self, side: str, u: float) -> np.ndarray:
@@ -679,7 +705,118 @@ class GaitSolver:
         xw = foot.swing_p0[0] + blend * (foot.land_world_x - foot.swing_p0[0])
         y = (foot.swing_p0[1] + blend * (foot.swing_p3[1] - foot.swing_p0[1])
              - lift)
-        return np.array([self._w2c(xw), y])
+        planned = np.array([self._w2c(xw), y])
+        # only swings that start near toe-off follow the reference (a swing entered halfway
+        # has no time left for the flex-extend)
+        if not self.ref_curves or foot.swing_th0 is None or s >= 1.0 or foot.swing_u0 > 0.05:
+            return planned
+        return self._ref_swing_ankle(side, s, planned)
+
+    # ---------------- 参考曲线（正常人步态，§4 of docs/ADULT行走修复） ----------------
+
+    def _leg_fk(self, side: str, ang_th: float, ang_kn: float) -> np.ndarray:
+        """局部角 → 踝画布位置（与 _foot_marker_actual_world 同一几何）。"""
+        leg = self.legs[side]
+        hip = self._hip_canvas(side)
+        th = leg.thigh_rest_angle + self._pelvis_rot + ang_th
+        sh = leg.shin_rest_angle + self._pelvis_rot + ang_th + ang_kn
+        return hip + leg.l1 * np.array([math.cos(th), math.sin(th)])             + leg.l2 * np.array([math.cos(sh), math.sin(sh)])
+
+    def _ref_swing_ankle(self, side: str, s: float, planned: np.ndarray) -> np.ndarray:
+        """摆动：大腿单调前摆（≈62% 处略过冲再回收）、膝在 25% 处达峰后伸直；
+        以正向运动学得踝目标（IK 原样解回这组角），70% 起平滑并入规划落点。"""
+        foot = self._feet[side]
+        leg = self.legs[side]
+        th1, kn1 = self._ik_angles(side, self._swing_end_planned(side))
+        # progress from the moment this swing was planned (walk start enters mid-swing)
+        s = (s - foot.swing_u0) / max(1.0 - foot.swing_u0, 1e-6)
+        # 大腿：smoothstep 到 1.12 倍行程（≈62%），再回收到 1.0
+        if s < 0.62:
+            hshape = 1.12 * _smoothstep(s / 0.62)
+        else:
+            hshape = 1.12 - 0.12 * _smoothstep((s - 0.62) / 0.38)
+        th = foot.swing_th0 + (th1 - foot.swing_th0) * hshape
+        # 膝：以"弯曲量"表示（相对伸直），起点→峰（25%）→落地值（85%）
+        rel = leg.shin_rest_angle - leg.thigh_rest_angle
+        b0, b1 = foot.swing_kn0 + rel, kn1 + rel
+        # flex speed cap: the rise to the peak takes 25% of the swing; at this cadence a swing
+        # starting from a straight knee (walk start) would exceed 20 rad/s (smoothstep peak 1.5x)
+        t_rise = 0.25 * (1.0 - foot.swing_u0) * (1.0 - self.toe_off_end) / max(self.stride_hz, 1e-6)
+        bpk = max(min(self.ref_swing_knee_peak, b0 + 14.0 * t_rise / 1.5), b0)
+        if s < 0.25:
+            b = b0 + (bpk - b0) * _smoothstep(s / 0.25)
+        else:
+            b = bpk + (b1 - bpk) * _smoothstep((s - 0.25) / 0.6)
+        ref = self._leg_fk(side, th, b - rel)
+        w = _smoothstep((s - 0.7) / 0.3)
+        out = ref * (1.0 - w) + planned * w
+        # the swinging foot never moves backward over the ground (slow walks; the stop step
+        # re-plans a shorter landing mid-swing)
+        d = 1.0 if self._velocity >= 0 else -1.0
+        wx = self._c2w(float(out[0]))
+        if foot.swing_last_wx is not None and d * (wx - foot.swing_last_wx) < 0.0:
+            wx = foot.swing_last_wx
+        foot.swing_last_wx = wx
+        return np.array([self._w2c(wx), float(out[1])])
+
+    def _swing_end_planned(self, side: str) -> np.ndarray:
+        foot = self._feet[side]
+        return np.array([self._w2c(foot.land_world_x), float(foot.swing_p3[1])])
+
+    def _ik_angles(self, side: str, ankle_t: np.ndarray) -> Tuple[float, float]:
+        leg = self.legs[side]
+        h, k, _a = Analytical2BoneIK.solve(self._hip_canvas(side), ankle_t, leg.l1, leg.l2,
+                                           self.knee_bend, 0.0, exact_within=leg.d_rest + 1e-6)
+        return (h - (leg.thigh_rest_angle - math.pi / 2.0) - self._pelvis_rot,
+                k - (leg.shin_rest_angle - leg.thigh_rest_angle))
+
+    def _ref_stance_dip(self) -> Optional[float]:
+        """领先支撑腿按参考膝角（着地≈直 → 承重缓冲峰 → 中期近伸直）反求骨盆高度；
+        其余支撑腿仍须够得着（按 0.995 伸展率兜底）。"""
+        req = {}
+        for side, foot in self._feet.items():
+            tau = (self.phase + foot.phase_offset) % 1.0
+            if tau >= self.stance_ratio or not foot.contact.is_locked:
+                continue
+            leg = self.legs[side]
+            sp = tau / max(self.stance_ratio, 1e-6)
+            if sp < 0.45:
+                bend = self.ref_mid_knee + (self.ref_load_knee - self.ref_mid_knee) * math.sin(math.pi * sp / 0.45)
+            else:
+                bend = self.ref_mid_knee
+            d_req = math.sqrt(leg.l1 ** 2 + leg.l2 ** 2 + 2.0 * leg.l1 * leg.l2 * math.cos(bend))
+            ank = foot.ankle_now
+            hip = self._hip_canvas(side)
+            dx = float(ank[0] - hip[0])
+            inner = d_req * d_req - dx * dx
+            if inner > 0.0:
+                req[side] = (sp, (float(ank[1]) - math.sqrt(inner)) - (float(hip[1]) - self._dip))
+        if not req:
+            return None, 0.0
+        lead = min(req, key=lambda sd: req[sd][0])
+        dip = req[lead][1]
+        if len(req) == 2:
+            # a freshly landed leg takes over the pelvis height over its first 15% of stance
+            other = next(sd for sd in req if sd != lead)
+            w = _smoothstep(req[lead][0] / 0.15)
+            dip = dip * w + req[other][1] * (1.0 - w)
+        floor = 0.0                                   # every stance leg: extension <= 0.995
+        for side, foot in self._feet.items():
+            tau = (self.phase + foot.phase_offset) % 1.0
+            if tau >= self.toe_off_end:
+                # stance legs always; a swing leg in its last 20% too, so the pelvis is already
+                # low enough when it lands (else the floor snaps the pelvis down at contact)
+                u = (tau - self.toe_off_end) / max(1.0 - self.toe_off_end, 1e-6)
+                if u < 0.8:
+                    continue
+            lg = self.legs[side]
+            h = self._hip_canvas(side)
+            ddx = float(foot.ankle_now[0] - h[0])
+            r = REF_MAX_EXTENSION * (lg.l1 + lg.l2)
+            if r * r - ddx * ddx > 0.0:
+                need = (float(foot.ankle_now[1]) - math.sqrt(r * r - ddx * ddx)) - (float(h[1]) - self._dip)
+                floor = max(floor, need)
+        return max(0.0, dip), max(0.0, floor)
 
     def _swing_pitch(self, side: str, u: float) -> float:
         """摆动仰角：从规划时仰角（趾离地末）→ 后跟着地角。"""
@@ -1142,6 +1279,13 @@ class GaitSolver:
             # 骨盆在数十毫秒内抬升 ~15 canvas px，摆动腿被拉直、膝角在一帧内
             # 跳向反折限位（60Hz 下膝角速度 > 20 rad/s）
             base = self._pelvis_dip({sd: f.ankle_now for sd, f in self._feet.items()})
+            if self.ref_curves and s in (GaitPhaseState.WALK_LOOP, GaitPhaseState.WALK_START,
+                                         GaitPhaseState.WALK_BRAKE, GaitPhaseState.WALK_STOP):
+                ref, ref_floor = self._ref_stance_dip()
+                if ref is not None:
+                    # 起步时从旧下沉平滑过渡
+                    w = min(1.0, self._env)
+                    base = base * (1.0 - w) + ref * w
             if s is GaitPhaseState.LANDING:
                 crouch = math.sin(math.pi * min(1.0, self._t / LANDING_CROUCH_S))
                 ltot = max(self.legs["l"].l1 + self.legs["l"].l2,
@@ -1150,9 +1294,21 @@ class GaitSolver:
                 base *= max(self._env, 0.35)
             elif not self.dip_geometric:
                 base *= self._env
+            if self.ref_curves and s in (GaitPhaseState.WALK_LOOP, GaitPhaseState.WALK_START,
+                                         GaitPhaseState.WALK_BRAKE, GaitPhaseState.WALK_STOP):
+                # reference dip changes at stance handovers: bound its rate (knee <= 20 rad/s) -
+                # but never let a stance leg reach full extension (the IK is singular there)
+                lim = REF_DIP_RATE_PX_S * dt
+                base = min(max(base, self._dip_raw - lim), self._dip_raw + lim)
+                base = max(base, ref_floor)
             self._dip_raw = base
         k = 1.0 - math.exp(-dt / DIP_SMOOTH_TAU_S)
         self._dip += (self._dip_raw - self._dip) * k
+        if self.ref_curves and s in (GaitPhaseState.WALK_LOOP, GaitPhaseState.WALK_START,
+                                     GaitPhaseState.WALK_BRAKE, GaitPhaseState.WALK_STOP):
+            # hard floor after the low-pass: a lagging dip let the trailing leg reach full
+            # extension, where the IK is singular and the heel lift then flicked the knee 16 deg
+            self._dip = max(self._dip, self._ref_stance_dip()[1])
         # 横向摇摆（§3.2）：重心压向支撑脚
         sup_l = self._feet["l"].contact.is_locked
         sup_r = self._feet["r"].contact.is_locked
@@ -1212,7 +1368,7 @@ class GaitSolver:
             if tau < self.stance_ratio:
                 foot.ankle_now, foot.pitch_now = self._stance_target(side, tau)
             elif tau < self.toe_off_end:
-                u_to = (tau - self.stance_ratio) / TOE_OFF_SPAN
+                u_to = (tau - self.stance_ratio) / self.toe_off_span
                 foot.pitch_now = self._toe_off_pitch(u_to)
                 off = self.legs[side].marker_forefoot
                 rx, ry = _rotated((float(off[0]), float(off[1])), foot.pitch_now)
@@ -1381,6 +1537,8 @@ class GaitSolver:
             left_foot_contact=self._feet["l"].contact.contact_type,
             right_foot_contact=self._feet["r"].contact.contact_type,
             foot_slide_drift_px=drift,
+            bone_offsets=({leg.hip_bone: (self.leg_shift * self._env, 0.0) for leg in self.legs.values()}
+                          if self.leg_shift else {}),
         )
 
     # ---------------- 观测（QA/测试） ----------------

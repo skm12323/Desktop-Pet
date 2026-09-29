@@ -408,7 +408,8 @@ class RigWindow(WindowBase):
             if g is not None:
                 k = float(lf.gait_scale)
                 for bone, rad in g.bone_rotations.items():
-                    item.setBonePose(bone, math.degrees(rad) * k)
+                    ox, oy = g.bone_offsets.get(bone, (0.0, 0.0))
+                    item.setBonePose(bone, math.degrees(rad) * k, tx=ox * k, ty=oy * k)
                 sway, dip = g.pelvis_offset
                 item.setBonePose("root_hip", math.degrees(g.bone_rotations.get("root_hip", 0.0)) * k,
                                  tx=sway * k, ty=dip * k)
@@ -497,7 +498,8 @@ class RigWindow(WindowBase):
             if item is not None and self._root.property("skinnedMeshVisible"):
                 # 骨骼角（弧度→度）+ 骨盆平移（root_hip）+ 连续视角，一次推入
                 for bone, rad in out.bone_rotations.items():
-                    item.setBonePose(bone, math.degrees(rad))
+                    ox, oy = out.bone_offsets.get(bone, (0.0, 0.0))
+                    item.setBonePose(bone, math.degrees(rad), tx=ox, ty=oy)
                 sway, dip = out.pelvis_offset
                 item.setBonePose("root_hip",
                                  math.degrees(out.bone_rotations.get("root_hip", 0.0)),
