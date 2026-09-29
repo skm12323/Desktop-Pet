@@ -330,3 +330,6 @@ tools/analyze_fullmem.py
 # 原始视频与生成候选体积大，不入库；只入库定稿帧、生成记录与门禁证据
 assets/rig_adult_walk_v1/**/raw/
 assets/rig_adult_walk_v1/**/*.mp4
+
+# 本地诊断/重放临时目录
+.scratch/
