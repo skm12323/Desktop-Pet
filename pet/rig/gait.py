@@ -56,6 +56,8 @@ from typing import Dict, Optional, Tuple
 
 import numpy as np
 
+from pet.rig.motion import spring_from_frequency, spring_step
+
 __all__ = [
     "GaitPhaseState", "ContactType", "FootContactLock", "GaitOutputs",
     "Analytical2BoneIK", "GaitSolver", "collect_gait_spec",
@@ -261,6 +263,8 @@ class _FootState:
     swing_lift: float = 0.0                     # 抬脚 bump 峰值（画布 px）
     swing_pitch0: float = 0.0                   # 摆动起始仰角（连续性）
     land_world_x: float = 0.0
+    land_fix: float = 0.0                       # 刹车中途重规划的落点修正（世界 px，已计入 land_world_x）
+    land_fix_b0: float = 0.0                    # 重规划时的轨迹进度（修正从此处渐入，位姿不跳）
     land_pitch: float = 0.0
     applied: Optional[Tuple[float, float, float]] = None
     swing_th0: Optional[float] = None           # 参考曲线摆动：起始大腿/膝局部角（rad）
@@ -438,6 +442,8 @@ class GaitSolver:
         self.ref_curves = bool(g.get("reference_curves", False))
         #   leg_shift_px  行走时两条腿作为整体沿水平方向平移（canvas px，负 = 向后；随行走包络渐入）
         self.leg_shift = float(g.get("leg_shift_px", 0.0))
+        #   far_leg_shift_px  远侧（后侧）腿 r 额外水平平移，拉开两腿间距（负 = 向后）
+        self.far_leg_shift = float(g.get("far_leg_shift_px", 0.0))
         self.ref_swing_knee_peak = math.radians(float(g.get("ref_swing_knee_peak_deg", 58.0)))
         self.ref_load_knee = math.radians(float(g.get("ref_loading_knee_deg", 16.0)))
         self.ref_mid_knee = math.radians(float(g.get("ref_midstance_knee_deg", 4.0)))
@@ -478,6 +484,13 @@ class GaitSolver:
         self.forearm_base = math.radians(float(g.get("forearm_base_deg", 0.0)))
         self.arm_phase_lag = float(g.get("arm_phase_lag", 0.0))
         self.hand_follow = float(g.get("hand_follow", 0.0))
+        #   wrist_freq_hz / wrist_halflife_s  >0：手腕改为被动摆（二阶弹簧，motion.spring_from_frequency）：
+        #                    手的世界角追随"前臂世界角 + 反向小补偿"，滞后即惯性甩动（人行走时腕部
+        #                    放松，屈伸总幅约 10–15°）；wrist_limit_deg 限位（局部角，±）
+        self.wrist_freq = float(g.get("wrist_freq_hz", 0.0))
+        self.wrist_halflife = float(g.get("wrist_halflife_s", 0.07))
+        self.wrist_limit = math.radians(float(g.get("wrist_limit_deg", 20.0)))
+        self._wrist: Dict[str, list] = {}       # side → [手世界角, 角速度]
         #   far_arm_scale    远侧手臂（_r，身体后方）摆幅比例：四分之三视角下同样的屈肘前摆会显得前伸
         self.far_arm_scale = float(g.get("far_arm_scale", 1.0))
         self.track_offset = float(g.get("track_offset_px", 0.0))
@@ -635,6 +648,18 @@ class GaitSolver:
             decay = math.exp(-swing_time / ramp)
             landing_speed = self._velocity_cmd + (velocity - self._velocity_cmd) * decay
             travel = self._velocity_cmd * swing_time + (velocity - self._velocity_cmd) * ramp * (1 - decay)
+        elif self.state is GaitPhaseState.WALK_BRAKE:
+            # 刹车中身体在减速：按 v·T 预测会让落点超出身体到达处（1.2 Hz 摆动更长，
+            # 摆动腿够不着 → 伸展下限一帧压低骨盆 20 px、支撑膝跳 21°）。按实际减速曲线积分。
+            if self.brake_linear > 0.0:
+                rem = max(self.brake_linear - self._t, 1e-6)
+                s = min(swing_time, rem)
+                travel = velocity * (s - s * s / (2.0 * rem))
+                landing_speed = velocity * max(0.0, 1.0 - swing_time / rem)
+            else:
+                decay = math.exp(-swing_time / BRAKE_RAMP_S)
+                travel = velocity * BRAKE_RAMP_S * (1.0 - decay)
+                landing_speed = velocity * decay
         sweep_half_canvas = abs(landing_speed) * self.stance_ratio \
             / self.stride_hz * 0.5 / self.scale
         # 落点以 heel 为 y 基准（后跟着地 = 后跟触地线，§3.3），扫掠对称性以
@@ -663,6 +688,7 @@ class GaitSolver:
         # 身体的，着地时身体已前移 v·T_swing（120 px/s 下 ≈265 canvas px）——不补偿
         # 则每步落在身体后方，支撑相后扫深度翻倍、大腿顶死限位、骨盆过度下沉。
         foot.land_world_x = self._c2w(heel_land_x - hx) + travel   # 踝世界 x
+        foot.land_fix, foot.land_fix_b0 = 0.0, 0.0
         # 抬脚上限：膝限位允许的最小髋-踝距（θ_k = −b − shin_rel_rest ≥ clamp_lo）
         shin_rel_rest = leg.shin_rest_angle - leg.thigh_rest_angle
         b_budget = max((-leg.clamp_lo[1] - shin_rel_rest) if self.knee_bend > 0
@@ -702,7 +728,7 @@ class GaitSolver:
         s = min(1.0, max(0.0, u))
         blend = s * s * (3.0 - 2.0 * s)
         lift = (math.sin(math.pi * s) ** 2) * foot.swing_lift
-        xw = foot.swing_p0[0] + blend * (foot.land_world_x - foot.swing_p0[0])
+        xw = foot.swing_p0[0] + blend * (self._land_x(foot, blend) - foot.swing_p0[0])
         y = (foot.swing_p0[1] + blend * (foot.swing_p3[1] - foot.swing_p0[1])
              - lift)
         planned = np.array([self._w2c(xw), y])
@@ -761,7 +787,48 @@ class GaitSolver:
 
     def _swing_end_planned(self, side: str) -> np.ndarray:
         foot = self._feet[side]
-        return np.array([self._w2c(foot.land_world_x), float(foot.swing_p3[1])])
+        tau = (self.phase + foot.phase_offset) % 1.0
+        u = (tau - self.toe_off_end) / max(1.0 - self.toe_off_end, 1e-6) if tau >= self.stance_ratio else 1.0
+        return np.array([self._w2c(self._land_x(foot, _smoothstep(u))), float(foot.swing_p3[1])])
+
+    @staticmethod
+    def _land_x(foot: "_FootState", blend: float) -> float:
+        """落点世界 x；刹车重规划的修正随轨迹进度从 0 渐入到全量（重规划那一帧位姿连续）。"""
+        if not foot.land_fix:
+            return foot.land_world_x
+        k = min(1.0, max(0.0, (blend - foot.land_fix_b0) / max(1.0 - foot.land_fix_b0, 1e-6)))
+        return foot.land_world_x - foot.land_fix * (1.0 - k)
+
+    def _brake_replan(self) -> None:
+        """进入刹车：正在摆动的脚按减速曲线重算剩余摆动的身体位移与落地速度。
+
+        摆动在行走中规划，按匀速 v·T 预测身体位移；刹车后身体走不到那么远，
+        1.2 Hz（摆动更长）下摆动腿够不着落点 → 伸展下限一帧压低骨盆、支撑膝跳变。
+        """
+        v = self._velocity
+        swing_time = max(1.0 - self.toe_off_end, 0.0) / max(self.stride_hz, 1e-6)
+        for side, foot in self._feet.items():
+            if not foot.swing_planned or foot.contact.is_locked:
+                continue
+            tau = (self.phase + foot.phase_offset) % 1.0
+            if tau < self.stance_ratio:
+                continue
+            u = min(1.0, max(0.0, (tau - self.toe_off_end) / max(1.0 - self.toe_off_end, 1e-6)))
+            t_rem = (1.0 - u) * swing_time
+            if self.brake_linear > 0.0:
+                s = min(t_rem, self.brake_linear)
+                travel = v * (s - s * s / (2.0 * self.brake_linear))
+                v_land = v * max(0.0, 1.0 - t_rem / self.brake_linear)
+            else:
+                decay = math.exp(-t_rem / BRAKE_RAMP_S)
+                travel = v * BRAKE_RAMP_S * (1.0 - decay)
+                v_land = v * decay
+            # 落点 = 印迹中心 + 半扫（∝ 落地速度）+ 身体位移；两项都按减速后的值重算
+            sweep_fix = (v_land - v) * self.stance_ratio / self.stride_hz * 0.5
+            fix = (travel - v * t_rem) + sweep_fix
+            foot.land_fix_b0 = _smoothstep(u)
+            foot.land_world_x += fix
+            foot.land_fix = fix
 
     def _ik_angles(self, side: str, ankle_t: np.ndarray) -> Tuple[float, float]:
         leg = self.legs[side]
@@ -966,6 +1033,7 @@ class GaitSolver:
             if abs(desired_v) <= 1.0:
                 self.state = GaitPhaseState.WALK_BRAKE
                 self._t = 0.0
+                self._brake_replan()
             elif self._reversal_requested(desired_v):
                 self._begin_reverse(desired_v)
             elif self._env >= 0.97 and abs(self._velocity - self._velocity_cmd) < 2.0:
@@ -975,6 +1043,7 @@ class GaitSolver:
             if abs(desired_v) <= 1.0:
                 self.state = GaitPhaseState.WALK_BRAKE
                 self._t = 0.0
+                self._brake_replan()
             elif self._reversal_requested(desired_v):
                 self._begin_reverse(desired_v)
         elif s is GaitPhaseState.WALK_BRAKE:
@@ -1525,7 +1594,18 @@ class GaitSolver:
                 angles[f"upper_arm_{side}"] = self.arm_swing * self._env * c * k
                 fore = -(self.forearm_base + k * self.forearm_bend * 0.5 * (1.0 - c)) * self._env
                 angles[f"forearm_{side}"] = fore
-                if self.hand_follow:
+                if self.wrist_freq > 0.0:
+                    fw = angles[f"upper_arm_{side}"] + fore
+                    target = fw - self.hand_follow * fore
+                    st = self._wrist.get(side)
+                    if st is None:
+                        st = self._wrist[side] = [target, 0.0]
+                    k_s, k_d = spring_from_frequency(self.wrist_freq, self.wrist_halflife)
+                    st[0], st[1] = spring_step(st[0], st[1], target, k_s, k_d, substep_dt * 1000.0)
+                    local = max(-self.wrist_limit, min(self.wrist_limit, st[0] - fw))
+                    st[0] = fw + local
+                    angles[f"hand_{side}"] = local
+                elif self.hand_follow:
                     angles[f"hand_{side}"] = -self.hand_follow * fore
         if sat_any:
             drift = max(drift, 0.05)        # 限位饱和：QA 通道抬升（可观测）
@@ -1537,8 +1617,9 @@ class GaitSolver:
             left_foot_contact=self._feet["l"].contact.contact_type,
             right_foot_contact=self._feet["r"].contact.contact_type,
             foot_slide_drift_px=drift,
-            bone_offsets=({leg.hip_bone: (self.leg_shift * self._env, 0.0) for leg in self.legs.values()}
-                          if self.leg_shift else {}),
+            bone_offsets=({leg.hip_bone: ((self.leg_shift + (self.far_leg_shift if side == "r" else 0.0))
+                                          * self._env, 0.0) for side, leg in self.legs.items()}
+                          if self.leg_shift or self.far_leg_shift else {}),
         )
 
     # ---------------- 观测（QA/测试） ----------------

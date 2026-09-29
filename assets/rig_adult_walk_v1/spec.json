@@ -413,8 +413,8 @@
         "bone_name": "forearm_r",
         "parent": "upper_arm_r",
         "joint_pos": [
-          0.62917,
-          0.39564
+          0.61146,
+          0.39976
         ],
         "angle_clamp": [
           -45,
@@ -426,8 +426,8 @@
         "bone_name": "hand_r",
         "parent": "forearm_r",
         "joint_pos": [
-          0.69583,
-          0.49057
+          0.67604,
+          0.49528
         ],
         "angle_clamp": [
           -15,
@@ -753,7 +753,7 @@
     ]
   },
   "gait": {
-    "frequency_hz": 1.6,
+    "frequency_hz": 1.2,
     "speed_world_px_s": 120.0,
     "stance_ratio": 0.6,
     "knee_bend_direction": -1,
@@ -771,10 +771,14 @@
     "forearm_bend_deg": 22.0,
     "forearm_base_deg": 12.0,
     "arm_phase_lag": 0.06,
-    "hand_follow": 0.35,
+    "hand_follow": 0.1,
+    "wrist_freq_hz": 6.0,
+    "wrist_halflife_s": 0.05,
+    "wrist_limit_deg": 20.0,
     "far_arm_scale": 0.85,
     "track_offset_px": 0.0,
     "leg_shift_px": -36.0,
+    "far_leg_shift_px": -14.0,
     "toe_off_end_deg": 35.0,
     "torso_lean_deg": 3.0,
     "brake_linear_s": 0.4,
@@ -927,8 +931,8 @@
       "min_component_px": 150,
       "per_component": true,
       "trim_offset_px": [
-        610,
-        809
+        606,
+        796
       ]
     },
     {
@@ -949,8 +953,8 @@
       "min_component_px": 150,
       "per_component": true,
       "trim_offset_px": [
-        559,
-        659
+        557,
+        648
       ]
     },
     {
@@ -1203,8 +1207,8 @@
       "min_component_px": 150,
       "per_component": true,
       "trim_offset_px": [
-        214,
-        789
+        229,
+        786
       ]
     },
     {
@@ -1225,7 +1229,7 @@
       "min_component_px": 150,
       "per_component": true,
       "trim_offset_px": [
-        251,
+        250,
         620
       ]
     },

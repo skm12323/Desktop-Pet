@@ -70,11 +70,23 @@ def main() -> None:
     s256 = (dr[..., 3] > 8) | (dk[..., 3] > 8)
     d256 = np.abs(dr[..., :3] - dk[..., :3]).mean(-1)
     tot = int((key[..., 3] > 127).sum())
+    # hands deliberately redrawn to face the walk view (build_side_spec.HAND_REDRAW, 2026-09-30):
+    # their outline differs from the key art by design -> excluded from the hole/spill counts
+    from build_side_spec import HAND_REDRAW
+    redrawn = np.zeros(key.shape[:2], bool)
+    for path in HAND_REDRAW.values():
+        h = np.asarray(Image.open(PKG / path))[..., 3] > 0
+        rows = np.nonzero(h.any(1))[0]
+        cols = np.nonzero(h.any(0))[0]
+        redrawn[rows.min():rows.max() + 1, max(cols.min() - 40, 0):cols.max() + 41] = True
+    red256 = np.asarray(Image.fromarray((redrawn * 255).astype(np.uint8)).resize((145, 256))) > 0
+    sil &= ~redrawn
+    s256 &= ~red256
     metrics: dict = {"rest_recovery": {
         "canvas_mean_255": float(d[sil].mean()), "canvas_p99_255": float(np.percentile(d[sil], 99)),
         "disp256_mean_255": float(d256[s256].mean()), "disp256_p99_255": float(np.percentile(d256[s256], 99)),
-        "holes_frac": float(((key[..., 3] > 127) & (rest[..., 3] <= 127)).sum() / tot),
-        "spill_frac": float(((rest[..., 3] > 127) & (key[..., 3] <= 127)).sum() / tot)}}
+        "holes_frac": float(((key[..., 3] > 127) & (rest[..., 3] <= 127) & ~redrawn).sum() / tot),
+        "spill_frac": float(((rest[..., 3] > 127) & (key[..., 3] <= 127) & ~redrawn).sum() / tot)}}
     rr = metrics["rest_recovery"]
     rr["pass"] = bool(rr["disp256_mean_255"] <= 6 and rr["disp256_p99_255"] <= 50
                       and rr["holes_frac"] <= 1e-3 and rr["spill_frac"] <= 1e-3)

@@ -1,0 +1,16 @@
+{
+ "source": "references/qwen_raw/far_s2.png",
+ "crop": [
+  560,
+  720,
+  760,
+  990
+ ],
+ "scale": 3,
+ "cut_y": 832,
+ "shift": [
+  0,
+  0
+ ],
+ "cuff_error": 5.26
+}

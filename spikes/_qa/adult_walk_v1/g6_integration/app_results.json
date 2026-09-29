@@ -17,7 +17,7 @@
  {
   "name": "walk_right: FSM x follows the window (<= two 50 ms ticks of travel)",
   "pass": true,
-  "detail": "max 8.00 px"
+  "detail": "max 9.00 px"
  },
  {
   "name": "walk_right: full session incl. timeout turn back",
@@ -27,12 +27,12 @@
  {
   "name": "walk_right: travelled ~260 px",
   "pass": true,
-  "detail": "305 px"
+  "detail": "276 px"
  },
  {
   "name": "walk_left: window fixed during settle + turn clip",
   "pass": true,
-  "detail": "1150.0..1150.0"
+  "detail": "1130.0..1130.0"
  },
  {
   "name": "walk_left: window never steps backwards while walking (no FSM/gait tug-of-war)",
@@ -42,7 +42,7 @@
  {
   "name": "walk_left: FSM x follows the window (<= two 50 ms ticks of travel)",
   "pass": true,
-  "detail": "max 8.00 px"
+  "detail": "max 9.00 px"
  },
  {
   "name": "walk_left: full session incl. timeout turn back",
@@ -52,7 +52,7 @@
  {
   "name": "walk_left: travelled ~260 px",
   "pass": true,
-  "detail": "-305 px"
+  "detail": "-279 px"
  },
  {
   "name": "drag interrupts to front",

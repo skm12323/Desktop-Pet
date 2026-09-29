@@ -54,8 +54,9 @@ BONES = {
     "forearm_l": ("upper_arm_l", [366, 656], [-45, 20], True),     # elbow centred in the sleeve (was 345: 10 px from the edge)
     "hand_l": ("forearm_l", [292, 828], [-15, 15], False),
     "upper_arm_r": ("chest", [555, 505], [-30, 30], True),        # shoulder inside the far arm (was 598: 16 px outside it)
-    "forearm_r": ("upper_arm_r", [604, 671], [-45, 20], True),     # elbow centred (was 632: on the outline)
-    "hand_r": ("forearm_r", [668, 832], [-15, 15], False),
+    "forearm_r": ("upper_arm_r", [587, 678], [-45, 20], True),     # elbow centred in the GPT-redrawn sleeve
+    # (was 604,671: centred for the old art, 9 px from the redraw's edge -> 10 px cap, elbow broke open)
+    "hand_r": ("forearm_r", [649, 840], [-15, 15], False),         # wrist centred likewise (was 668,832: 20/61 px)
     "eyelid_l": ("head", [478, 300], [0, 0], False),
     "eyelid_r": ("head", [556, 304], [0, 0], False),
     "ahoge_01": ("head", [445, 118], [-15, 15], True),
@@ -135,14 +136,14 @@ LAYERS = [
 # shoe-bottom contact points (canvas px on the key art); gait.py wants offsets from the ankle
 CONTACT_POINTS = {"heel_l": [415, 1596], "sole_l": [475, 1603], "forefoot_l": [535, 1600],
                   "heel_r": [510, 1552], "sole_r": [575, 1566], "forefoot_r": [635, 1562]}
-GAIT = {"frequency_hz": 1.6, "speed_world_px_s": 120.0, "stance_ratio": 0.6,
+GAIT = {"frequency_hz": 1.2, "speed_world_px_s": 120.0, "stance_ratio": 0.6,
         "knee_bend_direction": -1,
         "park_feet": True, "stance_extension": 0.985,
         "adaptive_cadence": True,
         "lean_degrees": 1.8, "skirt_follow_gain": 0.8,
         "swing_lift_world_px": 4.0, "foot_track_sep_world_px": 0.0, "turn_duration_s": 0.02,
         "per_side_ground": 1.0, "sway_world_px": 0.0, "arm_swing_deg": 15.0, "forearm_bend_deg": 22.0,
-        "forearm_base_deg": 12.0, "arm_phase_lag": 0.06, "hand_follow": 0.35, "far_arm_scale": 0.85, "track_offset_px": 0.0, "leg_shift_px": -36.0, "toe_off_end_deg": 35.0, "torso_lean_deg": 3.0,
+        "forearm_base_deg": 12.0, "arm_phase_lag": 0.06, "hand_follow": 0.1, "wrist_freq_hz": 6.0, "wrist_halflife_s": 0.05, "wrist_limit_deg": 20.0, "far_arm_scale": 0.85, "track_offset_px": 0.0, "leg_shift_px": -36.0, "far_leg_shift_px": -14.0, "toe_off_end_deg": 35.0, "torso_lean_deg": 3.0,
         "brake_linear_s": 0.4, "dip_geometric": 1.0, "track_from_rest": 1.0, "speed_cap_world_px_s": 200.0,
         # normal human joint curves (docs/ADULT行走修复-2026-09-29.md §4); cadence/stride unchanged
         "reference_curves": True}
@@ -214,6 +215,23 @@ def limb_source(limb: str) -> np.ndarray:
     return rgba
 
 
+# hands turned to face the walk view (user review 2026-09-29): the art drew both hands edge-on; the
+# near hand should show its back, the far hand its palm. Qwen redraws, placed by place_hand_redraw.py
+HAND_REDRAW = {"arm_l": "prep/peel/arm_l_hand_qwen_s1_canvas.png",
+               "arm_r": "prep/peel/arm_r_hand_qwen_s1_canvas.png"}
+
+
+def with_hand(limb: str, rgba: np.ndarray) -> np.ndarray:
+    """Replace every row from the frill cut down with the redrawn hand."""
+    if limb not in HAND_REDRAW:
+        return rgba
+    hand = np.asarray(Image.open(PKG / HAND_REDRAW[limb]).convert("RGBA"))
+    cut = int(np.nonzero(hand[..., 3].any(1))[0].min())
+    out = rgba.copy()
+    out[cut:] = hand[cut:]
+    return out
+
+
 # far side hair hangs BEHIND the far arm (user review 2026-09-29: the swinging far arm passed under
 # it); it stays above the ear fin, the torso still covers the far arm
 Z_OVERRIDE = {"hair_side_r": 9}
@@ -230,12 +248,72 @@ def uncover_far_hair() -> None:
     Image.fromarray(t, "RGBA").save(path)
 
 
+TAIL_SEAM_BOX = (170, 890, 330, 1030)   # fin lobe entering under the skirt
+# whole tail redrawn by Qwen alone on green (place_tail_redraw.py): its hidden parts (fin lobe tip
+# under the near hand / skirt, tail base under the hem) were procedural fills that looked glued
+# to the skirt edge (user review 2026-09-30) -> no procedural fill between tail and skirt any more
+TAIL_REDRAW = "prep/peel/tail_qwen_s1_canvas.png"
+
+
+def _fringe(key: np.ndarray) -> np.ndarray:
+    k = key[..., :3].astype(np.int32)
+    return (k.max(-1) - k.min(-1) > 150) | ((k[..., 2] > 200) & (k[..., 0] < 40))   # matting specks
+
+
+def tail_whole_redraw() -> None:
+    """Tail layer = the whole redraw (clipped to the art's silhouette where visible at rest), plus
+    the art's own visible tail pixels the redraw misses at the silhouette edge (thin outline;
+    matting specks excluded). Nothing is spliced inside."""
+    lab = np.asarray(Image.open(PKG / "prep" / "partition_labels.png"))
+    ids = {int(k): v for k, v in json.loads((PKG / "prep" / "partition_ids.json").read_text(encoding="utf-8")).items()}
+    own_t = lab == next(i for i, n in ids.items() if n == "tail")
+    key = np.asarray(Image.open(PKG / "references" / "side_key.png").convert("RGBA"))
+    red = np.asarray(Image.open(PKG / TAIL_REDRAW).convert("RGBA")).copy()
+    # the rest pose must stay the art: redraw pixels only on the art's tail or where a higher
+    # layer hides them at rest (the redraw's longer base would poke out between hem and leg)
+    red[~(own_t | (lab > 0))] = 0
+    red[own_t, 3] = np.minimum(red[own_t, 3], key[own_t, 3])   # visible edge: the art's anti-aliasing
+    edge = own_t & (red[..., 3] <= 127) & ~_fringe(key)
+    red[edge] = key[edge]
+    Image.fromarray(red, "RGBA").save(PKG / "layers_full" / "tail.png")
+
+
+def tail_seam_to_skirt() -> None:
+    """The key art's skirt outline anti-aliasing (2 px) is labelled tail where the fin lobe goes
+    under the skirt: it belongs to the skirt (moves with it; drawn above the tail with the key
+    colours -> rest composite unchanged). The skirt's own fill under the near hand spilled past
+    the skirt edge onto the lobe (floated with the skirt): cleared left of the art's skirt edge
+    (263,930)-(205,1007)."""
+    from scipy import ndimage
+    lab = np.asarray(Image.open(PKG / "prep" / "partition_labels.png"))
+    ids = {int(k): v for k, v in json.loads((PKG / "prep" / "partition_ids.json").read_text(encoding="utf-8")).items()}
+    lid = {n: i for i, n in ids.items()}
+    own_t, own_s = lab == lid["tail"], lab == lid["skirt"]
+    box = np.zeros_like(own_t)
+    x0, y0, x1, y1 = TAIL_SEAM_BOX
+    box[y0:y1, x0:x1] = True
+    key = np.asarray(Image.open(PKG / "references" / "side_key.png").convert("RGBA"))
+    fringe = _fringe(key)
+    seam = own_t & box & ndimage.binary_dilation(own_s, iterations=2)
+    sk_path = PKG / "layers_full" / "skirt.png"
+    sk = np.asarray(Image.open(sk_path).convert("RGBA")).copy()
+    sk[seam] = key[seam]                         # key alpha kept (anti-aliased edge pixels)
+    clean_s = own_s & ~fringe                    # specks in the seam: nearest clean skirt colour
+    _, (sy, sx) = ndimage.distance_transform_edt(~clean_s, return_indices=True)
+    fs = seam & fringe
+    sk[fs, :3] = key[sy[fs], sx[fs], :3]
+    yy, xx = np.mgrid[0:lab.shape[0], 0:lab.shape[1]]
+    left = xx < 263 - (yy - 930) * (58 / 77)
+    sk[box & left & ~own_s & ~seam] = 0
+    Image.fromarray(sk, "RGBA").save(sk_path)
+
+
 def split_hinged() -> dict:
     """layers_full/<limb>.png -> layers_full/<piece>.png; returns piece id -> z offset."""
     from split_hinged_limb import split
     zoff = {}
     for limb, chain in HINGED.items():
-        rgba = limb_source(limb)
+        rgba = with_hand(limb, limb_source(limb))
         pieces = split(rgba, [np.array(BONES[b][1], float) for _, b, _ in chain])
         for (pid, _, dz), arr in zip(chain, pieces):
             Image.fromarray(arr, "RGBA").save(PKG / "layers_full" / f"{pid}.png")
@@ -246,6 +324,8 @@ def split_hinged() -> dict:
 def main() -> None:
     zoff = split_hinged()
     uncover_far_hair()
+    tail_whole_redraw()
+    tail_seam_to_skirt()
     write_eyelids()
     trims = trim_layers()
     front = json.loads((ROOT / "assets" / "rig_adult" / "spec.json").read_text(encoding="utf-8"))

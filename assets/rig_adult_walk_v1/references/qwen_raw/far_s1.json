@@ -1,0 +1,26 @@
+{
+  "tool": "tools/qwen_edit.py",
+  "models": {
+    "unet": "qwen_image_2.1_int8_convrot.safetensors",
+    "clip": "qwen3vl_8b_w4a8.safetensors",
+    "vae": "qwen_image_2.1_vae_bf16.safetensors"
+  },
+  "comfy_prompt_id": "b6d2e037-0dde-49e0-a56e-8d42a426085a",
+  "seconds": 167.3,
+  "seed": 1,
+  "steps": 25,
+  "resolution": 0,
+  "flatten_alpha_onto_white": true,
+  "images": [
+    {
+      "slot": "image1",
+      "path": ".scratch/hands/arm_r_in.png",
+      "sha256": "b15ad5e3895256a75949e64163ba625a801588e06dcf3aeb969ede6f855f01c5"
+    }
+  ],
+  "mask": null,
+  "prompt": "Edit <image1>: redraw only the hand so that the PALM of the hand faces the viewer. The hand hangs down relaxed from the wrist, the inner palm side visible, fingers together and gently curled toward the palm, thumb on the side. Keep the dark navy sleeve, gold-trimmed cuff and white frill exactly unchanged in shape, position and size. Same anime cel-shading style, same pale skin color and thin brown lineart, hand width similar to the cuff opening. Plain flat solid green background, nothing else.",
+  "negative": "blurry, lowres, deformed, extra limbs, text, watermark",
+  "output": ".scratch/hands/far_s1.png",
+  "output_sha256": "6e7cd79b36226c0464d6a818381bbf155941e97f8742f05c70bd9dd2293fc890"
+}

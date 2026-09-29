@@ -27,7 +27,7 @@
  {
   "name": "walked right while in side mode",
   "pass": true,
-  "detail": "194 px"
+  "detail": "177 px"
  },
  {
   "name": "window x updated at the render tick (no 20 Hz steps)",
@@ -67,7 +67,7 @@
  {
   "name": "seam clip->clip(a=1.00) @0.4s",
   "pass": true,
-  "detail": "diff 0.70/255, centroid 0.02 px, sole 0.0 px"
+  "detail": "diff 0.71/255, centroid 0.02 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=1.00) @0.433s",
@@ -77,32 +77,32 @@
  {
   "name": "seam clip->clip(a=1.00) @1.233s",
   "pass": true,
-  "detail": "diff 0.67/255, centroid 0.05 px, sole 0.0 px"
+  "detail": "diff 0.68/255, centroid 0.04 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=1.00) @1.267s",
   "pass": true,
-  "detail": "diff 0.67/255, centroid 0.05 px, sole 0.0 px"
+  "detail": "diff 0.68/255, centroid 0.05 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=1.00) @1.3s",
   "pass": true,
-  "detail": "diff 0.66/255, centroid 0.04 px, sole 0.0 px"
+  "detail": "diff 0.66/255, centroid 0.05 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=0.83) @1.333s",
   "pass": true,
-  "detail": "diff 1.31/255, centroid 0.04 px, sole 0.0 px"
+  "detail": "diff 1.28/255, centroid 0.04 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=0.50) @1.367s",
   "pass": true,
-  "detail": "diff 1.36/255, centroid 0.04 px, sole 0.0 px"
+  "detail": "diff 1.32/255, centroid 0.04 px, sole 0.0 px"
  },
  {
   "name": "seam clip->clip(a=0.17) @1.4s",
   "pass": true,
-  "detail": "diff 1.36/255, centroid 0.04 px, sole 0.0 px"
+  "detail": "diff 1.33/255, centroid 0.04 px, sole 0.0 px"
  },
  {
   "name": "seam clip->side(a=1.00) @1.433s",
@@ -110,77 +110,77 @@
   "detail": "diff 0.00/255, centroid 0.00 px, sole 0.0 px"
  },
  {
-  "name": "seam side->clip(a=0.00) @8.267s",
+  "name": "seam side->clip(a=0.00) @8.15s",
   "pass": true,
   "detail": "diff 0.00/255, centroid 0.00 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->clip(a=0.17) @8.283s",
+  "name": "seam clip->clip(a=0.17) @8.167s",
   "pass": true,
-  "detail": "diff 1.32/255, centroid 0.04 px, sole 0.1 px"
+  "detail": "diff 1.28/255, centroid 0.04 px, sole 0.1 px"
  },
  {
-  "name": "seam clip->clip(a=0.50) @8.317s",
+  "name": "seam clip->clip(a=0.50) @8.2s",
   "pass": true,
-  "detail": "diff 1.32/255, centroid 0.04 px, sole 0.0 px"
+  "detail": "diff 1.28/255, centroid 0.04 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->clip(a=0.83) @8.35s",
+  "name": "seam clip->clip(a=0.83) @8.233s",
   "pass": true,
-  "detail": "diff 1.36/255, centroid 0.04 px, sole 0.0 px"
+  "detail": "diff 1.33/255, centroid 0.04 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->clip(a=1.00) @8.383s",
+  "name": "seam clip->clip(a=1.00) @8.267s",
   "pass": true,
   "detail": "diff 0.65/255, centroid 0.04 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->clip(a=1.00) @8.417s",
+  "name": "seam clip->clip(a=1.00) @8.3s",
   "pass": true,
   "detail": "diff 0.69/255, centroid 0.05 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->clip(a=1.00) @8.45s",
+  "name": "seam clip->clip(a=1.00) @8.333s",
   "pass": true,
   "detail": "diff 0.70/255, centroid 0.05 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->clip(a=1.00) @8.483s",
+  "name": "seam clip->clip(a=1.00) @8.367s",
   "pass": true,
   "detail": "diff 0.00/255, centroid 0.00 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->clip(a=1.00) @9.283s",
+  "name": "seam clip->clip(a=1.00) @9.167s",
   "pass": true,
-  "detail": "diff 0.64/255, centroid 0.01 px, sole 0.0 px"
+  "detail": "diff 0.63/255, centroid 0.01 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->clip(a=1.00) @9.317s",
+  "name": "seam clip->clip(a=1.00) @9.2s",
   "pass": true,
-  "detail": "diff 0.68/255, centroid 0.01 px, sole 0.0 px"
+  "detail": "diff 0.67/255, centroid 0.01 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->clip(a=1.00) @9.35s",
+  "name": "seam clip->clip(a=1.00) @9.233s",
   "pass": true,
-  "detail": "diff 0.69/255, centroid 0.01 px, sole 0.0 px"
+  "detail": "diff 0.69/255, centroid 0.02 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->clip(a=0.83) @9.383s",
+  "name": "seam clip->clip(a=0.83) @9.267s",
   "pass": true,
   "detail": "diff 1.22/255, centroid 0.00 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->clip(a=0.50) @9.417s",
+  "name": "seam clip->clip(a=0.50) @9.3s",
   "pass": true,
   "detail": "diff 1.27/255, centroid 0.00 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->clip(a=0.17) @9.45s",
+  "name": "seam clip->clip(a=0.17) @9.333s",
   "pass": true,
   "detail": "diff 1.29/255, centroid 0.01 px, sole 0.0 px"
  },
  {
-  "name": "seam clip->front(a=1.00) @9.483s",
+  "name": "seam clip->front(a=1.00) @9.367s",
   "pass": true,
   "detail": "diff 0.00/255, centroid 0.00 px, sole 0.0 px"
  },
@@ -197,7 +197,7 @@
  {
   "name": "walked left in the second session",
   "pass": true,
-  "detail": "788 -> 583"
+  "detail": "754 -> 544"
  },
  {
   "name": "reached turn clip",
