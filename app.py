@@ -260,7 +260,12 @@ class PetApp:
         self.store.on_change(_walk_refresh)
         # v0.3.12 真实身位高喂 FSM（净空钻行判定；阶段进化变尺寸时更新）
         self.fsm.set_pet_height(self.window.height())
-        self.store.on_change(lambda _s: self.fsm.set_pet_height(self.window.height()))
+        # G7 边缘修复：横向可达范围按真实窗口宽喂入（与 move_bottom_center
+        # 的整窗在屏内钳制同语义；进化/重置变尺寸时同步更新）
+        self.fsm.set_pet_width(self.window.width())
+        self.store.on_change(lambda _s: (
+            self.fsm.set_pet_height(self.window.height()),
+            self.fsm.set_pet_width(self.window.width())))
 
         cx = wa.get("x", 0) + wa.get("width", 0) / 2
         bottom = wa.get("y", 0) + wa.get("height", 0)
@@ -1309,6 +1314,7 @@ class PetApp:
         to = event.get("to_stage")
         msg = f"我长大了！现在进入{names.get(to, '新阶段')}了～"
         self.fsm.set_pet_height(self.window.height())
+        self.fsm.set_pet_width(self.window.width())
         self.bubble.show(msg, kind=BubbleType.INFO, anchor=self._pet_anchor())
 
     def _on_reset_requested(self) -> None:
@@ -1331,6 +1337,7 @@ class PetApp:
                 pass
         self.store.reset()
         self.fsm.set_pet_height(self.window.height())
+        self.fsm.set_pet_width(self.window.width())
         self.bubble.show("我重新出生啦～age 归零，从幼年重新开始！",
                          kind=BubbleType.WARNING, anchor=self._pet_anchor())
 
@@ -1433,6 +1440,12 @@ class PetApp:
     # ---- G6 ADULT 侧身行走（config adult_locomotion = "side_rig"）----
     _LOCO_SPEED_CAP = 200.0     # px/s；跟随模式 600 px/s 限速到步行上限（方案 §8 决策 4 缺省）
     _LOCO_BREAK_MODES = ("fall", "thrown", "drag", "climb", "eat_approach", "eat_mouse")
+    # G7 跟手/边缘：意图按误差比例给速——远处贴上限、近处随距离减速，步态
+    # 刹车（0.4s 线性）+ 收步前移的动量不再冲过目标（旧版恒速 120/200 到
+    # 达，过冲 ~30-70px → follow 反向再起步 = 侧身⇄正面转身片段循环）。
+    # 增益 1.2/s：停下距离 ≈ 0.45·v < 误差（稳定收敛，不振荡）。
+    _LOCO_INTENT_GAIN = 1.2             # (px/s) / px
+    _LOCO_INTENT_DEADZONE_PX = 4.0      # |dx| 死区：到位即 0，防边界意图翻转
 
     def _locomotion_pre_step(self) -> bool:
         avail = getattr(self.window, "locomotion_available", None)
@@ -1456,8 +1469,12 @@ class PetApp:
         target = self.fsm.walk_target
         if mode == "walk" and target is not None:
             dx = target[0] - self.fsm.pos[0]
-            speed = min(abs(self.fsm.velocity[0]) or self.fsm._speed, self._LOCO_SPEED_CAP)
-            speed = max(speed, min(self.fsm._speed, self._LOCO_SPEED_CAP))
+            if abs(dx) <= self._LOCO_INTENT_DEADZONE_PX:
+                self.window.set_locomotion_intent(0.0)
+                return
+            cap = (self._LOCO_SPEED_CAP if self.fsm.motion_mode == "follow"
+                   else min(self.fsm._speed, self._LOCO_SPEED_CAP))
+            speed = min(cap, self._LOCO_INTENT_GAIN * abs(dx))
             self.window.set_locomotion_intent(speed if dx > 0 else -speed)
         else:
             self.window.set_locomotion_intent(0.0)

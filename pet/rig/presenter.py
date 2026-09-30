@@ -810,9 +810,24 @@ class RigWindow(WindowBase):
                 pass
         frame = self._engine.step(self._motion_inputs, dt * 1000.0)
         if self._loco is not None:
+            # G7 边缘修复：会话可驱动范围 = 整窗在屏内（与 move_bottom_center
+            # 同语义）。注意坐标系：_win_x 是窗口 **top-left x**（update 喂
+            # self.x()、_apply_loco 按 move(nx, y) 落位），故范围是
+            # [min_x, max_x - width] 而非中心 ±半宽——兜住步态收步过冲，防
+            # 会话推窗出屏/app 拉回的边缘抖动
+            loco_bounds = None
+            sb = self._screen_bounds()
+            if sb is not None:
+                lo, hi = sb[0], sb[1] - self.width()
+                if lo <= hi:
+                    loco_bounds = (lo, hi)
+                else:
+                    c = (sb[0] + sb[1]) / 2.0 - self.width() / 2.0
+                    loco_bounds = (c, c)
             lf = self._loco.update(dt, self._loco_vx, float(self.x()),
                                    grounded=bool(self._motion_inputs.grounded),
-                                   dragged=bool(getattr(self, "_dragging", False)))
+                                   dragged=bool(getattr(self, "_dragging", False)),
+                                   bounds=loco_bounds)
             if lf.mode == "front":
                 self._push_frame(self._settle_frame(frame, lf.settle))
             self._apply_loco(lf, frame)

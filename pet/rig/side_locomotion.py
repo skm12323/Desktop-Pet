@@ -133,7 +133,12 @@ class SideLocomotion:
                          events=[f"interrupt:{was.value}"] if was is not LocoState.FRONT else [])
 
     def update(self, dt: float, desired_vx: float, window_x: float,
-               grounded: bool = True, dragged: bool = False) -> LocoFrame:
+               grounded: bool = True, dragged: bool = False,
+               bounds: Optional[tuple] = None) -> LocoFrame:
+        """bounds=(lo, hi)：会话可驱动的窗口 x 可达范围（**top-left x**，
+        与 window_x/_win_x 同坐标；呈现层按"整窗在屏内"喂入，与
+        move_bottom_center 同语义）。兜住步态刹车/收步的残余过冲，防窗口
+        被会话推出屏、又被 app 每 tick 拉回的边缘抖动。"""
         dt = min(max(float(dt), 0.0), 0.25)
         if dragged or not grounded:
             return self.interrupt()
@@ -181,7 +186,7 @@ class SideLocomotion:
         if s is LocoState.SIDE:
             if want and want != self.dir:
                 self._pending_dir = want                   # 反向：先停步，再转回正面
-            return self._side_step(dt, desired_vx, events)
+            return self._side_step(dt, desired_vx, events, bounds)
 
         if s is LocoState.SIDE_SETTLE:
             w = min(1.0, self._t / max(self.settle_s, 1e-6))
@@ -250,7 +255,8 @@ class SideLocomotion:
         self._idle_t = 0.0
         self._side_t = 0.0
 
-    def _side_step(self, dt: float, desired_vx: float, events: list) -> LocoFrame:
+    def _side_step(self, dt: float, desired_vx: float, events: list,
+                   bounds: Optional[tuple] = None) -> LocoFrame:
         solver = self._solver
         assert solver is not None
         same_dir = desired_vx * self.dir > 1.0
@@ -260,6 +266,14 @@ class SideLocomotion:
                             is_grounded=True, is_dragged=False)
         self._last_gait = out
         self._win_x = self.dir * solver.window_x_float
+        if bounds is not None:
+            # 会话不越屏（差值 ≤ 收步过冲 ~几 px，远低于求解器 40px 瞬移
+            # 重锚阈值——脚锚世界坐标不重置，无可见跳变）。bounds 与 _win_x
+            # 同为窗口 top-left x（update 喂 self.x()、_apply_loco 按 move
+            # 落位），不是底边中心
+            lo, hi = bounds
+            if lo <= hi:
+                self._win_x = min(max(self._win_x, lo), hi)
         idle = solver.state in (GaitPhaseState.IDLE_SIDE, GaitPhaseState.IDLE_FRONT)
         self._idle_t = self._idle_t + dt if (idle and v == 0.0) else 0.0
         if (self._pending_dir and idle) or self._idle_t >= self.side_idle_timeout_s:

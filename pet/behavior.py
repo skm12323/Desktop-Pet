@@ -80,6 +80,12 @@ _EAT_MOUSE = "eat_mouse"  # v0.7 吃鼠标态：冻结（不出 WANDER/物理）
 _EAT_APPROACH = "eat_approach"  # v0.7.3：先直线奔向光标，到达才开吃
 _EAT_APPROACH_TIMEOUT_S = 5.0   # 追赶兜底（用户持续移动光标时防无限追）
 _EAT_APPROACH_ARRIVE_PX = 10.0
+# follow 跟手（G7）：到达/再起步滞后带。到达阈值小（贴住光标），再起步
+# 阈值放宽到覆盖步态收步动量（刹车 0.4s 线性 + 收步前移，120–200 px/s
+# 下过冲 ~10 px）——过窄会在光标附近 WALK↔IDLE 高频翻转，方向一反就是
+# 一整套转身片段循环（侧身⇄正面闪）。
+_FOLLOW_ARRIVE_PX = 4.0
+_FOLLOW_REWALK_PX = 16.0
 
 # 物理常量（进 config 可后续提取；v0.3 先合理默认）
 _GRAVITY = 3500.0          # px/s²（v0.3.22：2000 太飘，屏顶落底 1s+ 被感知为吸附）
@@ -111,6 +117,8 @@ class BehaviorFSM:
         # （app.set_pet_height(window.height())）前的初始兜底——app 启动即
         # 覆盖并随进化档更新，改它不改变运行值（config.example 已移除该键）
         self._pet_height = float(cfg.get("pet_height_px", _PET_HEIGHT))
+        # 横向可达半宽（app 喂真实窗口宽；缺省 192 方窗）。_clamp_walk_x 用
+        self._pet_half_w = 96.0
         self._idle_min = float(cfg.get("wander_idle_min_s", 5))
         self._idle_max = float(cfg.get("wander_idle_max_s", 15))
         self._first_idle_s = float(cfg.get("first_idle_s", 3))
@@ -163,6 +171,11 @@ class BehaviorFSM:
         """真实身位高（app 按 sprite 显示尺寸喂入，随阶段进化更新）——
         净空钻行判定用。"""
         self._pet_height = max(16.0, float(h))
+
+    def set_pet_width(self, w: float) -> None:
+        """真实窗口宽（app 按 sprite 显示尺寸喂入，随阶段进化更新）——
+        行走/站立可达范围用：整窗保持在屏内。"""
+        self._pet_half_w = max(8.0, float(w) / 2.0)
 
     # ---- v0.2 数值调制（mac 主笔，保留不动） ----
 
@@ -258,13 +271,31 @@ class BehaviorFSM:
         return self._top_surface(x)[0]
 
     def _clamp_x(self, x: float) -> float:
-        """不穿屏：x 限制在工作区横向范围内。"""
+        """不穿屏：x 限制在工作区横向范围内（拖拽/抛掷/攀爬等瞬态用——
+        空中允许半出屏，落点由 Qt 层兜底）。"""
         return max(self._left() + 1.0, min(self._right() - 1.0, x))
 
+    def _clamp_walk_x(self, x: float) -> float:
+        """行走/站立可达 x：整窗保持在屏内——与 window.move_bottom_center
+        的 Qt 层钳制（[left+w/2, right-w/2]）同语义。G7 边缘修复：旧版
+        walk/idle 只用 _clamp_x（允许底边中心到 right-1），窗口层却把整窗
+        钳在 right-w/2 ——目标不可达时 pos 模型冲过窗口实体，侧身行走
+        sync_x 回读后形成"冲过目标→反向→转身片段→再冲"的边缘死循环。
+        窗口比工作区宽（极端小屏）→ 钉工作区中心（同 Qt 层兜底）。"""
+        lo = self._left() + self._pet_half_w
+        hi = self._right() - self._pet_half_w
+        if lo > hi:
+            return (self._left() + self._right()) / 2.0
+        return max(lo, min(hi, x))
+
     def _snap_to_nearest_edge(self) -> None:
-        """把宠物脚部中心吸附到当前工作区最近的一条边。"""
+        """把宠物脚部中心吸附到当前工作区最近的一条边（横向按可达范围——
+        整窗在屏内，与 move_bottom_center 钳制一致）。"""
         x, y = self._pos
-        left, right = self._left() + 1.0, self._right() - 1.0
+        left = self._left() + self._pet_half_w
+        right = self._right() - self._pet_half_w
+        if left > right:
+            left = right = (self._left() + self._right()) / 2.0
         top, bottom = self._work_area["y"] + self._pet_height, self._bottom()
         candidates = (
             (abs(x - left), (left, y)),
@@ -293,14 +324,18 @@ class BehaviorFSM:
                 if pick <= acc:
                     rect = r
                     break
-            lo = rect["x"] + self._margin
-            hi = max(lo, rect["x"] + rect["width"] - self._margin)
-            x = random.uniform(lo, hi)
+            # 目标按可达范围收边：margin 与半窗宽取大——半窗宽（成年 128）
+            # 大于 margin（40）时旧版会采到窗口层够不着的 x，走到边缘即卡死
+            inset = max(self._margin, self._pet_half_w + 4.0)
+            lo, hi = rect["x"] + inset, rect["x"] + rect["width"] - inset
+            x = (random.uniform(lo, hi) if hi > lo
+                 else rect["x"] + rect["width"] / 2.0)
         else:
             wa = self._work_area
-            x = random.uniform(
-                wa["x"] + self._margin, wa["x"] + wa["width"] - self._margin
-            )
+            inset = max(self._margin, self._pet_half_w + 4.0)
+            lo, hi = wa["x"] + inset, wa["x"] + wa["width"] - inset
+            x = (random.uniform(lo, hi) if hi > lo
+                 else wa["x"] + wa["width"] / 2.0)
         return (x, self._surface_y(x))
 
     def _new_idle(self) -> float:
@@ -564,7 +599,10 @@ class BehaviorFSM:
         # 危险方向（顶），此处再钳工作区底会与 app 的直挪窗位每 tick 拔河
         # （拖过上下停靠任务栏时 20Hz 抖动、落点强制弹回）
         x, y = self._pos
-        cx = self._clamp_x(x)
+        # G7 边缘修复：IDLE/WALK 的 pos 用可达范围钳制（与 move_bottom_center
+        # 一致）；拖拽/空中仍用宽松 _clamp_x（瞬态半出屏，Qt 层兜底）
+        cx = (self._clamp_walk_x(x) if self._mode in (_IDLE, _WALK)
+              else self._clamp_x(x))
         if self._mode == _DRAG:
             if (cx, y) != (x, y):
                 self._pos = (cx, y)
@@ -645,6 +683,12 @@ class BehaviorFSM:
             return self._step_air(dt)
 
         if self._mode == _WALK:
+            # G7 跟手：follow 的目标逐拍刷新——光标在动，目标不能冻结在
+            # 起步瞬间（旧版只在 IDLE 分支取光标，WALK 期间追旧点、到点再
+            # 重新起步 = 离散步进式的"不实时跟随"）
+            if self._follow and not self._suppressed and sensors.mouse_pos:
+                tx = self._clamp_walk_x(sensors.mouse_pos[0])
+                self._target = (tx, self._surface_y(tx))
             return self._step_walk(dt)
 
         # IDLE
@@ -658,11 +702,13 @@ class BehaviorFSM:
                 {"name": random.choice(_ANIM_NAMES)},
             )
         self._idle_left -= dt
-        # follow 模式：光标即目标（全屏抑制时不追）
+        # follow 模式：光标即目标（全屏抑制时不追）。再起步阈值带滞后
+        # （> _FOLLOW_REWALK_PX 才走）——收步动量过冲后 pos 在光标 ±10px
+        # 内抖动不该反复起停
         if self._follow and not self._suppressed and sensors.mouse_pos:
-            tx = self._clamp_x(sensors.mouse_pos[0])
+            tx = self._clamp_walk_x(sensors.mouse_pos[0])
             ty = self._surface_y(tx)
-            if abs(tx - self._pos[0]) > 4:
+            if abs(tx - self._pos[0]) > _FOLLOW_REWALK_PX:
                 self._target = (tx, ty)
                 self._mode = _WALK
                 # 转 WALK 当帧返回 MOVE_TO（非 ANIMATE），避免一帧"动画但不移动"
@@ -689,10 +735,10 @@ class BehaviorFSM:
         if self.hold_x:
             # 侧身行走会话：x 已由 sync_x 回读（转身片段期间不动、行走期间随步态），
             # 这里不积分，只判定到达 / 走出边缘 / 攀爬
-            nx = self._clamp_x(x)
+            nx = self._clamp_walk_x(x)
         else:
             nx = x + (stride if tx > x else -stride)
-            nx = self._clamp_x(nx)
+            nx = self._clamp_walk_x(nx)
         # 批次F/H3（REVIEW-2026-08-28）：行走速度回写 _vx——app 的步频
         # （0.9+|vx|/400）与倾斜（vx/140）映射此前是死代码：_step_walk 从
         # 不写 _vx，velocity 恒 (0,0)，follow 600px/s 仍 0.9Hz 慢踏滑步。
@@ -728,7 +774,11 @@ class BehaviorFSM:
             self._pos = (nx, cur_y)
             return Action(ActionType.FALL, {"pos": self._pos})
 
-        if abs(tx - nx) <= stride or (tx > x) != (tx > nx):
+        # 到达判定：follow 用小固定阈值（贴住光标即可；旧版用 stride=600*0.05
+        # =30px，提前 30px 收步 + 收步动量过冲 = 在光标两侧来回折返）；
+        # WANDER 保留 stride（步进到达，过冲由下一轮 idle 消化）
+        arrive_px = _FOLLOW_ARRIVE_PX if self._follow else stride
+        if abs(tx - nx) <= arrive_px or (tx > x) != (tx > nx):
             # 到达目标（侧身行走会话：位置保持窗口实际 x——步态仍在收步，吸附到目标点
             # 会让 app 把窗口往回拽一拍）
             self._pos = ((nx if self.hold_x else tx), ns)

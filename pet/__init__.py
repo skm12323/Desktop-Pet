@@ -10,4 +10,8 @@
 # v0.16.10：合入 origin 的 rig 渲染循环三档自适应降频（16/33/66ms，与 side 编排合流）+
 # 长运行 GC 治理（gc.freeze + 阈值放宽）——idle 稳态 CPU −19%～−35%，内存持平
 # （原 origin 侧编号 v0.16.7，与本地 0.16.7 撞号，合并时顺延）。
-__version__ = "0.16.10"
+# v0.16.11：边缘卡住/侧身⇄正面闪 + follow 不实时修复（G7）——FSM 可达钳制
+# _clamp_walk_x 与整窗在屏内的 Qt 层钳制统一（目标采样/贴边/IDLE/WALK），
+# follow 目标 WALK 期间逐拍刷新 + 到达 4px/再起步 16px 滞后，app 意图按误差
+# 比例给速（增益 1.2/s）+ 死区，SideLocomotion 会话 bounds 兜收步过冲。
+__version__ = "0.16.11"
