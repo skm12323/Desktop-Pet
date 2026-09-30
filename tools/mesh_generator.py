@@ -193,11 +193,15 @@ def generate_layer_mesh(
     gy = sorted(set([max(0, y0 - 2), min(th, y1 + 2)] + list(range(y0, y1, max(2, int(step / scale_y))))))
     # Add exact eye-opening boundaries so full closure cannot leave white slivers.
     for zone in layer_spec.get("blink_zones", []):
+        for value in [zone[0] - zone[3], zone[0], zone[0] + zone[3]]:
+            tx = (value - off_x) / scale_x
+            if min(gx) < tx < max(gx):
+                gx.append(tx)
         for value in [zone[1] - 35, zone[1], zone[2], zone[2] + 35]:
             ty = (value - off_y) / scale_y
-            if gy[0] < ty < gy[-1]:
+            if min(gy) < ty < max(gy):
                 gy.append(ty)
-    gy = sorted(set(gy))
+    gx, gy = sorted(set(gx)), sorted(set(gy))
     points, lookup, triangles = [], {}, []
     # per_component: grid cells shared by two separate pieces (gap < one cell) used to weld them
     # through common vertices (measured: 92 bridging triangles on the ADULT side rig). Each piece
