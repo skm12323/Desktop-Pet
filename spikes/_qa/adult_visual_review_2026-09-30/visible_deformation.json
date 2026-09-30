@@ -1,0 +1,45 @@
+{
+  "scope": "Current presenter poses, 120 px/s, 256 window. Only triangles with alpha >=127 at centroid and three interior samples in undeformed texture. Whole-session gait and secondary motion; no stress poses. Root and whole-leg translations omitted because they do not change deformation gradients. Tail centroid-only transparent folds excluded.",
+  "layers": {
+    "tail": {
+      "triangles": 276,
+      "sigma_max": 1.759955398440825,
+      "sigma_min": 0.23380405833920295,
+      "fold_sample_frames": 0,
+      "max_time": 4.516666666666667,
+      "min_time": 21.016666666666666
+    },
+    "hair_back": {
+      "triangles": 341,
+      "sigma_max": 1.4028685254357791,
+      "sigma_min": 0.5979195536127344,
+      "fold_sample_frames": 0,
+      "max_time": 20.35,
+      "min_time": 13.35
+    },
+    "leg_r": {
+      "triangles": 632,
+      "sigma_max": 1.8893413196543132,
+      "sigma_min": 0.17124490512051352,
+      "fold_sample_frames": 0,
+      "max_time": 28.216666666666665,
+      "min_time": 28.216666666666665
+    },
+    "leg_l": {
+      "triangles": 673,
+      "sigma_max": 1.333531780394507,
+      "sigma_min": 0.0911552244274618,
+      "fold_sample_frames": 0,
+      "max_time": 3.5166666666666666,
+      "min_time": 9.35
+    },
+    "skirt": {
+      "triangles": 884,
+      "sigma_max": 1.9598554951545235,
+      "sigma_min": 0.6952400196324556,
+      "fold_sample_frames": 0,
+      "max_time": 30.083333333333332,
+      "min_time": 31.416666666666668
+    }
+  }
+}

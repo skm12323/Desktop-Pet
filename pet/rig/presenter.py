@@ -166,6 +166,7 @@ class RigWindow(WindowBase):
         self._side_item = None
         self._loco_last = None             # 最近一帧 LocoFrame（测试/门禁观察）
         self._loco_pending = ""            # defer_quick 期间收到的启用请求
+        self._loco_carrying = False        # side session uses one rig; _sprite stays the logical mood
         self._setup_gait_solver()
         if spec is not None:
             if defer_quick:
@@ -354,6 +355,7 @@ class RigWindow(WindowBase):
         if self._root is not None:
             self._root.setProperty("locoMode", 0)
             self._root.setProperty("sideMeshEnabled", False)
+        self._release_loco_figure()
         self._loco = None
         self._side_item = None
         self._loco_vx = 0.0
@@ -365,12 +367,44 @@ class RigWindow(WindowBase):
     def set_locomotion_intent(self, desired_vx: float) -> None:
         """行为层行走意图（逻辑 px/s，带方向；0 = 停）。会话内窗口 x 由编排驱动。"""
         self._loco_vx = float(desired_vx or 0.0)
+        if self._loco is not None and abs(self._loco_vx) > 1.0:
+            self._take_loco_figure()
+
+    def _take_loco_figure(self) -> None:
+        """Keep mood sprites out of the rig/clip session, including brake and turn-back.
+
+        The ADULT bundle currently has one skinned character. Mood poses use this
+        carrier during locomotion; the logical sprite remains the restoration target.
+        Neglected uses the same geometry with its muted palette across all three modes.
+        """
+        if not self.rig_active or self._spec is None or self._spec.stage != "adult":
+            return
+        if self._walk_showing:
+            self._walk_showing = False
+            self._sprite = getattr(self, "_static_sprite", self._sprite)
+        key = self._display_figure_key(self._sprite.path)
+        carrier = self._spec.figures.get("healthy_neutral", "")
+        if not key.startswith(("healthy_", "neglected_")) or not os.path.isfile(carrier):
+            return
+        self._loco_carrying = True
+        self._root.setProperty("locoNeglected", key.startswith("neglected_"))
+        if self._root.property("activeFigure") != "healthy_neutral":
+            self._show_now(carrier)
+
+    def _release_loco_figure(self) -> None:
+        if not getattr(self, "_loco_carrying", False):
+            return
+        self._loco_carrying = False
+        if self._root is not None:
+            self._root.setProperty("locoNeglected", False)
+        if self.rig_active and os.path.isfile(self._sprite.path) and not self._frames:
+            self._show_now(self._sprite.path)
 
     def locomotion_controls_x(self) -> bool:
         return self._loco is not None and self._loco.active
 
     def locomotion_interrupt(self) -> None:
-        if self._loco is not None and self._loco.active:
+        if self._loco is not None and (self._loco.active or self._loco_carrying):
             self._apply_loco(self._loco.interrupt(), None)
 
     def _apply_loco(self, lf, frame) -> None:
@@ -432,6 +466,8 @@ class RigWindow(WindowBase):
             nx = int(round(lf.window_x))
             if nx != self.x():
                 self.move(nx, self.y())
+        if lf.mode == "front" and not lf.controls_x:
+            self._release_loco_figure()
 
     @staticmethod
     def _pose_rest(item, rest: dict) -> None:
@@ -587,8 +623,17 @@ class RigWindow(WindowBase):
             if not self._quick.isVisible():
                 self._label.hide()
                 self._quick.setVisible(True)
-            self._show_now(sprite.path)
+            if getattr(self, "_loco_carrying", False):
+                key = self._display_figure_key(sprite.path)
+                if key.startswith(("healthy_", "neglected_")):
+                    self._take_loco_figure()
+                else:
+                    self.locomotion_interrupt()
+                    self._show_now(sprite.path)
+            else:
+                self._show_now(sprite.path)
         elif self.rig_active and not is_file:
+            self.locomotion_interrupt()
             # emoji 降级：场景让位避免双层叠加，label 接管
             self._quick.setVisible(False)
             self._label.show()
@@ -616,6 +661,8 @@ class RigWindow(WindowBase):
         经典 2/4 帧小跑的正确播法是快速硬切。表情类变化连续、淡化才丝滑。
         判定按首帧行为文件名前缀，零配置数据。
         """
+        if frames and getattr(self, "_loco_carrying", False):
+            self.locomotion_interrupt()
         if not frames or not self.rig_active \
                 or not os.path.isfile(frames[0].path):
             # L2（REVIEW-2026-09-04）：非文件帧（emoji 文本，rig+emoji 组合
@@ -940,6 +987,8 @@ class RigWindow(WindowBase):
                 self.set_sprite(getattr(self, "_static_sprite", self._sprite))
 
     def _walk_edge(self, walking: bool) -> None:
+        if self._loco is not None:
+            return                   # full side session owns its carrier, including stop/turn-back
         if not self.rig_active or self._walk_sprite is None:
             return
         if walking and not self._walk_showing:

@@ -12,6 +12,7 @@
 //   · 部件清单 partsModel 由 Python 注入（dict 附 _url 绝对 file:// 地址）；
 //     每部件角度由 partAngles 映射（part_id → 度）提供，Python 每帧推入。
 import QtQuick
+import QtQuick.Effects
 import PetRig 1.0
 
 Item {
@@ -35,6 +36,7 @@ Item {
     // 片段/侧身显示期间不会竖直跳变（计划 §3 G6 注明的坑）。
     property int locoMode: 0
     property bool sideMeshEnabled: false
+    property bool locoNeglected: false
     property string sideSpecFile: ""
     property string sideMeshDataFile: ""
     property string sideLayersDir: ""
@@ -130,6 +132,14 @@ Item {
     Item {
         id: mirrorNode
         anchors.fill: parent
+        // One palette for front rig, turn clip and side rig during a neglected session.
+        // The offscreen layer is allocated only for this branch, not normal idle/walk.
+        layer.enabled: root.locoNeglected
+        layer.effect: MultiEffect {
+            saturation: -0.65
+            brightness: -0.025
+            autoPaddingEnabled: false
+        }
         transform: [
             Rotation {   // 速度倾斜 + 步态滚转（脚底原点）
                 origin.x: root.width / 2; origin.y: root.height
