@@ -6,13 +6,13 @@
     "tail": {
       "z": 0,
       "own_px": 55241,
-      "total_px": 77654,
+      "total_px": 78582,
       "completion": true
     },
     "hair_back": {
       "z": 5,
       "own_px": 113072,
-      "total_px": 164354,
+      "total_px": 161650,
       "completion": true
     },
     "ear_fin_r": {
@@ -24,31 +24,31 @@
     "arm_r": {
       "z": 10,
       "own_px": 8636,
-      "total_px": 21859,
+      "total_px": 23162,
       "completion": true
     },
     "leg_r": {
       "z": 15,
       "own_px": 34752,
-      "total_px": 69518,
+      "total_px": 70850,
       "completion": true
     },
     "leg_l": {
       "z": 18,
       "own_px": 40254,
-      "total_px": 73431,
+      "total_px": 73875,
       "completion": true
     },
     "skirt": {
       "z": 20,
-      "own_px": 116116,
-      "total_px": 185466,
+      "own_px": 116005,
+      "total_px": 186452,
       "completion": true
     },
     "torso": {
       "z": 25,
       "own_px": 36404,
-      "total_px": 70691,
+      "total_px": 78729,
       "completion": true
     },
     "apron": {
@@ -65,8 +65,8 @@
     },
     "arm_l": {
       "z": 40,
-      "own_px": 33987,
-      "total_px": 34512,
+      "own_px": 34098,
+      "total_px": 34623,
       "completion": false
     },
     "shoulder_frill_l": {
@@ -90,7 +90,7 @@
     "ahoge": {
       "z": 60,
       "own_px": 3212,
-      "total_px": 3239,
+      "total_px": 3304,
       "completion": false
     },
     "headdress": {
@@ -100,7 +100,9 @@
       "completion": false
     }
   },
-  "composite_max_err_255": 0.0,
-  "composite_mean_err_255": 0.0,
-  "unassigned_filled_px": 58351
+  "composite_max_err_255": 14.23529052734375,
+  "composite_mean_err_255": 0.012537066824734211,
+  "unassigned_filled_px": 58351,
+  "near_cuff_reassigned_px": 111,
+  "completion_alpha_min": 240
 }

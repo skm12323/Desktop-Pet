@@ -654,8 +654,52 @@
     "endpoint_alpha_flicker_max": 0.0,
     "endpoint_alpha_flicker_pass": true,
     "residual_green_p99_255": -0.247802734375,
-    "disk_bytes": 1405389,
+    "disk_bytes": 1403364,
     "decoded_bytes": 3918392,
     "size_pass": true
+  },
+  "postprocess": {
+    "tool": "tools/polish_turn_frames.py",
+    "version": 1,
+    "alpha_unchanged": true,
+    "protected_endpoint_files": [
+      "frames/000.png",
+      "frames/004.png",
+      "frames/005.png",
+      "frames/006.png",
+      "frames/007.png",
+      "frames/008.png",
+      "frames/009.png",
+      "frames/027.png",
+      "frames/028.png",
+      "frames/029.png",
+      "frames/030.png",
+      "frames/031.png",
+      "frames/032.png",
+      "frames/033.png"
+    ],
+    "changed_file_sha256": {
+      "frames/010.png": "3fd5e01b83a7d806c24fa0705fd5fe974a294355e40d23d0d8d6814e79cab4c3",
+      "frames/011.png": "dbf3fd81d73ce0ffa0ac1bd74d8e1e6345c54d11a7da356f835d69e631c196a2",
+      "frames/012.png": "dd1634a6a644920307e30d6013f80663d3f368c1120444b2fe41fe78932ecb16",
+      "frames/013.png": "0c7f5ff78cc0d9207b83c5ff7073c60d8a0f5ae9a6c50befe060863abbb38481",
+      "frames/014.png": "f36961b36c915b7c99d4b074969bc06ebce57e46b94c882d5bba3da21f44ea00",
+      "frames/015.png": "328692ebc8bf8eaf2ea2c47f5141594e96c80e443b3ea2fb8254e1fcf19233a7",
+      "frames/016.png": "91769cfcbafedf63fd9d4a10d9a4e94de6bf2fb20d5f7959b8573dc171ee26dd",
+      "frames/017.png": "262f9bbb1f96cc0fedf503d1f7423ad3a94ed0607ad87bc9276c5f5c0818d012",
+      "frames/018.png": "7a2c4ebe4b7a5bc47c0c53aeeb4643886d640e69118a2ed417c94d9c76867dcb",
+      "frames/019.png": "55a02e0215d444d4af1d19ff99c42b870763129a82dddceb79ccc32cd2332cfd",
+      "frames/020.png": "7835b07c3528d567981c29b209f67060967e4bb0861f2731aedc900a5102ed8c",
+      "frames/021.png": "52eae008de99d0c40834045a455388a4502928c7020dd0540437217e1dfabfd1",
+      "frames/022.png": "edd275ec922ca96dbac151e22e9d2e19f20345bb03186b67a3a4aacee20264dc",
+      "frames/023.png": "e5a071bf72df884ab0b19ea376ce958b9daf034240e5ff92911217622728fb14",
+      "frames/024.png": "998206c7571fea7dfa9e6f27b4911a085e4dee4fd397bb0d3c97de8e366434e2",
+      "frames/025.png": "2ed7a52bd5f7d61aad74c9dacc962b4c3df92f8e4d59dc39616329383f04af23",
+      "frames/026.png": "c697adae3f34c543a1ef90de0635f13bcd8a764984320150eb9b59a5fdb31067"
+    },
+    "cyan_edge_before_px": 3856,
+    "cyan_edge_after_px": 351,
+    "repaired_px": 3510,
+    "sharpened_px": 530
   }
 }

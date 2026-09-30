@@ -1,0 +1,166 @@
+{
+ "tag": "round2_initial",
+ "layers": {
+  "tail": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "hair_back": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 1
+  },
+  "ear_fin_r": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "hair_side_r": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "arm_r_hand": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "arm_r_fore": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "arm_r_upper": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 2
+  },
+  "leg_r": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.874,
+   "sigma_min": 0.371,
+   "welds": 0
+  },
+  "leg_l": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.546,
+   "sigma_min": 0.221,
+   "welds": 0
+  },
+  "skirt": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.403,
+   "sigma_min": 0.83,
+   "welds": 0
+  },
+  "torso": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 2
+  },
+  "apron": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "arm_l_hand": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "arm_l_fore": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "arm_l_upper": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "shoulder_frill_l": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "head_base": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "eyelid_l": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "eyelid_r": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "ear_fin_l": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "ahoge": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  },
+  "headdress": {
+   "folds_gait": 0,
+   "folds_stress": {},
+   "sigma_max": 1.0,
+   "sigma_min": 1.0,
+   "welds": 0
+  }
+ },
+ "summary": {
+  "folds_gait_frames": 0,
+  "folds_stress": 0,
+  "sigma_max": 1.874,
+  "sigma_min": 0.221,
+  "welds": 5
+ }
+}

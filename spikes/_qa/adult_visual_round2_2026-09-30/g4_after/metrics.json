@@ -1,0 +1,44 @@
+{
+  "rest_recovery": {
+    "canvas_mean_255": 1.2951792478561401,
+    "canvas_p99_255": 31.4493465423584,
+    "disp256_mean_255": 1.1266417503356934,
+    "disp256_p99_255": 19.999561309814453,
+    "holes_frac": 0.0003762752844883308,
+    "spill_frac": 0.0003986282716856574,
+    "pass": true
+  },
+  "extreme_poses": {
+    "near_leg_fwd": {
+      "new_hole_max_disp_px2": 36.545389818440725,
+      "new_hole_total_disp_px2": 55.59273762904948,
+      "flipped_triangles": {},
+      "pass": false
+    },
+    "near_leg_back": {
+      "new_hole_max_disp_px2": 3.8732645069419718,
+      "new_hole_total_disp_px2": 6.744037023851904,
+      "flipped_triangles": {},
+      "pass": true
+    },
+    "passing": {
+      "new_hole_max_disp_px2": 38.52758988964044,
+      "new_hole_total_disp_px2": 65.52652189391242,
+      "flipped_triangles": {},
+      "pass": false
+    }
+  },
+  "weights": {
+    "row_sum_max_err": 1.000000000139778e-06,
+    "shoe_min_foot_w": {
+      "leg_r": 1.0,
+      "leg_l": 1.0
+    },
+    "skirt_max_leg_w": 0.0,
+    "pass": true
+  },
+  "z_order": {
+    "near_leg_over_far": true,
+    "near_arm_over_far": true
+  }
+}

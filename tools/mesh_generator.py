@@ -337,6 +337,23 @@ def generate_layer_mesh(
             weight_bones[index] = list(weights)
             weight_values[index] = [round(v, 6) for v in weights.values()]
 
+    # A forked fin is one rigid shape, even when its two lobes are far away
+    # from the skeleton's centreline. Blend into the narrow peduncle below it.
+    for ra in layer_spec.get("rigid_above", []):
+        t = np.clip((ra["y"] + ra.get("blend", 20) - pts_arr[:, 1]) /
+                    max(ra.get("blend", 20), 1e-6), 0, 1)
+        t = t * t * (3 - 2 * t)
+        if "x_max" in ra:
+            t[pts_arr[:, 0] > ra["x_max"]] = 0
+        for index, blend in enumerate(t):
+            if blend <= 0:
+                continue
+            weights = {b: w * (1-blend) for b, w in zip(weight_bones[index], weight_values[index])}
+            weights[ra["bone"]] = weights.get(ra["bone"], 0) + blend
+            weights = {b: w for b, w in weights.items() if w > 1e-6}
+            weight_bones[index] = list(weights)
+            weight_values[index] = [round(v, 6) for v in weights.values()]
+
     blink_delta = np.zeros_like(pts_arr)
     for cx, top, bottom, radius in layer_spec.get("blink_zones", []):
         x, y = pts_arr[:, 0], pts_arr[:, 1]

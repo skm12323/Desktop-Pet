@@ -37,6 +37,7 @@ from scipy import ndimage
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "spikes"))
 from qa_turn_clip import decode, key_frame  # noqa: E402
+from polish_turn_frames import polish_rgba  # noqa: E402
 
 CANVAS = (960, 1696)
 GROUND_Y = 1608.0
@@ -274,7 +275,11 @@ def main() -> None:
     seen: dict = {}                               # identical frames (holds) -> one file
     for j, pm in enumerate(out_frames):
         x0, y0, x1, y1 = crop_bbox(pm)
-        img = Image.fromarray(np.clip(unpremul(pm[y0:y1, x0:x1]) + 0.5, 0, 255).astype(np.uint8), "RGBA")
+        rgba = np.clip(unpremul(pm[y0:y1, x0:x1]) + 0.5, 0, 255).astype(np.uint8)
+        keep = a.hold_frames + a.morph_frames + 1
+        if keep <= j < len(out_frames) - keep:
+            rgba, _ = polish_rgba(rgba, a.height)
+        img = Image.fromarray(rgba, "RGBA")
         digest = hashlib.sha256(img.tobytes() + bytes([x0 % 256, y0 % 256])).hexdigest()
         if digest in seen:
             name = seen[digest]
@@ -311,6 +316,8 @@ def main() -> None:
         "canvas_size": list(CANVAS), "ground_y_canvas": GROUND_Y,
         "colour_transform": {"gains": gains.tolist(), "offsets": offs.tolist()},
         "morph_frames": k, "hold_frames": a.hold_frames,
+        "postprocess": {"tool": "tools/polish_turn_frames.py", "version": 1,
+                        "alpha_unchanged": True},
         "root_motion_canvas_px": [[0.0, 0.0]] * n_out,
         "frames": recs,
         "qa": {"endpoint_before_morph": endpoint_before, "endpoint_after_morph": endpoint_after,

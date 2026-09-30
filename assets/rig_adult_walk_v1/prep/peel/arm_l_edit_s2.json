@@ -1,0 +1,26 @@
+{
+  "tool": "image_gen (built-in)",
+  "date": "2026-09-30",
+  "input": "prep/peel/arm_l_crop.png",
+  "crop_canvas": [
+    160,
+    400,
+    480,
+    976
+  ],
+  "output_size": [
+    934,
+    1684
+  ],
+  "output_sha256": "93f0c65a7b046c8661c197344c0e12e792781c374321ae39b6a3e603e86a26db",
+  "transparent_background": false,
+  "usage": "Only occluded pixels are imported by side_completions and build_side_layers; visible original art remains unchanged.",
+  "prompt": "Use case: precise-object-edit. Asset type: an occlusion-completion reference patch for a layered anime desktop-pet rig. Edit target: input image 1, a registered crop from a blue-haired whale-themed maid character. Primary request: remove ONLY the character's entire near-side arm from this crop, including the dark navy puffed upper sleeve, lower sleeve, embroidered cuff, white cuff frill and hand. In the area that arm occluded, paint the complete underlying blue hair, torso/dress side, and large white waist bow with smooth, continuous contours and coherent fold shading. Preserve the attached white shoulder ruffle that belongs to the torso; it can border the vacant shoulder. No new arm, hand, limb, or sleeve. Reconstruct a natural dark navy bodice connection from shoulder to waist behind the removed sleeve. The hair should flow coherently behind the former upper arm. The waist bow must be one complete white fabric object with no ragged cut-outs or paper-colored holes. Keep the right-side white apron edge and its ruffles, navy skirt, gold embroidery, existing blue hair strands outside the removed arm, background, camera angle and lighting unchanged. Match the original crisp 2D anime line art, fine dark outlines, blue gradients and restrained cel shading exactly. Keep the input crop's composition, coordinate placement and tall aspect ratio (320:576); no camera zoom, repositioning, padding, new objects, text or labels. Use a clean white background exactly as in the input; the character's white cloth remains distinct through its gray shading and dark outlines. This is a local inpainting repair used to supply hidden pixels only: all content outside the original arm silhouette should remain visually identical.",
+  "integration": {
+    "upper_source": "arm_l_edit_s2.png",
+    "lower_source": "arm_l_edit_s1.png",
+    "lower_from_canvas_y": 620,
+    "blend_px": 16,
+    "reason": "Retain compact existing waist-bow design; import upper-arm occlusion completion only."
+  }
+}

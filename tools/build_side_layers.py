@@ -1,7 +1,8 @@
 """G4: partition the approved side key art into pixel-exact rig layers.
 
-Every opaque pixel of the key art belongs to exactly one layer, so the rest-pose composite
-reproduces the art. Layers are then extended a few px underneath the layers drawn above them
+Every key-art pixel belongs to exactly one layer. Near-opaque occluders (including internal
+alpha 252-254 left by matting) admit hidden completion pixels; the small rest-composite delta
+is measured below. Layers are then extended underneath the layers drawn above them
 ("underlap") so bilinear/mipmap filtering and small motions never open seams; larger hidden
 regions (thighs under the skirt, torso under the arm, ...) come from later completion passes
 stored in <out>/completions/<layer>.png (RGBA, canvas-registered, only used where hidden).
@@ -59,12 +60,35 @@ def split_hair(hair: np.ndarray, far_side: dict) -> tuple[np.ndarray, np.ndarray
     return hair & ~side, side
 
 
+def repair_near_cuff_labels(key: np.ndarray, label: np.ndarray, ids: list[str]) -> int:
+    """The approved 960x1696 art has a lace fragment SAM attached to the skirt.
+
+    Keep these source pixels with the near arm: otherwise the frill stays on the
+    dress while the wrist moves away. Limit to the registered cuff and adjacent
+    arm pixels, so white skirt hems and waist-bow pixels remain in their layers.
+    """
+    if key.shape[:2] != (1696, 960):
+        return 0
+    yy, xx = np.mgrid[:key.shape[0], :key.shape[1]]
+    rgb = key[..., :3].astype(np.int16)
+    lace = (rgb.min(-1) > 185) & (np.ptp(rgb, axis=-1) < 50)
+    roi = (xx >= 250) & (xx <= 335) & (yy >= 815) & (yy <= 875)
+    arm = ids.index("arm_l")
+    skirt = ids.index("skirt")
+    near = ndimage.binary_dilation(label == arm, iterations=6)
+    misplaced = (label == skirt) & lace & roi & near
+    label[misplaced] = arm
+    return int(misplaced.sum())
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--key", default="assets/rig_adult_walk_v1/references/side_key.png")
     ap.add_argument("--masks", default="assets/rig_adult_walk_v1/prep", help="dir with mask_sources.json")
     ap.add_argument("--out", default="assets/rig_adult_walk_v1")
     ap.add_argument("--underlap", type=int, default=6, help="px each layer extends under higher layers")
+    ap.add_argument("--completion-alpha-min", type=int, default=240,
+                    help="near-opaque key pixels count as occluders (matting often yields alpha 252-254 inside sleeves)")
     ap.add_argument("--hair-side-x", type=int, default=556)
     ap.add_argument("--hair-side-y", type=int, default=400)
     ap.add_argument("--labels-only", action="store_true", help="write the partition label map and stop")
@@ -72,6 +96,7 @@ def main() -> None:
 
     key = np.asarray(Image.open(a.key).convert("RGBA"))
     alpha = key[..., 3]
+    occluder_alpha = alpha >= max(128, min(255, a.completion_alpha_min))
     opaque = alpha > 0
     H, W = alpha.shape
     md = Path(a.masks)
@@ -118,12 +143,13 @@ def main() -> None:
                 if ring.any():
                     label[m] = np.bincount(label[ring]).argmax()
 
+    cuff_fixed = repair_near_cuff_labels(key, label, ids)
     (Path(a.out) / "prep").mkdir(parents=True, exist_ok=True)
     Image.fromarray((label + 1).astype(np.uint8), "L").save(Path(a.out) / "prep" / "partition_labels.png")
     (Path(a.out) / "prep" / "partition_ids.json").write_bytes(
         json.dumps({"0": "transparent", **{str(i + 1): l for i, l in enumerate(ids)}}, indent=1).encode("utf-8"))
     if a.labels_only:
-        print("[OK] labels written")
+        print(f"[OK] labels written; cuff reassigned: {cuff_fixed} px")
         return
 
     comp_dir = Path(a.out) / "completions"
@@ -142,7 +168,7 @@ def main() -> None:
         cp = comp_dir / f"{lid}.png"
         if cp.exists():
             c = np.asarray(Image.open(cp).convert("RGBA"))
-            use = (c[..., 3] > 0) & ~own & above & (alpha == 255)
+            use = (c[..., 3] > 0) & ~own & above & occluder_alpha
             rgba[use] = c[use]
             # 补全像素里与主体不相连的小碎片（< 30 px，如拷贝后跟的描边残点）会随肢体飞出——丢掉
             cc, n = ndimage.label(rgba[..., 3] > 0, structure=np.ones((3, 3)))
@@ -154,7 +180,7 @@ def main() -> None:
         # underlap: nearest own colour, full alpha of the covering pixel, only under higher layers
         cur = rgba[..., 3] > 0
         if a.underlap > 0 and cur.any():
-            grow = ndimage.binary_dilation(cur, iterations=a.underlap) & ~cur & above & (alpha == 255) & ~peeled
+            grow = ndimage.binary_dilation(cur, iterations=a.underlap) & ~cur & above & occluder_alpha & ~peeled
             _, (iy, ix) = ndimage.distance_transform_edt(~cur, return_indices=True)
             rgba[grow, :3] = rgba[iy[grow], ix[grow], :3]
             rgba[grow, 3] = 255
@@ -177,6 +203,8 @@ def main() -> None:
            "underlap_px": a.underlap, "layers": stats,
            "composite_max_err_255": float(err.max()), "composite_mean_err_255": float(err[opaque].mean()),
            "unassigned_filled_px": int(unassigned.sum())}
+    rep["near_cuff_reassigned_px"] = cuff_fixed
+    rep["completion_alpha_min"] = max(128, min(255, a.completion_alpha_min))
     (Path(a.out) / "prep").mkdir(parents=True, exist_ok=True)
     (Path(a.out) / "prep" / "partition.json").write_bytes(json.dumps(rep, indent=2).encode("utf-8"))
 

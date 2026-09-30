@@ -654,8 +654,52 @@
     "endpoint_alpha_flicker_max": 0.0,
     "endpoint_alpha_flicker_pass": true,
     "residual_green_p99_255": -0.2589073181152344,
-    "disk_bytes": 4445996,
+    "disk_bytes": 4436394,
     "decoded_bytes": 14836108,
     "size_pass": false
+  },
+  "postprocess": {
+    "tool": "tools/polish_turn_frames.py",
+    "version": 1,
+    "alpha_unchanged": true,
+    "protected_endpoint_files": [
+      "frames/000.png",
+      "frames/004.png",
+      "frames/005.png",
+      "frames/006.png",
+      "frames/007.png",
+      "frames/008.png",
+      "frames/009.png",
+      "frames/027.png",
+      "frames/028.png",
+      "frames/029.png",
+      "frames/030.png",
+      "frames/031.png",
+      "frames/032.png",
+      "frames/033.png"
+    ],
+    "changed_file_sha256": {
+      "frames/010.png": "9509ece51adb8e500a31c54e1283bed3161e633ed3ff2842500680b69e76cf19",
+      "frames/011.png": "14226ea4272b834fc3a2137c7fafef4c374936fac0027ad6ddc7a90c7db4f6ef",
+      "frames/012.png": "874915130e83a85d6b02975cd24985fd796df37b290ee47422a0c274cef59d60",
+      "frames/013.png": "60bfae6ebfdb303b62a4417c2b81d37d7243993d5199ab8ad5bdb118240de833",
+      "frames/014.png": "7a88776a4e587c0c79f1baf4a809b848143c5d1b077d19ee0caf90100f55c2ff",
+      "frames/015.png": "906cb2b349703ae105b3fa2fa97925c27ae5868d00afa8a450e4f940d610e6a0",
+      "frames/016.png": "3384722f606d102b2febef9f08179f5bb25b9d7667bf85e5ac0dc63ed11c5060",
+      "frames/017.png": "932528e9f4c8033740504ec68f1238cb226d6188e884d4f1289b3cb3f7b27917",
+      "frames/018.png": "5002da4f3fe819df4494cd0c12c71e37a815fee2e5ad3e45a690e2e0f7582398",
+      "frames/019.png": "ac6c5321ed8c6f95a82669b7f4ff43c4300952bf272b46dc2704825d7952b84e",
+      "frames/020.png": "e043c039291dcd824e5f69159f2b60cb9a129aac2962e5e9ee132ea759925e98",
+      "frames/021.png": "391c9e7f015c81b56342001d24cb550e7c370cd6a19d608b6c42cc2beb5d4e29",
+      "frames/022.png": "ba595ab1443a54b1b8abf32bc313a5851326acca6cbf4f49692fdd8b0ba09357",
+      "frames/023.png": "4f5ec5e1bb2587785f13c55e03551c08230345b5215595293c577b44f438db08",
+      "frames/024.png": "37fe2c77da5e2924a8f27d49acc06f83d9d9c648ff7e2d27ff3ee89f95040899",
+      "frames/025.png": "a2d3f2cab36e8318bf127c1bacc6e402a2b0af01fb2b9dae0532785a945d4ec1",
+      "frames/026.png": "8bfbb461157a7996a38226fe2feba1f8ada52bf7d06cecb63a6233a19a4f6a1a"
+    },
+    "cyan_edge_before_px": 13910,
+    "cyan_edge_after_px": 1242,
+    "repaired_px": 12707,
+    "sharpened_px": 371412
   }
 }

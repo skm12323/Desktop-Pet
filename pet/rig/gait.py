@@ -436,6 +436,10 @@ class GaitSolver:
         self.lean_degrees = float(g.get("lean_degrees", -1.8))
         # 侧身：裙摆前/后缘跟随最前/最后的大腿摆动（腿在裙下前后摆，裙子不能纹丝不动）
         self.skirt_follow = float(g.get("skirt_follow_gain", 0.0))
+        self.skirt_limit = math.radians(float(g.get("skirt_follow_limit_deg", 180)))
+        self.skirt_freq = float(g.get("skirt_freq_hz", 0))
+        self.skirt_halflife = float(g.get("skirt_halflife_s", .1))
+        self._skirt: Dict[str, list] = {}
         #   reference_curves  关节角按正常人步态参考曲线成形（docs/ADULT行走修复-2026-09-29.md §4）：
         #   摆动期 = 参考大腿/膝角的正向运动学轨迹（末段并入规划落点）；支撑期骨盆高度由
         #   领先腿的参考膝角（承重缓冲 → 近伸直）反求，而非"两腿取最差"（旧规则 = 全程半蹲）
@@ -1582,8 +1586,15 @@ class GaitSolver:
             angles["spine"] = self.torso_lean * self._env
         if self.skirt_follow:
             ths = [angles[self.legs[sd].hip_bone] for sd in ("l", "r")]
-            angles["skirt_hem_r"] = self.skirt_follow * min(ths)    # 前缘随前伸的大腿（负角 = 向前）
-            angles["skirt_hem_l"] = self.skirt_follow * max(ths)    # 后缘随后摆的大腿
+            for bone, th in (("skirt_hem_r", min(ths)), ("skirt_hem_l", max(ths))):
+                target = max(-self.skirt_limit, min(self.skirt_limit, self.skirt_follow * th))
+                if self.skirt_freq > 0:
+                    st = self._skirt.setdefault(bone, [0.0, 0.0])
+                    ks, kd = spring_from_frequency(self.skirt_freq, self.skirt_halflife)
+                    st[0], st[1] = spring_step(st[0], st[1], target, ks, kd, substep_dt * 1000)
+                    angles[bone] = max(-self.skirt_limit, min(self.skirt_limit, st[0]))
+                else:
+                    angles[bone] = target
         if self.arm_swing:
             # 侧视手臂与同侧腿反相：同侧脚跟着地（τ=0，腿最前）时上臂最后（正角 = 顺时针
             # = 向后），支撑末/趾离地附近最前；按相位而非大腿角——远侧腿静止站位偏后，

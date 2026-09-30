@@ -360,6 +360,80 @@ class _LookAtCfg:
 
 
 @dataclass
+class _JointCurve:
+    """A local, tangent-continuous knee patch; both ends follow the original FK.
+
+    A Hermite centreline replaces the linear matrix blend at the knee. Normal
+    offsets retain the limb's cross-section; the shin below the patch follows
+    its rigid bone until the original ankle/foot blend begins. All parameters
+    are opt-in asset data and all vertex basis values are cached at load time.
+    """
+    parent: int
+    child: int
+    start: np.ndarray
+    end: np.ndarray
+    tangent: np.ndarray
+    indices: np.ndarray
+    lateral: np.ndarray
+    basis: np.ndarray
+    derivative: np.ndarray
+    shin_indices: np.ndarray
+    shin_rest: np.ndarray
+    controls: np.ndarray
+    points: np.ndarray
+    directions: np.ndarray
+    norm: np.ndarray
+    shin_points: np.ndarray
+
+    @classmethod
+    def build(cls, rt, layer, cfg):
+        parent, child, tip = (rt.bone_index[str(cfg[k])] for k in ("parent", "child", "tip"))
+        if rt.parent_idx[child] != parent or rt.parent_idx[tip] != child:
+            raise ValueError("joint_curve requires a parent-child-tip chain")
+        up, down = float(cfg["upper_px"]), float(cfg["lower_px"])
+        joint, end = np.asarray(rt.bones[child].joint_px), np.asarray(rt.bones[tip].joint_px)
+        length = float(np.linalg.norm(end - joint))
+        if not (0 < up <= 500 and 0 < down < length * .6 and math.isfinite(up + down)):
+            raise ValueError("invalid joint-curve dimensions")
+        axis = (end - joint) / length
+        normal = np.array([-axis[1], axis[0]])
+        p = layer.rest[:, :2]
+        s = (p - joint) @ axis
+        foot_col = np.where(layer.bone_idx == tip)[0]
+        foot = layer.weights[:, foot_col[0]] > 1e-6 if len(foot_col) else np.zeros(len(p), bool)
+        indices = np.where((s > -up) & (s < down) & ~foot)[0]
+        t = (s[indices] + up) / (up + down)
+        basis = np.column_stack((2*t**3-3*t**2+1, t**3-2*t**2+t,
+                                 -2*t**3+3*t**2, t**3-t**2))
+        derivative = np.column_stack((6*t**2-6*t, 3*t**2-4*t+1,
+                                      -6*t**2+6*t, 3*t**2-2*t))
+        shin = np.where((s >= down) & ~foot)[0]
+        return cls(parent, child, np.r_[joint-up*axis, 1], np.r_[joint+down*axis, 1],
+                   axis*(up+down), indices, (p[indices]-joint) @ normal, basis, derivative,
+                   shin, layer.rest[shin].copy(), np.empty((4, 2)),
+                   np.empty((len(indices), 2)), np.empty((len(indices), 2)),
+                   np.empty(len(indices)), np.empty((len(shin), 2)))
+
+    def apply(self, matrices, out):
+        parent, child = matrices[self.parent], matrices[self.child]
+        self.controls[0] = (parent @ self.start)[:2]
+        self.controls[1] = parent[:2, :2] @ self.tangent
+        self.controls[2] = (child @ self.end)[:2]
+        self.controls[3] = child[:2, :2] @ self.tangent
+        np.matmul(self.basis, self.controls, out=self.points)
+        np.matmul(self.derivative, self.controls, out=self.directions)
+        np.einsum("ij,ij->i", self.directions, self.directions, out=self.norm)
+        np.sqrt(self.norm, out=self.norm)
+        np.maximum(self.norm, 1e-8, out=self.norm)
+        np.divide(self.lateral, self.norm, out=self.norm)
+        self.points[:, 0] -= self.norm * self.directions[:, 1]
+        self.points[:, 1] += self.norm * self.directions[:, 0]
+        out[self.indices, :2] = self.points
+        np.matmul(self.shin_rest, child[:2, :].T, out=self.shin_points)
+        out[self.shin_indices, :2] = self.shin_points
+
+
+@dataclass
 class _LayerSkin:
     """一层蒙皮网格：静止数据 + 预分配帧缓冲（渲染热路径零分配的载体）。"""
 
@@ -383,6 +457,7 @@ class _LayerSkin:
     lower_mask: np.ndarray | None = None
     _ybuf: np.ndarray | None = None       # (V,) 标量链中间量
     _blink_applied: float | None = None   # 缓存判定
+    joint_curve: _JointCurve | None = None
 
 
 class RigRuntime:
@@ -624,6 +699,8 @@ class RigRuntime:
         """单层 LBS 全向量化：``v' = Σ_k w·(M_{b_k} @ v)`` → layer.scratch。"""
         np.einsum("vk,kij,vj->vi", layer.weights, self.M[layer.bone_idx],
                   rest_eff, out=layer.scratch)                 # type: ignore[arg-type]
+        if layer.joint_curve is not None:
+            layer.joint_curve.apply(self.M, layer.scratch)
         return layer.scratch                                   # type: ignore[return-value]
 
     # ---------------- 加载（宽进严出） ----------------
@@ -707,6 +784,13 @@ class RigRuntime:
         # 按阶段可选：源图缩到 ~15% 显示时无 mipmap 会锯齿/闪烁，且与视频片段帧
         # 观感不一致（G0 实测 12.1→3.7/255）。缺省关闭，YOUNG 保持原样。
         rt.texture_mipmaps = bool(raw_spec.get("texture_mipmaps", False))
+        for layer in layers:
+            curve = spec_layers.get(layer.layer_id, {}).get("joint_curve")
+            if isinstance(curve, dict):
+                try:
+                    layer.joint_curve = _JointCurve.build(rt, layer, curve)
+                except (KeyError, ValueError, TypeError, IndexError) as e:
+                    log.warning("层 %s joint_curve 无效，保留 LBS：%s", layer.layer_id, e)
         if keyforms_file:
             rt.attach_view_keyforms(keyforms_file)
         log.info("蒙皮核就绪：%d 骨 / %d 层 / 源图 %.0f×%.0f%s",
