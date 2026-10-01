@@ -316,8 +316,10 @@ class RigWindow(WindowBase):
         spec_file = os.path.join(pkg_dir, "spec.json")
         mesh_file = os.path.join(pkg_dir, "mesh", "mesh_data.json")
         layers = os.path.join(pkg_dir, "layers")
-        # 片段按窗口高度选 1×（256 高）/ 2×（512 高）帧集（内存门禁：单条解码 ≤ 12 MB）
-        suffix = "_h256" if float(self.height() or 256) <= 320 else ""
+        # 片段按窗口高度选 1×（256 高）/ 2×（512 高）/ 4×（1024 高，仅大窗口与参考导出）帧集
+        # （内存门禁：单条解码 ≤ 12 MB；缺对应帧集时回退 512 高）
+        win_h = float(self.height() or 256)
+        suffix = "_h256" if win_h <= 320 else ("_h1024" if win_h >= 768 else "")
         clip_out = os.path.join(pkg_dir, "clips", "turn_front_to_side" + suffix)
         clip_in = os.path.join(pkg_dir, "clips", "turn_side_to_front" + suffix)
         if suffix and not os.path.isfile(os.path.join(clip_out, "clip.json")):

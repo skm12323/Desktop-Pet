@@ -151,7 +151,7 @@ def main():
             "gait_world_scale": 256 / 1696, "speed_px_s_at_256": 120,
             "fps": FPS, "duration_s": actual_ms / 1000, "frames": actual_frames,
             "file_bytes": gif_path.stat().st_size,
-            "turn_assets": "highest existing 512-high production frame packages",
+            "turn_assets": "highest existing turn frame packages (1024-high when present, else 512-high)",
             "camera": "follows the character; horizontal window displacement is recorded, not shown",
             "palette": "one shared 256-color palette, no dithering; optimized unchanged pixels",
             "transitions": changes, "samples": records}
