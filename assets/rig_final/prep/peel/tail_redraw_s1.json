@@ -1,0 +1,26 @@
+{
+  "tool": "tools/qwen_edit.py",
+  "models": {
+    "unet": "qwen_image_2.1_int8_convrot.safetensors",
+    "clip": "qwen3vl_8b_w4a8.safetensors",
+    "vae": "qwen_image_2.1_vae_bf16.safetensors"
+  },
+  "comfy_prompt_id": "5bb4c5ed-6873-478f-835f-13bd34d74bb1",
+  "seconds": 201.0,
+  "seed": 1,
+  "steps": 25,
+  "resolution": 0,
+  "flatten_alpha_onto_white": true,
+  "images": [
+    {
+      "slot": "image1",
+      "path": "assets/rig_final/prep/peel/tail_crop_x2.png",
+      "sha256": "576923cf886904270f2a1f8cee5e4b3df51f3a1b79aab861bae06bf96c69e260"
+    }
+  ],
+  "mask": null,
+  "prompt": "Redraw only the whale tail from <image1> as a complete standalone whale tail, alone on a flat solid chroma green #00B140 background. Keep exactly the same position, size, curve, colors, shading and line art as in <image1>. Remove the skirt, the white petticoat frills and everything else: show the full fluke with both lobes complete, and the whole tail body continuing smoothly to the lower left edge of the image where it is hidden under the skirt in <image1>. No skirt, no cloth, no frills, no shadows on the background.",
+  "negative": "blurry, lowres, deformed, extra limbs, text, watermark",
+  "output": "assets/rig_final/prep/peel/tail_redraw_s1.png",
+  "output_sha256": "81c779e526526ba10fe81efdd329f2dc0f3e2d4b7d9ea836d3676845d16df4c1"
+}

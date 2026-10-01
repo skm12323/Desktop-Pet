@@ -158,6 +158,15 @@ def main() -> None:
                     label[m] = np.bincount(label[ring]).argmax()
 
     cuff_fixed = 0 if a.plan else repair_near_cuff_labels(key, label, ids)
+    # plan "edge_to_occluder": a lower layer's rim along a higher layer is the occluder's outline /
+    # anti-aliasing in the art; left on the lower layer it slides along as a dark seam when that
+    # layer moves. Hand those pixels to the occluder (the lower layer's completion covers them).
+    edge_moved = 0
+    for rule in (json.loads(Path(a.plan).read_text(encoding="utf-8")).get("edge_to_occluder", []) if a.plan else []):
+        lo, hi = ids.index(rule["layer"]), ids.index(rule["occluder"])
+        near = ndimage.binary_dilation(label == hi, iterations=int(rule["px"])) & (label == lo)
+        label[near] = hi
+        edge_moved += int(near.sum())
     (Path(a.out) / "prep").mkdir(parents=True, exist_ok=True)
     Image.fromarray((label + 1).astype(np.uint8), "L").save(Path(a.out) / "prep" / "partition_labels.png")
     (Path(a.out) / "prep" / "partition_ids.json").write_bytes(
@@ -218,6 +227,7 @@ def main() -> None:
            "composite_max_err_255": float(err.max()), "composite_mean_err_255": float(err[opaque].mean()),
            "unassigned_filled_px": int(unassigned.sum())}
     rep["near_cuff_reassigned_px"] = cuff_fixed
+    rep["edge_to_occluder_px"] = edge_moved
     rep["completion_alpha_min"] = max(128, min(255, a.completion_alpha_min))
     (Path(a.out) / "prep").mkdir(parents=True, exist_ok=True)
     (Path(a.out) / "prep" / "partition.json").write_bytes(json.dumps(rep, indent=2).encode("utf-8"))

@@ -1,0 +1,105 @@
+{
+ "layers": [
+  {
+   "id": "tail",
+   "z": 0
+  },
+  {
+   "id": "hair_back_l",
+   "z": 30
+  },
+  {
+   "id": "hair_back_r",
+   "z": 40
+  },
+  {
+   "id": "leg_l",
+   "z": 50
+  },
+  {
+   "id": "leg_r",
+   "z": 55
+  },
+  {
+   "id": "skirt",
+   "z": 60
+  },
+  {
+   "id": "torso",
+   "z": 65
+  },
+  {
+   "id": "apron",
+   "z": 70
+  },
+  {
+   "id": "arm_l",
+   "z": 75
+  },
+  {
+   "id": "arm_r",
+   "z": 76
+  },
+  {
+   "id": "hair_front",
+   "z": 78
+  },
+  {
+   "id": "head_base",
+   "z": 100
+  },
+  {
+   "id": "ear_fin_l",
+   "z": 130
+  },
+  {
+   "id": "ear_fin_r",
+   "z": 135
+  },
+  {
+   "id": "bangs",
+   "z": 140
+  },
+  {
+   "id": "ahoge_headdress",
+   "z": 150
+  }
+ ],
+ "priority": [
+  "ahoge_headdress",
+  "ear_fin_l",
+  "ear_fin_r",
+  "bangs",
+  "head_base",
+  "arm_l",
+  "arm_r",
+  "apron",
+  "leg_l",
+  "leg_r",
+  "tail",
+  "hair_front",
+  "hair_back_l",
+  "hair_back_r",
+  "torso",
+  "skirt"
+ ],
+ "mask_to_layer": {},
+ "multi": [
+  "hair_back_l",
+  "hair_back_r",
+  "hair_front",
+  "bangs",
+  "skirt",
+  "torso",
+  "apron",
+  "ahoge_headdress"
+ ],
+ "hair_split": null,
+ "edge_to_occluder": [
+  {
+   "layer": "tail",
+   "occluder": "skirt",
+   "px": 3
+  }
+ ]
+}

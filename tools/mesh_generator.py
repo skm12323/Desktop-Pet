@@ -193,7 +193,10 @@ def generate_layer_mesh(
     gy = sorted(set([max(0, y0 - 2), min(th, y1 + 2)] + list(range(y0, y1, max(2, int(step / scale_y))))))
     # Add exact eye-opening boundaries so full closure cannot leave white slivers.
     for zone in layer_spec.get("blink_zones", []):
-        for value in [zone[0] - zone[3], zone[0], zone[0] + zone[3]]:
+        xs_zone = [zone[0] - zone[3], zone[0], zone[0] + zone[3]]
+        if "blink_blend_px" in layer_spec:     # exact outer edge of the narrower side band
+            xs_zone += [zone[0] - zone[3] - layer_spec["blink_blend_px"], zone[0] + zone[3] + layer_spec["blink_blend_px"]]
+        for value in xs_zone:
             tx = (value - off_x) / scale_x
             if min(gx) < tx < max(gx):
                 gx.append(tx)
@@ -369,7 +372,8 @@ def generate_layer_mesh(
             mapped = closure + curve + (y - top) * 0.25
             blend = np.ones_like(x)
         else:
-            blend = np.clip((radius + 25 - abs(x - cx)) / 25, 0, 1)
+            bb = float(layer_spec.get("blink_blend_px", 25))   # skin band beside the eye that follows the lid
+            blend = np.clip((radius + bb - abs(x - cx)) / bb, 0, 1)
         blink_delta[:, 1] += (mapped - y) * blend
     blink_delta = np.round(blink_delta, 4).tolist()
 
