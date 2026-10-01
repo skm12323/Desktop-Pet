@@ -1,0 +1,31 @@
+{
+  "tool": "tools/qwen_edit.py",
+  "models": {
+    "unet": "qwen_image_2.1_int8_convrot.safetensors",
+    "clip": "qwen3vl_8b_w4a8.safetensors",
+    "vae": "qwen_image_2.1_vae_bf16.safetensors"
+  },
+  "comfy_prompt_id": "b081dc62-4736-4177-82fe-9afef1912b01",
+  "seconds": 607.6,
+  "seed": 1,
+  "steps": 25,
+  "resolution": 0,
+  "flatten_alpha_onto_white": true,
+  "images": [
+    {
+      "slot": "image1",
+      "path": "assets/rig_final/references/final_ref_1024.png",
+      "sha256": "273b02f8c0e2557828c9e5a88a4984ccadda281b88f5e210ad5d9fc9d068822f"
+    },
+    {
+      "slot": "image2",
+      "path": "assets/reference/adult_ref.png",
+      "sha256": "012ac59e3cf6414dedc71bc4ad213e7ce04cf4bedc15887979893289daa415ca"
+    }
+  ],
+  "mask": null,
+  "prompt": "Edit <image1>. Keep the same character, face, hair, maid outfit, long ankle-length dress with all its layers, gold patterns, apron, whale tail, colors and art style of <image1> exactly. Change only the pose to a calm, relaxed front-facing standing pose like the character in <image2>: both arms hang naturally down at the sides with open relaxed hands, the right hand lets go of the skirt so the long skirt hangs down evenly and symmetrically to the ankles, head upright and facing forward, mouth closed with a gentle smile, both feet standing flat side by side with the shoes visible below the skirt hem. The whale tail stays at the lower right. Plain white background, full body.",
+  "negative": "blurry, lowres, deformed, extra limbs, text, watermark",
+  "output": "assets/rig_final/references/qwen_raw/f1_try1.png",
+  "output_sha256": "ac13c59c314b34ea1317d85344e6abd8efe0b407515ac75c0dd57057406d9acf"
+}

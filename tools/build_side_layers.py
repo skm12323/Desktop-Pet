@@ -7,7 +7,9 @@ is measured below. Layers are then extended underneath the layers drawn above th
 regions (thighs under the skirt, torso under the arm, ...) come from later completion passes
 stored in <out>/completions/<layer>.png (RGBA, canvas-registered, only used where hidden).
 
-Inputs: SAM masks (tools/sam3_segment.py) + the layer plan below.
+Inputs: SAM masks (tools/sam3_segment.py) + the layer plan below (ADULT side rig), or another
+rig's plan via --plan JSON: {"layers": [{"id", "z"}...], "priority": [...], "mask_to_layer": {...},
+"multi": [...], "hair_split": {"layer": "hair_side_r", "x_min": .., "y_min": ..} | null}.
 Outputs: <out>/layers_full/<id>.png (canvas-size RGBA; build_side_spec.py writes the trimmed
 runtime textures to <out>/layers/), <out>/prep/partition.png, <out>/prep/partition.json.
 """
@@ -92,7 +94,18 @@ def main() -> None:
     ap.add_argument("--hair-side-x", type=int, default=556)
     ap.add_argument("--hair-side-y", type=int, default=400)
     ap.add_argument("--labels-only", action="store_true", help="write the partition label map and stop")
+    ap.add_argument("--plan", default="", help="layer plan JSON (default: the ADULT side plan in this file)")
     a = ap.parse_args()
+
+    layers, priority, mask_to_layer = LAYERS, PRIORITY, MASK_TO_LAYER
+    multi = {"hair_back", "hair_side_r", "skirt", "torso", "apron", "headdress"}
+    hair_split = {"layer": "hair_side_r", "x_min": a.hair_side_x, "y_min": a.hair_side_y}
+    if a.plan:
+        plan = json.loads(Path(a.plan).read_text(encoding="utf-8"))
+        layers, priority = plan["layers"], plan["priority"]
+        mask_to_layer = plan.get("mask_to_layer", {})
+        multi = set(plan.get("multi", []))
+        hair_split = plan.get("hair_split")
 
     key = np.asarray(Image.open(a.key).convert("RGBA"))
     alpha = key[..., 3]
@@ -102,7 +115,7 @@ def main() -> None:
     md = Path(a.masks)
     sources = json.loads((md / "mask_sources.json").read_text(encoding="utf-8"))
     masks = {}
-    for name in PRIORITY:
+    for name in priority:
         for src in sources.get(name, []):
             src, _, box = src.partition("@")
             m = np.asarray(Image.open(md / f"{src}.png").convert("L")) > 127
@@ -112,14 +125,16 @@ def main() -> None:
                 clip[y0:y1, x0:x1] = True
                 m = m & clip
             masks[name] = masks.get(name, np.zeros_like(m)) | m
-    if "hair" in masks:
-        back, side = split_hair(masks.pop("hair"), {"x_min": a.hair_side_x, "y_min": a.hair_side_y})
-        masks["hair_back"], masks["hair_side_r"] = back, side
-    order = [MASK_TO_LAYER.get(n, n) for n in PRIORITY if n != "hair"] + ["hair_side_r", "hair_back"]
-    masks = {MASK_TO_LAYER.get(k, k): v for k, v in masks.items()}
+    if hair_split and "hair" in masks:
+        back, side = split_hair(masks.pop("hair"), hair_split)
+        masks["hair_back"], masks[hair_split["layer"]] = back, side
+        order = [mask_to_layer.get(n, n) for n in priority if n != "hair"] + [hair_split["layer"], "hair_back"]
+    else:
+        order = [mask_to_layer.get(n, n) for n in priority]
+    masks = {mask_to_layer.get(k, k): v for k, v in masks.items()}
 
     label = np.full((H, W), -1, np.int32)
-    ids = [l["id"] for l in LAYERS]
+    ids = [l["id"] for l in layers]
     for name in order:
         if name in masks:
             free = (label < 0) & masks[name] & opaque
@@ -131,7 +146,6 @@ def main() -> None:
     # islands join their surrounding layer: < 40 px everywhere; for rigid parts (limbs, tail,
     # ears...) every piece not connected to the main body (< 5 % of it) - a stray outline
     # fragment would fly off as soon as the part moves
-    multi = {"hair_back", "hair_side_r", "skirt", "torso", "apron", "headdress"}
     for k in range(len(ids)):
         lab, n = ndimage.label(label == k, structure=np.ones((3, 3)))
         if n > 1:
@@ -143,7 +157,7 @@ def main() -> None:
                 if ring.any():
                     label[m] = np.bincount(label[ring]).argmax()
 
-    cuff_fixed = repair_near_cuff_labels(key, label, ids)
+    cuff_fixed = 0 if a.plan else repair_near_cuff_labels(key, label, ids)
     (Path(a.out) / "prep").mkdir(parents=True, exist_ok=True)
     Image.fromarray((label + 1).astype(np.uint8), "L").save(Path(a.out) / "prep" / "partition_labels.png")
     (Path(a.out) / "prep" / "partition_ids.json").write_bytes(
@@ -157,7 +171,7 @@ def main() -> None:
     peeled = np.asarray(Image.open(pm)) > 127 if pm.exists() else np.zeros((H, W), bool)
     lay_dir = Path(a.out) / "layers_full"      # canvas-size; build_side_spec.py trims into layers/
     lay_dir.mkdir(parents=True, exist_ok=True)
-    z_of = {l["id"]: l["z"] for l in LAYERS}
+    z_of = {l["id"]: l["z"] for l in layers}
     stats = {}
     for k, lid in enumerate(ids):
         own = label == k
