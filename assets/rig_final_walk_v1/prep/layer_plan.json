@@ -97,7 +97,8 @@
   "apron",
   "headdress",
   "head_base",
-  "bangs"
+  "bangs",
+  "tail"
  ],
  "hair_split": null,
  "edge_to_occluder": [

@@ -59,7 +59,9 @@ LAYERS = [
 ]
 PRIORITY = ["ahoge", "ear_fin_r", "ear_fin_l", "headdress", "bangs", "head_base", "shoulder_frill_l", "arm_l",
             "arm_r", "apron", "leg_l", "leg_r", "tail", "torso", "hair_side_r", "hair_back", "skirt"]
-MULTI = ["hair_back", "hair_side_r", "skirt", "torso", "apron", "headdress", "head_base", "bangs"]
+# tail: the fluke shows between the near hand's fingers as a separate island; merged into the hand it
+# stuck to the hand as a blue block
+MULTI = ["hair_back", "hair_side_r", "skirt", "torso", "apron", "headdress", "head_base", "bangs", "tail"]
 S1, S2 = "sam_masks", "sam_masks_f4"
 SOURCES = {
     "ahoge": [f"{S2}/t_ahoge"],
@@ -71,7 +73,7 @@ SOURCES = {
     "bangs": ["derived/head_hair"],
     "head_base": [f"{S2}/t_face", f"{S2}/eye_l", f"{S2}/eye_r"],
     "shoulder_frill_l": ["derived/frill_l"],
-    "arm_l": [f"{S2}/near_arm", f"{S1}/t_sleeve", f"{S2}/near_hand", "derived/cuff_l"],
+    "arm_l": ["derived/arm_l"],
     "arm_r": ["derived/far_arm", f"{S1}/t_hand", "derived/cuff_r"],
     "apron": [f"{S1}/t_apron"],
     "leg_l": ["derived/leg_l"],
@@ -169,11 +171,11 @@ SPEC_LAYERS = {
     # largest_component: stray tail-coloured specks near the hair tips got their own mesh pieces
     # and flew off with the fluke
     "tail": {"bind_bone": "tail_01", "influence_bones": ["tail_01", "tail_02", "tail_03", "tail_fluke"],
-             "largest_component": True,
+             "min_component_px": 150,
              # the whole fluke (both lobes, up to x 280) is one rigid shape - a chain-weighted right
              # lobe tore off as a block under the near hand
              "rigid_above": [{"bone": "tail_fluke", "y": 1110, "blend": 50, "x_max": 345}],
-             "weights": {"mode": "chain", "blend_px": 40}, "grid_step": 20, "min_component_px": 200},
+             "weights": {"mode": "chain", "blend_px": 40}, "grid_step": 20},
     "hair_back": {"bind_bone": "head", "influence_bones": ["head", "hair_back_l_01", "hair_back_l_02", "hair_back_l_03"],
                   "root_lock": {"bone": "head", "full_before_y": 380, "free_after_y": 520},
                   "weights": {"mode": "chain", "blend_px": [40, 50, 50]}, "min_component_px": 40},
@@ -332,7 +334,7 @@ def stage_masks() -> None:
     _save_mask("derived/hair_side_r", side)
     _save_mask("derived/hair_back", hair & ~head_hair & ~side)
     _save_mask("derived/frill_l", _mask(f"{S2}/t_frill") & _box(FRILL_BOX))
-    _save_mask("derived/cuff_l", _box(NEAR_CUFF_BOX) & (lum > 195) & op)
+    _save_mask("derived/cuff_l", _box(NEAR_CUFF_BOX) & (lum > 195) & op)   # (used by derived/arm_l below)
     # far cuff frill: white next to the far arm / hand only (the apron frill runs right beside it)
     far = _far_arm_visible(key) | _mask(f"{S1}/t_hand")
     _save_mask("derived/cuff_r", _box(FAR_CUFF_BOX) & (lum > 195) & op & ~_mask(f"{S1}/t_apron")
@@ -342,17 +344,46 @@ def stage_masks() -> None:
     # the catch-all skirt box must not swallow the tail's outline or the fluke lobe hidden under the
     # hair: those pixels stayed on the skirt as a wire outline / a navy block once the tail moved
     tail_zone = ndimage.binary_dilation(_mask(f"{S1}/tail"), iterations=8) | _box((0, 840, 330, 1120))
-    _save_mask("derived/skirt_box", _box(SKIRT_BOX) & (yy >= WAIST_Y - 10) & ~tail_zone)
+    # ...nor the dark gaps of the back hair left of the skirt (they floated outside the skirt edge):
+    # the box stops at the skirt's back silhouette, a line fitted to SAM's skirt edge
+    sk = _mask(f"{S1}/t_skirt")
+    rows = [y for y in range(1150, 1500) if sk[y].any()]
+    a_, b_ = np.polyfit(rows, [np.where(sk[y])[0].min() for y in rows], 1)
+    back_edge = xx >= a_ * yy + b_ - 6
+    _save_mask("derived/skirt_box", _box(SKIRT_BOX) & (yy >= WAIST_Y - 10) & ~tail_zone & back_edge)
     _save_mask("derived/tail_rim", ndimage.binary_dilation(_mask(f"{S1}/tail"), iterations=8)
                & ~_mask(f"{S1}/t_skirt") & ~hair & op)
-    # legs: every pixel below the hem goes to the nearer shoe / ankle seed
+    # near hand without the navy skirt seen between the fingers (it stuck to the hand as a block)
+    c = key[..., :3].astype(np.int16)
+    navy = (c[..., 2] - c[..., 0] > 25) & (lum < 120)
+    arm_l = _mask(f"{S2}/near_arm") | _mask(f"{S1}/t_sleeve") | _mask(f"{S2}/near_hand") | _mask("derived/cuff_l")
+    gap = navy & _box((230, 880, 410, 1070))
+    _save_mask("derived/arm_l", arm_l & ~gap)
+    # legs. The near shoe overlaps the far one: the near shoe and its outline (SAM mask + 4 px) are
+    # the near leg's, whatever is nearer (nearest-seed handed the near toe's outline to the far
+    # foot: a stray toe contour under the far shoe). White below the hem is stocking only inside
+    # the ankle columns measured on clean stocking rows - elsewhere it is petticoat ruffle.
     below = op & (yy >= HEM_Y - 2) & _box(LEG_BOX)
-    stock = below & (lum > 170) & ~_mask(f"{S1}/shoe_near") & ~_mask(f"{S1}/shoe_far")
-    seed_l = _mask(f"{S1}/shoe_near") | (stock & (xx < LEG_SPLIT_X))
-    seed_r = (_mask(f"{S1}/shoe_far") | (stock & (xx >= LEG_SPLIT_X))) & ~seed_l
+    # near shoe + its outline + the sock showing inside its opening
+    near_shoe = ndimage.binary_fill_holes(ndimage.binary_dilation(_mask(f"{S1}/shoe_near"), iterations=6))
+    near_shoe = ndimage.binary_erosion(near_shoe, iterations=2) & below
+    far_shoe = _mask(f"{S1}/shoe_far") & ~near_shoe
+    white = below & (lum > 170) & (yy >= 1604)      # rows 1586-1603: petticoat ruffle, not stocking
+    cols = {}
+    for side, xr in (("l", (LEG_BOX[0], LEG_SPLIT_X)), ("r", (LEG_SPLIT_X, LEG_BOX[2]))):
+        band = white[1625:1650, xr[0]:xr[1]].any(0)
+        xs = np.where(band)[0] + xr[0]
+        cols[side] = (xs.min() - 3, xs.max() + 4)
+    stock_l = white & (xx >= cols["l"][0]) & (xx < cols["l"][1]) & ~far_shoe
+    stock_r = white & (xx >= max(cols["r"][0], cols["l"][1])) & (xx < cols["r"][1]) & ~near_shoe
+    rest = below & ~white & ~near_shoe & ~far_shoe       # outlines between: nearest of the two
+    seed_l, seed_r = near_shoe | stock_l, far_shoe | stock_r
     dl, dr = ndimage.distance_transform_edt(~seed_l), ndimage.distance_transform_edt(~seed_r)
-    _save_mask("derived/leg_l", below & (dl <= dr))
-    _save_mask("derived/leg_r", below & (dr < dl))
+    leg_l = seed_l | (rest & (dl <= dr) & (dl < 6))
+    leg_r = (seed_r | (rest & (dr < dl) & (dr < 6))) & ~leg_l
+    _save_mask("derived/leg_l", leg_l)
+    _save_mask("derived/leg_r", leg_r)
+    print(f"[OK] stocking columns {cols}")
     _json(PKG / "prep" / "mask_sources.json",
           {"_note": "FINAL side: SAM 3.1 masks (sam_masks = prototype pass, sam_masks_f4 = F4 pass) + "
                     "tools/build_final_side.py derived regions", **SOURCES})

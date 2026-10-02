@@ -817,7 +817,7 @@
     "tail_03",
     "tail_fluke"
    ],
-   "largest_component": true,
+   "min_component_px": 150,
    "rigid_above": [
     {
      "bone": "tail_fluke",
@@ -831,7 +831,6 @@
     "blend_px": 40
    },
    "grid_step": 20,
-   "min_component_px": 200,
    "z_order": 0,
    "per_component": true,
    "trim_offset_px": [
@@ -1060,7 +1059,7 @@
    "z_order": 18,
    "per_component": true,
    "trim_offset_px": [
-    392,
+    425,
     861
    ]
   },
@@ -1105,7 +1104,7 @@
    "z_order": 20,
    "per_component": true,
    "trim_offset_px": [
-    103,
+    130,
     582
    ]
   },
@@ -1184,7 +1183,7 @@
    "z_order": 41,
    "per_component": true,
    "trim_offset_px": [
-    283,
+    277,
     635
    ]
   },

@@ -24,10 +24,7 @@
   "derived/frill_l"
  ],
  "arm_l": [
-  "sam_masks_f4/near_arm",
-  "sam_masks/t_sleeve",
-  "sam_masks_f4/near_hand",
-  "derived/cuff_l"
+  "derived/arm_l"
  ],
  "arm_r": [
   "derived/far_arm",

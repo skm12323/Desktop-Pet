@@ -13,7 +13,7 @@
    -4,
    -1
   ],
-  "iou_vs_visible": 0.81
+  "iou_vs_visible": 0.792
  },
  "near_arm_bg": {
   "raw": "prep/peel/near_arm_removed_s1.png",
