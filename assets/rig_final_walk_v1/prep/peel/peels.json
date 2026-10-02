@@ -2,10 +2,10 @@
  "far_arm": {
   "raw": "prep/peel/far_arm_redraw_s1.png",
   "shift_px": [
-   21,
-   21
+   16,
+   12
   ],
-  "iou_vs_visible": 0.518
+  "iou_vs_visible": 0.525
  },
  "tail": {
   "raw": "prep/peel/tail_redraw_s1.png",

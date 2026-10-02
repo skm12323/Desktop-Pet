@@ -1,35 +1,35 @@
 {
  "rest_recovery": {
-  "canvas_mean_255": 0.0862404927611351,
-  "canvas_p99_255": 0.20130665600299835,
-  "disp256_mean_255": 0.0939103290438652,
-  "disp256_p99_255": 0.5757370591163635,
-  "holes_frac": 2.83486539319583e-05,
-  "spill_frac": 0.00048439221718520054,
+  "canvas_mean_255": 1.1727356910705566,
+  "canvas_p99_255": 35.33333206176758,
+  "disp256_mean_255": 1.033240795135498,
+  "disp256_p99_255": 34.603736877441406,
+  "holes_frac": 0.0005127408711171588,
+  "spill_frac": 0.0004806945666723364,
   "pass": true
  },
  "poses": {
   "near_leg_fwd": {
-   "new_holes_disp_px2": 38,
+   "new_holes_disp_px2": 30,
    "flipped_triangles": {
     "leg_r": 11
    }
   },
   "near_leg_back": {
-   "new_holes_disp_px2": 5,
+   "new_holes_disp_px2": 37,
    "flipped_triangles": {
     "leg_l": 6
    }
   },
   "passing": {
-   "new_holes_disp_px2": 21,
+   "new_holes_disp_px2": 14,
    "flipped_triangles": {
     "leg_r": 3,
     "leg_l": 4
    }
   },
   "elbows40": {
-   "new_holes_disp_px2": 1,
+   "new_holes_disp_px2": 42,
    "flipped_triangles": {}
   },
   "skirt_spread": {
@@ -41,7 +41,7 @@
    "flipped_triangles": {}
   },
   "tail_head": {
-   "new_holes_disp_px2": 320,
+   "new_holes_disp_px2": 301,
    "flipped_triangles": {
     "tail": 6
    }
@@ -57,7 +57,7 @@
    "flipped_triangles": {}
   },
   "idle_sway": {
-   "new_holes_disp_px2": 165,
+   "new_holes_disp_px2": 176,
    "flipped_triangles": {
     "tail": 1
    }

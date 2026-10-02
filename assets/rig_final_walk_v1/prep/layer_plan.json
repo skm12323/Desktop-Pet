@@ -13,12 +13,12 @@
    "z": 8
   },
   {
-   "id": "hair_side_r",
-   "z": 9
-  },
-  {
    "id": "arm_r",
    "z": 10
+  },
+  {
+   "id": "hair_side_r",
+   "z": 11
   },
   {
    "id": "leg_r",

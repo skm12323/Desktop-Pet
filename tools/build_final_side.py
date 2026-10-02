@@ -51,7 +51,8 @@ LEG_SPLIT_X = 522
 
 LAYERS = [
     {"id": "tail", "z": 0}, {"id": "hair_back", "z": 5}, {"id": "ear_fin_r", "z": 8},
-    {"id": "hair_side_r", "z": 9}, {"id": "arm_r", "z": 10}, {"id": "leg_r", "z": 15},
+    # far-side strands hang in front of the far arm
+    {"id": "arm_r", "z": 10}, {"id": "hair_side_r", "z": 11}, {"id": "leg_r", "z": 15},
     {"id": "leg_l", "z": 18}, {"id": "skirt", "z": 20}, {"id": "torso", "z": 25},
     {"id": "apron", "z": 30}, {"id": "arm_l", "z": 40}, {"id": "shoulder_frill_l", "z": 45},
     {"id": "head_base", "z": 50}, {"id": "bangs", "z": 53}, {"id": "ear_fin_l", "z": 55}, {"id": "ahoge", "z": 60},
@@ -103,7 +104,8 @@ COMPLETIONS = {
              "extrude_right": {"box": (240, 1120, 420, 1360), "px": 110}},
     "hair_back": {"grow": 40, "under": ["torso", "arm_l", "arm_r", "skirt", "head_base", "ear_fin_l",
                                        "shoulder_frill_l", "apron"], "interior": True},
-    "hair_side_r": {"grow": 30, "under": ["arm_r", "torso", "apron", "head_base"], "interior": True},
+    # small grow: a wide blurred fill under the far arm showed as a blue blob once the arm swung
+    "hair_side_r": {"grow": 10, "under": ["torso", "apron", "head_base"], "interior": True},
     "ear_fin_r": {"grow": 15, "under": ["head_base", "headdress"], "interior": True},
     "leg_l": {"legs": True}, "leg_r": {"legs": True},
     "skirt": {"grow": 50, "under": ["arm_l", "arm_r", "apron", "torso"], "interior": True,
@@ -149,9 +151,11 @@ BONES = {
     "upper_arm_l": ("chest", [418, 482], [-30, 30], True),
     "forearm_l": ("upper_arm_l", [393, 662], [-45, 20], True),
     "hand_l": ("forearm_l", [330, 852], [-15, 15], False),
-    "upper_arm_r": ("chest", [598, 490], [-30, 30], True),
-    "forearm_r": ("upper_arm_r", [628, 664], [-45, 20], True),
-    "hand_r": ("forearm_r", [652, 852], [-15, 15], False),
+    # far arm joints centred in the gpt-image-2.5 whole arm (shoulder in the puff, elbow mid-sleeve,
+    # wrist under the cuff frill)
+    "upper_arm_r": ("chest", [596, 482], [-30, 30], True),
+    "forearm_r": ("upper_arm_r", [625, 672], [-45, 20], True),
+    "hand_r": ("forearm_r", [692, 872], [-15, 15], False),
     "eyelid_l": ("head", [505, 258], [0, 0], False),
     "eyelid_r": ("head", [572, 256], [0, 0], False),
     "ahoge_01": ("head", [372, 98], [-15, 15], True),
@@ -268,7 +272,26 @@ def _labels() -> tuple[np.ndarray, list[str]]:
 
 
 # ------------------------------------------------------------------ stages
+FAR_ARM_GPT = "prep/peel/arm_r_gpt_canvas.png"   # tools/register_far_arm_final.py (gpt-image-2.5 whole arm)
+
+
 def _far_arm_visible(key: np.ndarray) -> np.ndarray:
+    gpt = PKG / FAR_ARM_GPT
+    if gpt.exists():
+        # the Qwen redraw came out ~half as thick as the near arm (user review): the gpt-image-2.5
+        # whole arm, registered by tools/register_far_arm_final.py, decides the ownership instead
+        g = np.asarray(Image.open(gpt))[..., 3] > 127
+        k = key[..., :3].astype(np.int16)
+        hair = (k[..., 2] - k[..., 0] > 45) & (k[..., 2] > 140)
+        # the far arm hangs BEHIND the bodice, apron and hair: those keep their own pixels
+        front = _mask(f"{S2}/t_bodice") | _mask(f"{S2}/t_bow") | _box(TORSO_BOX) | _mask(f"{S1}/t_apron")
+        out = g & (key[..., 3] > 200) & ~hair & ~front
+        lab, n = ndimage.label(out, structure=np.ones((3, 3)))
+        if n > 1:
+            sizes = ndimage.sum(out, lab, range(1, n + 1))
+            out = np.isin(lab, 1 + np.where(sizes >= 150)[0])
+        print(f"[OK] far arm from gpt redraw: visible {int(out.sum())} px")
+        return out
     """SAM's far-arm points grabbed the apron frill. The whole-arm redraw is placed on the art by
     colour agreement (shift search), and the arm's visible pixels are where the art matches it."""
     p = PEELS["far_arm"]
@@ -653,7 +676,9 @@ def stage_completions() -> None:
 def _far_arm_whole() -> None:
     """Far arm layer = the whole Qwen redraw (visible sliver included: splicing the art's sliver to a
     separately drawn arm doubled the cuff on ADULT), clipped where it would show at rest."""
-    path = PKG / "prep" / "peel" / "arm_r_canvas.png"
+    path = PKG / FAR_ARM_GPT
+    if not path.exists():
+        path = PKG / "prep" / "peel" / "arm_r_canvas.png"          # older local Qwen redraw
     if not path.exists():
         return
     lab, ids = _labels()
@@ -664,9 +689,11 @@ def _far_arm_whole() -> None:
     cur = np.asarray(Image.open(PKG / "layers_full" / "arm_r.png").convert("RGBA")).copy()
     key = _key()
     use = (red[..., 3] > 127) & (higher | own)
-    cur[use] = red[use]                   # own pixels outside the redraw (fingertips) stay from the art
-    vis = use & own                       # rest pose: the art's own colours where it is visible
-    cur[vis] = key[vis]
+    # the WHOLE arm is the redraw, its visible part included (ADULT 2026-09-29 lesson: art sliver +
+    # redraw doubled the cuff / hand and kept the thin art's outline inside the sleeve); the rest
+    # pose differs from the art there by the redraw's offset, gated by qa_final_side_rig
+    cur[own & ~use] = 0
+    cur[use] = red[use]
     near_own = ndimage.binary_dilation(own, iterations=8)
     cur[higher & ~own & ~use & ~near_own] = 0
     Image.fromarray(cur, "RGBA").save(PKG / "layers_full" / "arm_r.png")

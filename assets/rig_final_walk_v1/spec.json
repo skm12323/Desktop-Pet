@@ -426,8 +426,8 @@
     "bone_name": "upper_arm_r",
     "parent": "chest",
     "joint_pos": [
-     0.58398,
-     0.26864
+     0.58203,
+     0.26425
     ],
     "angle_clamp": [
      -30,
@@ -439,8 +439,8 @@
     "bone_name": "forearm_r",
     "parent": "upper_arm_r",
     "joint_pos": [
-     0.61328,
-     0.36404
+     0.61035,
+     0.36842
     ],
     "angle_clamp": [
      -45,
@@ -452,8 +452,8 @@
     "bone_name": "hand_r",
     "parent": "forearm_r",
     "joint_pos": [
-     0.63672,
-     0.46711
+     0.67578,
+     0.47807
     ],
     "angle_clamp": [
      -15,
@@ -884,6 +884,21 @@
    ]
   },
   {
+   "id": "arm_r_hand",
+   "description": "FINAL side rig layer arm_r_hand (pixel-exact cut of side_key.png)",
+   "bind_bone": "hand_r",
+   "influence_bones": [
+    "hand_r"
+   ],
+   "min_component_px": 150,
+   "z_order": 10,
+   "per_component": true,
+   "trim_offset_px": [
+    649,
+    828
+   ]
+  },
+  {
    "id": "hair_side_r",
    "description": "FINAL side rig layer hair_side_r (pixel-exact cut of side_key.png)",
    "bind_bone": "head",
@@ -905,26 +920,11 @@
     ]
    },
    "min_component_px": 50,
-   "z_order": 9,
+   "z_order": 11,
    "per_component": true,
    "trim_offset_px": [
-    574,
-    403
-   ]
-  },
-  {
-   "id": "arm_r_hand",
-   "description": "FINAL side rig layer arm_r_hand (pixel-exact cut of side_key.png)",
-   "bind_bone": "hand_r",
-   "influence_bones": [
-    "hand_r"
-   ],
-   "min_component_px": 150,
-   "z_order": 10,
-   "per_component": true,
-   "trim_offset_px": [
-    678,
-    841
+    594,
+    415
    ]
   },
   {
@@ -938,8 +938,8 @@
    "z_order": 11,
    "per_component": true,
    "trim_offset_px": [
-    614,
-    650
+    593,
+    640
    ]
   },
   {
@@ -953,8 +953,8 @@
    "z_order": 12,
    "per_component": true,
    "trim_offset_px": [
-    604,
-    547
+    540,
+    438
    ]
   },
   {
@@ -1105,7 +1105,7 @@
    "per_component": true,
    "trim_offset_px": [
     130,
-    582
+    602
    ]
   },
   {
