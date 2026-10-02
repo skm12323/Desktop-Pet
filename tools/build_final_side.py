@@ -92,6 +92,10 @@ PEELS = {
                 "layer": "arm_r"},
     # only the fluke of the whole-tail redraw is used (its body curls differently: IoU 0.58), registered
     # on the fluke alone; it supplies the right lobe hidden by the hair and the near hand
+    # far shoe: the near shoe hides its heel; Qwen redrew it whole (tight crop - a wider crop made it
+    # draw the near shoe instead), registered on the far shoe's visible pixels below the strap row
+    "far_shoe": {"raw": "prep/peel/far_shoe_redraw_s2.png", "crop": (480, 1580, 700, 1780), "green": True,
+                 "layer": "leg_r", "fit_box": (480, 1690, 700, 1780), "clip_to_fit": False},
     "tail": {"raw": "prep/peel/tail_redraw_s1.png", "crop": (0, 840, 460, 1400), "green": True, "layer": "tail",
              "fit_box": (0, 840, 345, 1110)},
     "near_arm_bg": {"raw": "prep/peel/near_arm_removed_s1.png", "crop": (180, 384, 564, 1056), "green": False},
@@ -233,7 +237,9 @@ SPEC_LAYERS = {
     "headdress": {"bind_bone": "head", "influence_bones": ["head"]},
 }
 Z_OVERRIDE = {}
-GAIT_OVERRIDES = {"frequency_hz": 1.6,          # long skirt: small steps (stride = speed / cadence)
+SKIRT_DRIVE = {"gain": 0.6, "side_gain": 0.6, "shin_frac": 0.7, "limit_deg": 8.0,
+               "freq_hz": 3.0, "halflife_s": 0.10, "side_freq_hz": 1.8, "side_halflife_s": 0.18}
+GAIT_OVERRIDES = {"frequency_hz": 2.2,          # long skirt: small steps (stride = speed / cadence)
                   "skirt_follow_gain": 0.0}     # the panel bones replace the two hem bones (F6 drive)
 
 
@@ -480,9 +486,29 @@ def stage_peel() -> None:
             if p.get("fit_box"):
                 fb = _box(p["fit_box"])
                 own = own & fb
-                canvas[~fb] = 0
-            canvas, shift, iou = _register(canvas, own)
-            Image.fromarray(canvas, "RGBA").save(PKG / "prep" / "peel" / f"{p['layer']}_canvas.png")
+                if p.get("clip_to_fit", True):
+                    canvas[~fb] = 0
+                    canvas, shift, iou = _register(canvas, own)
+                else:           # register on the box (scale + shift), keep the whole redraw
+                    best = None
+                    for sc in (1.0,):          # 0.94-1.06 tried: 0.97 won IoU but worsened the rest diff
+                        w2, h2 = round((x1 - x0) * sc), round((y1 - y0) * sc)
+                        im2 = np.asarray(Image.fromarray(arr, "RGBA").resize((w2, h2), Image.Resampling.LANCZOS))
+                        cv = np.zeros((H, W, 4), np.uint8)
+                        cx0, cy0 = x0 - (w2 - (x1 - x0)) // 2, y1 - h2      # keep the sole line
+                        cv[cy0:cy0 + h2, cx0:cx0 + w2] = im2
+                        probe = cv.copy()
+                        probe[~fb] = 0
+                        _, sh, v = _register(probe, own)
+                        if best is None or v > best[0]:
+                            best = (v, sc, sh, cv)
+                    iou, sc, shift, cv = best
+                    canvas = np.roll(np.roll(cv, shift[1], 0), shift[0], 1)
+                    print(f"[OK] {name}: scale {sc}")
+            else:
+                canvas, shift, iou = _register(canvas, own)
+            # peel name, not layer: the far arm keeps its registered file name for the gpt redraw
+            Image.fromarray(canvas, "RGBA").save(PKG / "prep" / "peel" / f"{name}_canvas.png")
             rep[name] = {"raw": p["raw"], "shift_px": list(shift), "iou_vs_visible": round(iou, 3)}
             print(f"[OK] {name}: shift {shift}, IoU vs visible {iou:.2f}")
         else:
@@ -678,7 +704,7 @@ def _far_arm_whole() -> None:
     separately drawn arm doubled the cuff on ADULT), clipped where it would show at rest."""
     path = PKG / FAR_ARM_GPT
     if not path.exists():
-        path = PKG / "prep" / "peel" / "arm_r_canvas.png"          # older local Qwen redraw
+        path = PKG / "prep" / "peel" / "far_arm_canvas.png"        # older local Qwen redraw
     if not path.exists():
         return
     lab, ids = _labels()
@@ -742,18 +768,15 @@ def _trim(ids: list[str], margin: int = 2) -> dict:
     return offs
 
 
+# shoe-bottom contact points (canvas px on side_key.png, measured; the SAM shoe masks carry stray
+# rows under the sole and the far heel is hidden behind the near shoe, so no auto-detection)
+CONTACT_POINTS = {"heel_l": [440, 1761], "sole_l": [505, 1762], "forefoot_l": [575, 1755],
+                  "heel_r": [530, 1736], "sole_r": [595, 1738], "forefoot_r": [650, 1733]}
+
+
 def _contact_points() -> dict:
-    out = {}
-    for side, shoe in (("l", "shoe_near"), ("r", "shoe_far")):
-        m = _mask(f"{S1}/{shoe}")
-        rows = np.where(m.any(1))[0]
-        sole = int(rows.max())
-        band = m[sole - 6: sole + 1]
-        xs = np.where(band.any(0))[0]
-        ank = BONES[f"foot_{side}"][1]
-        for k, x in (("heel", xs.min()), ("sole", 0.5 * (xs.min() + xs.max())), ("forefoot", xs.max())):
-            out[f"{k}_{side}"] = [round(float(x) - ank[0], 1), float(sole - ank[1])]
-    return out
+    return {k: [v[0] - BONES[f"foot_{k[-1]}"][1][0], v[1] - BONES[f"foot_{k[-1]}"][1][1]]
+            for k, v in CONTACT_POINTS.items()}
 
 
 def _panel_weights(cfg: dict, pts: np.ndarray) -> tuple[list, list]:
@@ -780,10 +803,35 @@ def _panel_weights(cfg: dict, pts: np.ndarray) -> tuple[list, list]:
     return out_b, out_w
 
 
+FAR_SHOE_CUT_Y = 1636     # far leg rows from here down are the whole redrawn shoe
+
+
+def _far_shoe_whole() -> None:
+    path = PKG / "prep" / "peel" / "far_shoe_canvas.png"
+    if not path.exists():
+        return
+    lab, ids = _labels()
+    z = {l["id"]: l["z"] for l in LAYERS}
+    own = lab == ids.index("leg_r")
+    higher = np.isin(lab, [ids.index(o) for o in ids if z[o] > z["leg_r"]])
+    red = np.asarray(Image.open(path).convert("RGBA"))
+    cur = np.asarray(Image.open(PKG / "layers_full" / "leg_r.png").convert("RGBA")).copy()
+    rows = np.zeros((H, W), bool)
+    rows[FAR_SHOE_CUT_Y:] = True
+    use = rows & (red[..., 3] > 127) & (higher | own)
+    cur[rows & ~use & (cur[..., 3] > 0)] = 0
+    cur[use] = red[use]
+    # whole redraw, visible part included: art pixels kept on the visible part left a dark seam
+    # inside the far shoe whenever the feet parted (tried 2026-10-02, also with a 10 px band)
+    Image.fromarray(cur, "RGBA").save(PKG / "layers_full" / "leg_r.png")
+    print(f"[OK] far shoe whole redraw: {int(use.sum())} px")
+
+
 def stage_rig(fresh_layers: bool = True) -> None:
     if fresh_layers:            # _far_arm_whole / _split_hinged edit layers_full in place: start clean
         _run_layers(False)
     _far_arm_whole()
+    _far_shoe_whole()
     zoff = _split_hinged()
     _eyelids()
     part = json.loads((PKG / "prep" / "partition.json").read_text(encoding="utf-8"))["layers"]
@@ -814,7 +862,8 @@ def stage_rig(fresh_layers: bool = True) -> None:
                                                "damping_ratio": v["zeta"]} for k, v in springs.items()]},
         "contact_markers": _contact_points(),
         "gait": gait,
-        "skirt_panels": {"bones": list(PANELS_AT_HEM), "note": "F6: driven from the shins (prototype variant B)"},
+        # read by pet/rig/gait.py GaitSolver._drive_panels (order back, mid_b, mid_f, front)
+        "skirt_panels": {"bones": list(PANELS_AT_HEM), "waist_y": WAIST_Y, "hem_y": HEM_Y, **SKIRT_DRIVE},
         "locomotion": dict(adult_side.get("locomotion", {})),
         "layers": sorted(layers, key=lambda e: e["z_order"]),
     }

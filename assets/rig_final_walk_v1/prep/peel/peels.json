@@ -7,6 +7,14 @@
   ],
   "iou_vs_visible": 0.525
  },
+ "far_shoe": {
+  "raw": "prep/peel/far_shoe_redraw_s2.png",
+  "shift_px": [
+   6,
+   0
+  ],
+  "iou_vs_visible": 0.741
+ },
  "tail": {
   "raw": "prep/peel/tail_redraw_s1.png",
   "shift_px": [

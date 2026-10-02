@@ -335,6 +335,12 @@ def collect_gait_spec(spec_file: str,
     return spec
 
 
+def _rot(v: np.ndarray, a: float) -> np.ndarray:
+    """画布系（y 向下）旋转，正角 = 屏幕顺时针（与骨骼角同号）。"""
+    c, s = math.cos(a), math.sin(a)
+    return np.array([v[0] * c - v[1] * s, v[0] * s + v[1] * c])
+
+
 def _find_joint(spec_data: Dict, bone: str) -> Optional[np.ndarray]:
     sk = spec_data.get("skeleton") or {}
     ref = (sk.get("source_reference") or {}).get("image_size_px") or [960, 1696]
@@ -440,6 +446,21 @@ class GaitSolver:
         self.skirt_freq = float(g.get("skirt_freq_hz", 0))
         self.skirt_halflife = float(g.get("skirt_halflife_s", .1))
         self._skirt: Dict[str, list] = {}
+        # 长裙（FINAL）：四片裙骨挂腰线（spec 顶层 skirt_panels，见 docs/FINAL侧身原画F3与长裙原型）。
+        # 侧视 A 字裙比步幅宽，腿碰不到前后裙片，两腿反相——跟随"腿的平均"约等于不动；
+        # 故裙摆中段前半片跟最前小腿、后半片跟最后小腿，前/后片以较软弹簧跟随相邻片。
+        # 全部绕腰线旋转（不拉伸布料）。
+        sp = spec_data.get("skirt_panels") or {}
+        self.panel_bones = [str(b) for b in sp.get("bones", [])] if len(sp.get("bones", [])) == 4 else []
+        self.panel_len = float(sp.get("hem_y", 0) - sp.get("waist_y", 0)) or 900.0
+        self.panel_gain = float(sp.get("gain", 0.45))
+        self.panel_side_gain = float(sp.get("side_gain", 0.6))
+        self.panel_shin = float(sp.get("shin_frac", 0.7))
+        self.panel_limit = math.radians(float(sp.get("limit_deg", 8.0)))
+        self._panel_k_mid = spring_from_frequency(float(sp.get("freq_hz", 3.0)), float(sp.get("halflife_s", 0.10)))
+        self._panel_k_side = spring_from_frequency(float(sp.get("side_freq_hz", 1.8)),
+                                                   float(sp.get("side_halflife_s", 0.18)))
+        self._panel: Dict[str, list] = {}
         #   reference_curves  关节角按正常人步态参考曲线成形（docs/ADULT行走修复-2026-09-29.md §4）：
         #   摆动期 = 参考大腿/膝角的正向运动学轨迹（末段并入规划落点）；支撑期骨盆高度由
         #   领先腿的参考膝角（承重缓冲 → 近伸直）反求，而非"两腿取最差"（旧规则 = 全程半蹲）
@@ -951,6 +972,31 @@ class GaitSolver:
         return hip + np.array([self._sway, self._dip])
 
     # ---------------- IK 求解 ----------------
+
+    def _drive_panels(self, angles: Dict[str, float], dt: float) -> None:
+        """长裙四片裙骨：小腿（膝→踝 shin_frac 处）相对骨盆的前后位移驱动裙摆中段。"""
+        dx = []
+        for side in ("l", "r"):
+            leg = self.legs[side]
+            th = angles.get(leg.hip_bone, 0.0)
+            kn = angles.get(leg.knee_bone, 0.0)
+            knee = leg.hip_rest + _rot(leg.knee_rest - leg.hip_rest, th)
+            ank = knee + _rot(leg.ankle_rest - leg.knee_rest, th + kn)
+            rest = leg.knee_rest + self.panel_shin * (leg.ankle_rest - leg.knee_rest)
+            now = knee + self.panel_shin * (ank - knee)
+            dx.append(float(now[0] - rest[0]))
+        back, mid_b, mid_f, front = self.panel_bones
+        lim = self.panel_limit
+
+        def spring(bone, target, k):
+            st = self._panel.setdefault(bone, [0.0, 0.0])
+            st[0], st[1] = spring_step(st[0], st[1], max(-lim, min(lim, target)), k[0], k[1], dt * 1000)
+            angles[bone] = max(-lim, min(lim, st[0]))
+        # 前移（+x）= 裙摆向右 = 屏幕逆时针 = 负角
+        spring(mid_f, -math.atan2(self.panel_gain * max(dx), self.panel_len), self._panel_k_mid)
+        spring(mid_b, -math.atan2(self.panel_gain * min(dx), self.panel_len), self._panel_k_mid)
+        spring(front, self.panel_side_gain * angles[mid_f], self._panel_k_side)
+        spring(back, self.panel_side_gain * angles[mid_b], self._panel_k_side)
 
     def _solve_leg(self, side: str, ankle_t: np.ndarray, pitch: float
                    ) -> Tuple[float, float, float, bool]:
@@ -1595,6 +1641,8 @@ class GaitSolver:
                     angles[bone] = max(-self.skirt_limit, min(self.skirt_limit, st[0]))
                 else:
                     angles[bone] = target
+        if self.panel_bones:
+            self._drive_panels(angles, substep_dt)
         if self.arm_swing:
             # 侧视手臂与同侧腿反相：同侧脚跟着地（τ=0，腿最前）时上臂最后（正角 = 顺时针
             # = 向后），支撑末/趾离地附近最前；按相位而非大腿角——远侧腿静止站位偏后，

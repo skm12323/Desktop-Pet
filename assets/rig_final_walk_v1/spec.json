@@ -730,32 +730,32 @@
  },
  "contact_markers": {
   "heel_l": [
-   -30.0,
-   65.0
+   -42,
+   56
   ],
   "sole_l": [
-   -17.0,
-   65.0
+   23,
+   57
   ],
   "forefoot_l": [
-   -4.0,
-   65.0
+   93,
+   50
   ],
   "heel_r": [
-   36.0,
-   40.0
+   -22,
+   36
   ],
   "sole_r": [
-   70.0,
-   40.0
+   43,
+   38
   ],
   "forefoot_r": [
-   104.0,
-   40.0
+   98,
+   33
   ]
  },
  "gait": {
-  "frequency_hz": 1.6,
+  "frequency_hz": 2.2,
   "speed_world_px_s": 120.0,
   "stance_ratio": 0.6,
   "knee_bend_direction": -1,
@@ -799,7 +799,16 @@
    "skirt_mid_f",
    "skirt_front"
   ],
-  "note": "F6: driven from the shins (prototype variant B)"
+  "waist_y": 650,
+  "hem_y": 1586,
+  "gain": 0.6,
+  "side_gain": 0.6,
+  "shin_frac": 0.7,
+  "limit_deg": 8.0,
+  "freq_hz": 3.0,
+  "halflife_s": 0.1,
+  "side_freq_hz": 1.8,
+  "side_halflife_s": 0.18
  },
  "locomotion": {
   "clip_rate": 1.25,

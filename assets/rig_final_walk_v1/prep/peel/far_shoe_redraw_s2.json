@@ -1,0 +1,26 @@
+{
+  "tool": "tools/qwen_edit.py",
+  "models": {
+    "unet": "qwen_image_2.1_int8_convrot.safetensors",
+    "clip": "qwen3vl_8b_w4a8.safetensors",
+    "vae": "qwen_image_2.1_vae_bf16.safetensors"
+  },
+  "comfy_prompt_id": "4364cb74-3638-4edc-9e53-15f6a23609c8",
+  "seconds": 185.0,
+  "seed": 2,
+  "steps": 25,
+  "resolution": 0,
+  "flatten_alpha_onto_white": true,
+  "images": [
+    {
+      "slot": "image1",
+      "path": "assets/rig_final_walk_v1/prep/peel/far_foot_crop_x4.png",
+      "sha256": "8b7b36012c5d1ef9c863f152d6992999882c1dfed958f594546523b520980b7f"
+    }
+  ],
+  "mask": null,
+  "prompt": "In <image1> the shoe on the right is partly hidden behind another shoe on the left. Redraw only the right shoe and its white stocking ankle as one complete foot, alone on a flat solid chroma green #00B140 background: the navy Mary Jane shoe with its strap, the toe pointing right, and the back of the shoe with its thick block heel and sole completed on the left side where it is hidden in <image1>. Keep exactly the same position, angle, size, colors, shading and line art of the right shoe in <image1>. Remove the left shoe, its buckle, the skirt ruffles and everything else. No shadows on the background.",
+  "negative": "blurry, lowres, deformed, extra limbs, text, watermark",
+  "output": "assets/rig_final_walk_v1/prep/peel/far_shoe_redraw_s2.png",
+  "output_sha256": "da7297cc7902cfa41c20703f4acdb9f690b4501d6963bf3f74d291748a3557d9"
+}

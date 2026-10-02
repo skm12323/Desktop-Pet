@@ -90,6 +90,13 @@ def main() -> None:
           "holes_frac": float(holes.sum() / tot), "spill_frac": float(spill.sum() / tot)}
     rr["pass"] = bool(rr["disp256_mean_255"] <= 6 and rr["disp256_p99_255"] <= 50
                       and rr["holes_frac"] <= 1e-3 and rr["spill_frac"] <= 1e-3)
+    # the far arm is a deliberate whole redraw at the user's request (the art's arm was too thin,
+    # review 2026-10-02): reported separately, like ADULT's HAND_REDRAW exclusion (needs user OK)
+    arm = np.asarray(Image.open(PKG / "prep" / "peel" / "arm_r_gpt_canvas.png"))[..., 3] > 0
+    arm = ndimage.binary_dilation(arm, iterations=4)
+    arm256 = np.asarray(Image.fromarray((arm * 255).astype(np.uint8)).resize(DISP)) > 0
+    rr["excl_far_arm_redraw"] = {"disp256_mean_255": float(d256[s256 & ~arm256].mean()),
+                                 "disp256_p99_255": float(np.percentile(d256[s256 & ~arm256], 99))}
     metrics: dict = {"rest_recovery": rr}
     if holes.any() or spill.any():
         v = np.full(key.shape[:2] + (3,), 255, np.uint8)
