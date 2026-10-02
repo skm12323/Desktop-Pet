@@ -1,0 +1,21 @@
+F3 FINAL side key art - gpt-image-2.5 (run by the user). Generate 4 images.
+
+Inputs, in this order:
+  image 1 (identity) = assets/rig_final_walk_v1/references/gpt_in_1_identity_final_front.png
+                       (FINAL front rig rest render, 2026-10-02)
+  image 2 (pose)     = assets/rig_final_walk_v1/references/gpt_in_2_pose_adult_side.png
+                       (approved ADULT side key: view angle, standing pose, tail placement, framing)
+  image 3 (details)  = assets/rig_final_walk_v1/references/gpt_in_3_final_side_details.png
+                       (old FINAL side figure: how this outfit and hair look from the side; its
+                        walking pose, open mouth and lifted arm must NOT be copied)
+
+Prompt:
+Image 1 is the character. Image 2 is the pose. Image 3 only shows how this character's long dress and hair look from the side.
+Redraw the character from image 1 in exactly the pose, view angle, tail placement, framing and size of image 2: three-quarter side view facing right, standing still, both feet flat on the same ground line, arms hanging relaxed with a small gap to the body, closed-mouth gentle smile, eyes open.
+Copy every design detail from image 1, not from image 2: face, eyes, very long wavy blue hair with its light-blue gradient reaching below the hips, ahoge, white frilled headdress, whale-fin ears, off-shoulder puffy navy sleeves with bare shoulders, white frilled collar with black bow and blue gem, white bib apron with the small whale emblem, the ankle-length navy open overskirt with gold vine embroidery and small gold-and-black bows over the blue pinstriped underskirt and white petticoat ruffles, white stockings, navy Mary Jane shoes, whale tail shape and colors.
+The skirt is long: its ruffled hem ends just above the ankles, so only the white ankles and the shoes show below it, both shoes fully visible side by side with the toes pointing right. The skirt hangs straight and calm, not flaring or swinging.
+Keep asymmetric details on the same side of HER body as in image 1: the light-blue ribbon bow is on her left side of the headband, which is the far side in this view, so it is hidden behind her head or only slightly visible. Never put a bow on the near side. Exactly one tail, coming out from behind the skirt at her back.
+Style: the same clean anime line art and flat cel shading as image 1. Not 3D, not painterly, no motion blur.
+Flat white background. No floor, no shadow, no text.
+
+After generating: save the raw outputs into assets/rig_final_walk_v1/references/gpt_raw/ (any file names).

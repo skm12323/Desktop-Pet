@@ -1,0 +1,90 @@
+{
+  "file": "assets/rig_final_walk_v1/references/side_key.png",
+  "sha256": "303ef0ce0dd1cb7110fc0d3ae4d7fd0e1d7354d183163688199b9bf6d4988a89",
+  "status": "F3 provisional pick by Claude 2026-10-02 (cand4: only candidate within the 60 px turn-in-place step; awaiting user visual sign-off)",
+  "generator": "gpt-image-2.5 (run by user), 4 candidates",
+  "candidates": {
+    "cand1": {
+      "raw": "gpt_raw/exec-7d3dcbc0-22d3-4d6f-a2e9-20c7526859d6.png",
+      "sha256": "6f6e58f4da482ac6772616defc8edffa8d7adcd0ae0386f3504fdb38cd0e2856"
+    },
+    "cand2": {
+      "raw": "gpt_raw/exec-8fcc106c-5f8b-4636-a4fb-7c353691cd22.png",
+      "sha256": "579151691bdc07f9138242f6a80e7fcb5452ea814f32f67b7cdeb9d0fae3378e"
+    },
+    "cand3": {
+      "raw": "gpt_raw/exec-a0e8f327-408d-415b-8cdc-280b0033cf86.png",
+      "sha256": "03436e292df79cdf90254c7a4bf452daa56bf05037168931767e8d020491737c"
+    },
+    "cand4": {
+      "raw": "gpt_raw/exec-c4eb837b-a0e1-4d4d-8925-33c05f82e131.png",
+      "sha256": "56274c81538448748bfa714eaed8a0226f6df7492ea20d5d273837021c1f894f"
+    }
+  },
+  "chosen_raw": "gpt_raw/exec-c4eb837b-a0e1-4d4d-8925-33c05f82e131.png",
+  "inputs_in_order": [
+    {
+      "slot": "image1 (identity)",
+      "path": "assets/rig_final_walk_v1/references/gpt_in_1_identity_final_front.png",
+      "sha256": "ad750497e8bf9cf321e80f18a15e50beed3fd0331adaebe6cff0d97999021c34"
+    },
+    {
+      "slot": "image2 (pose)",
+      "path": "assets/rig_final_walk_v1/references/gpt_in_2_pose_adult_side.png",
+      "sha256": "3cff9ed3d898a241c7a5f1e2d977146f21c310efdc4b175c30926c8f6fcd7695"
+    },
+    {
+      "slot": "image3 (side details)",
+      "path": "assets/rig_final_walk_v1/references/gpt_in_3_final_side_details.png",
+      "sha256": "f5ff6322ee398cd533c57138454a162779c2d04db06003a7b0216612435fea17"
+    }
+  ],
+  "prompt_ref": "assets/rig_final_walk_v1/references/F3_gpt_prompt.txt",
+  "post": [
+    "tools/birefnet_matte.py (white bg) -> gpt_rgba/cand4.png",
+    "tools/align_side_key.py --front references/front_rest.png (canvas 1024x1824): scale 1.0808, offset [-35, -5]"
+  ],
+  "g1_numeric": {
+    "canvas": {
+      "size": [
+        1024,
+        1824
+      ],
+      "real_alpha": true,
+      "touches_canvas_edge": false,
+      "pass": true
+    },
+    "ground_line": {
+      "sole_y": 1761,
+      "front_sole_y": 1761,
+      "feet_levels": [
+        1761,
+        1761
+      ],
+      "far_foot_depth_offset_px": 0,
+      "pass": true
+    },
+    "turn_in_place": {
+      "feet_offset_vs_front_px": 35.0,
+      "pass": true
+    },
+    "height_vs_front": {
+      "side": 1739,
+      "front": 1739,
+      "ratio": 1.0,
+      "pass": true
+    },
+    "colour_de2000": {
+      "per_family": {
+        "hair_mid_blue": 2.11,
+        "dress_navy": 1.95,
+        "apron_white": 0.54,
+        "skin": 0.74,
+        "light_blue_tips": null
+      },
+      "threshold": 6.0,
+      "pass": false
+    }
+  },
+  "g1_note": "colour gate reads fail only because the light_blue_tips family has <200 px in the FINAL front render (None); every measured family dE <= 2.11"
+}

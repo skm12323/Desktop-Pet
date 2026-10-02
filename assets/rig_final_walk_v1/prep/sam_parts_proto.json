@@ -1,0 +1,12 @@
+[
+ {"id": "t_skirt", "crop": [120, 600, 880, 1610], "text": "skirt", "threshold": 0.3},
+ {"id": "t_ruffles", "crop": [120, 1420, 880, 1620], "text": "white ruffles", "threshold": 0.3},
+ {"id": "t_apron", "crop": [380, 600, 780, 1140], "text": "white apron", "threshold": 0.3},
+ {"id": "t_hair", "crop": [60, 20, 800, 940], "text": "hair", "threshold": 0.3},
+ {"id": "t_sleeve", "crop": [180, 480, 780, 960], "text": "sleeve", "threshold": 0.3},
+ {"id": "t_hand", "crop": [220, 820, 800, 1000], "text": "hand", "threshold": 0.3},
+ {"id": "t_stockings", "crop": [400, 1560, 680, 1730], "text": "white stockings", "threshold": 0.3},
+ {"id": "shoe_near", "crop": [400, 1560, 700, 1780], "pos": [[470, 1740], [445, 1712], [500, 1745]], "neg": [[620, 1722], [520, 1640]]},
+ {"id": "shoe_far", "crop": [400, 1560, 700, 1780], "pos": [[625, 1725], [590, 1712]], "neg": [[470, 1740], [520, 1640]]},
+ {"id": "tail", "crop": [0, 860, 420, 1380], "pos": [[60, 1000], [150, 1200], [240, 1300], [40, 940]], "neg": [[330, 1300], [300, 1100]]}
+]

@@ -1,0 +1,192 @@
+{
+  "tool": "tools/sam3_segment.py",
+  "model": "sam3.1_multiplex_fp16.safetensors",
+  "comfy_prompt_id": "be6a2081-6062-4144-a935-e50e895aaf58",
+  "seconds": 44.9,
+  "image": "assets/rig_final_walk_v1/references/side_key.png",
+  "image_sha256": "303ef0ce0dd1cb7110fc0d3ae4d7fd0e1d7354d183163688199b9bf6d4988a89",
+  "flatten_bg": [
+    255,
+    255,
+    255
+  ],
+  "refine_iterations": 3,
+  "parts": [
+    {
+      "id": "t_skirt",
+      "crop": [
+        120,
+        600,
+        880,
+        1610
+      ],
+      "text": "skirt",
+      "threshold": 0.3
+    },
+    {
+      "id": "t_ruffles",
+      "crop": [
+        120,
+        1420,
+        880,
+        1620
+      ],
+      "text": "white ruffles",
+      "threshold": 0.3
+    },
+    {
+      "id": "t_apron",
+      "crop": [
+        380,
+        600,
+        780,
+        1140
+      ],
+      "text": "white apron",
+      "threshold": 0.3
+    },
+    {
+      "id": "t_hair",
+      "crop": [
+        60,
+        20,
+        800,
+        940
+      ],
+      "text": "hair",
+      "threshold": 0.3
+    },
+    {
+      "id": "t_sleeve",
+      "crop": [
+        180,
+        480,
+        780,
+        960
+      ],
+      "text": "sleeve",
+      "threshold": 0.3
+    },
+    {
+      "id": "t_hand",
+      "crop": [
+        220,
+        820,
+        800,
+        1000
+      ],
+      "text": "hand",
+      "threshold": 0.3
+    },
+    {
+      "id": "t_stockings",
+      "crop": [
+        400,
+        1560,
+        680,
+        1730
+      ],
+      "text": "white stockings",
+      "threshold": 0.3
+    },
+    {
+      "id": "shoe_near",
+      "crop": [
+        400,
+        1560,
+        700,
+        1780
+      ],
+      "pos": [
+        [
+          470,
+          1740
+        ],
+        [
+          445,
+          1712
+        ],
+        [
+          500,
+          1745
+        ]
+      ],
+      "neg": [
+        [
+          620,
+          1722
+        ],
+        [
+          520,
+          1640
+        ]
+      ]
+    },
+    {
+      "id": "shoe_far",
+      "crop": [
+        400,
+        1560,
+        700,
+        1780
+      ],
+      "pos": [
+        [
+          625,
+          1725
+        ],
+        [
+          590,
+          1712
+        ]
+      ],
+      "neg": [
+        [
+          470,
+          1740
+        ],
+        [
+          520,
+          1640
+        ]
+      ]
+    },
+    {
+      "id": "tail",
+      "crop": [
+        0,
+        860,
+        420,
+        1380
+      ],
+      "pos": [
+        [
+          60,
+          1000
+        ],
+        [
+          150,
+          1200
+        ],
+        [
+          240,
+          1300
+        ],
+        [
+          40,
+          940
+        ]
+      ],
+      "neg": [
+        [
+          330,
+          1300
+        ],
+        [
+          300,
+          1100
+        ]
+      ]
+    }
+  ]
+}
