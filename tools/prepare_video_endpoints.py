@@ -32,7 +32,9 @@ def main() -> None:
     ap.add_argument("--margin-x", type=int, default=160, help="canvas px of frame margin left (and right unless --margin-right)")
     ap.add_argument("--margin-right", type=int, default=40, help="canvas px of frame margin right (tail swings left)")
     ap.add_argument("--floor-margin", type=int, default=100, help="canvas px between soles and frame bottom")
+    ap.add_argument("--ground-y", type=float, default=GROUND_Y, help="canvas sole line (ADULT 1608, FINAL 1764)")
     a = ap.parse_args()
+    size = None
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     meta = {}
@@ -41,9 +43,10 @@ def main() -> None:
         if not src:
             continue
         im = Image.open(src).convert("RGBA")
-        if im.size != (960, 1696):
-            raise SystemExit(f"{src} is {im.size}; endpoints must be canvas-registered 960x1696 RGBA")
-        frame, m = video_endpoint(im, GROUND_Y, margin_x=a.margin_x, floor_margin=a.floor_margin,
+        if size is not None and im.size != size:      # both endpoints share one canvas (ADULT 960x1696, FINAL 1024x1824)
+            raise SystemExit(f"{src} is {im.size}; the other endpoint is {size}")
+        size = im.size
+        frame, m = video_endpoint(im, a.ground_y, margin_x=a.margin_x, floor_margin=a.floor_margin,
                                   margin_right=a.margin_right)
         frame.save(out / f"{role}.png")
         m.update({"source": Path(src).as_posix(),

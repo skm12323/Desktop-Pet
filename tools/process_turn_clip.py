@@ -210,6 +210,10 @@ def main() -> None:
     for old in (out / "frames").glob("*.png"):
         old.unlink()
     mapping = json.loads((Path(a.endpoints) / "mapping.json").read_text(encoding="utf-8"))["first"]
+    # the endpoints carry their rig canvas (ADULT 960x1696 / 1608, FINAL 1024x1824 / 1764)
+    global CANVAS, GROUND_Y
+    CANVAS = tuple(int(v) for v in mapping.get("canvas_size", CANVAS))
+    GROUND_Y = float(mapping.get("ground_y_canvas", GROUND_Y))
     space = OutputSpace(mapping, a.height)
 
     frames, src_fps = decode(a.clip)
