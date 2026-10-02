@@ -1,0 +1,115 @@
+{
+  "key": "D:\\Desktop-Pet\\assets\\rig_final_walk_v1\\references\\side_key.png",
+  "key_sha256": "303ef0ce0dd1cb7110fc0d3ae4d7fd0e1d7354d183163688199b9bf6d4988a89",
+  "underlap_px": 6,
+  "layers": {
+    "tail": {
+      "z": 0,
+      "own_px": 46238,
+      "total_px": 51664,
+      "completion": true
+    },
+    "hair_back": {
+      "z": 5,
+      "own_px": 88606,
+      "total_px": 156116,
+      "completion": true
+    },
+    "ear_fin_r": {
+      "z": 8,
+      "own_px": 459,
+      "total_px": 643,
+      "completion": true
+    },
+    "hair_side_r": {
+      "z": 9,
+      "own_px": 19798,
+      "total_px": 36330,
+      "completion": true
+    },
+    "arm_r": {
+      "z": 10,
+      "own_px": 11007,
+      "total_px": 13607,
+      "completion": false
+    },
+    "leg_r": {
+      "z": 15,
+      "own_px": 13929,
+      "total_px": 67962,
+      "completion": true
+    },
+    "leg_l": {
+      "z": 18,
+      "own_px": 16681,
+      "total_px": 68476,
+      "completion": true
+    },
+    "skirt": {
+      "z": 20,
+      "own_px": 346667,
+      "total_px": 424006,
+      "completion": true
+    },
+    "torso": {
+      "z": 25,
+      "own_px": 49701,
+      "total_px": 86172,
+      "completion": true
+    },
+    "apron": {
+      "z": 30,
+      "own_px": 111247,
+      "total_px": 111814,
+      "completion": true
+    },
+    "arm_l": {
+      "z": 40,
+      "own_px": 37184,
+      "total_px": 37425,
+      "completion": false
+    },
+    "shoulder_frill_l": {
+      "z": 45,
+      "own_px": 5331,
+      "total_px": 5331,
+      "completion": false
+    },
+    "head_base": {
+      "z": 50,
+      "own_px": 9864,
+      "total_px": 30218,
+      "completion": true
+    },
+    "bangs": {
+      "z": 53,
+      "own_px": 55241,
+      "total_px": 59748,
+      "completion": false
+    },
+    "ear_fin_l": {
+      "z": 55,
+      "own_px": 4717,
+      "total_px": 4822,
+      "completion": false
+    },
+    "ahoge": {
+      "z": 60,
+      "own_px": 1104,
+      "total_px": 1104,
+      "completion": false
+    },
+    "headdress": {
+      "z": 65,
+      "own_px": 9778,
+      "total_px": 9778,
+      "completion": false
+    }
+  },
+  "composite_max_err_255": 14.411767959594727,
+  "composite_mean_err_255": 0.0032648055348545313,
+  "unassigned_filled_px": 19291,
+  "near_cuff_reassigned_px": 0,
+  "edge_to_occluder_px": 620,
+  "completion_alpha_min": 240
+}

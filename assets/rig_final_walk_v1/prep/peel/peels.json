@@ -1,0 +1,27 @@
+{
+ "far_arm": {
+  "raw": "prep/peel/far_arm_redraw_s1.png",
+  "shift_px": [
+   21,
+   21
+  ],
+  "iou_vs_visible": 0.518
+ },
+ "tail": {
+  "raw": "prep/peel/tail_redraw_s1.png",
+  "shift_px": [
+   -4,
+   -1
+  ],
+  "iou_vs_visible": 0.81
+ },
+ "near_arm_bg": {
+  "raw": "prep/peel/near_arm_removed_s1.png",
+  "crop": [
+   180,
+   384,
+   564,
+   1056
+  ]
+ }
+}

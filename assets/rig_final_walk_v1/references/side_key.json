@@ -1,7 +1,7 @@
 {
   "file": "assets/rig_final_walk_v1/references/side_key.png",
   "sha256": "303ef0ce0dd1cb7110fc0d3ae4d7fd0e1d7354d183163688199b9bf6d4988a89",
-  "status": "F3 provisional pick by Claude 2026-10-02 (cand4: only candidate within the 60 px turn-in-place step; awaiting user visual sign-off)",
+  "status": "F3 approved by user 2026-10-02 (cand4)",
   "generator": "gpt-image-2.5 (run by user), 4 candidates",
   "candidates": {
     "cand1": {
