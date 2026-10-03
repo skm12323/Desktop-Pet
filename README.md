@@ -146,7 +146,23 @@ python app.py
 python -m compileall app.py pet
 ```
 
-更多设计、版本规划和平台适配说明请参阅：[设计思路.md](设计思路.md)、[版本规划.md](版本规划.md) 与 [平台适配与分工.md](平台适配与分工.md)。
+### 目录结构
+
+```
+├── app.py            # 入口：装配配置、托盘与平台适配层
+├── pet/              # 运行时包：行为、骨骼、聊天、平台适配
+├── assets/           # 立绘与骨骼资产（frames / rig_* 各代 / ai / reference）
+├── tools/            # 产线脚本：图层拆分、生成、训练、修复与渲染
+├── spikes/           # 各阶段验证脚本（spikes/_qa/ 为本地证据产物，不入库）
+├── docs/             # 工作文档
+│   ├── reviews/      # 阶段评审 REVIEW-*、浸泡测试与内存对比报告
+│   ├── research/     # 动效/LoRA 产线等调研资料
+│   └── planning/     # 设计思路、版本规划、工作表与平台分工
+├── wiki/             # 项目 wiki：概念、设计、实验与资料索引（见 wiki/index.md）
+└── output/           # 运行/复查产出的带日期 GIF 与帧（仅本地，不入库）
+```
+
+更多设计、版本规划和平台适配说明请参阅：[设计思路.md](docs/planning/设计思路.md)、[版本规划.md](docs/planning/版本规划.md) 与 [平台适配与分工.md](docs/planning/平台适配与分工.md)。
 
 ## 参与贡献
 
