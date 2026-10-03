@@ -65,7 +65,7 @@ _SAFE_DEFAULTS: dict = {
     },
     # 批次J/L14（F23）：以下段补 schema 校验，safe defaults 同步补齐
     "provider": "emoji",
-    "presentation": "frames",
+    "presentation": "rig",
     # G6：ADULT 行走——legacy = 正面原地步态（旧行为）；side_rig = 转身片段 + 侧身骨骼行走
     "adult_locomotion": "side_rig",
     "final_locomotion": "side_rig",

@@ -10,7 +10,7 @@
     }
   },
   "provider": "ai",
-  "presentation": "frames",
+  "presentation": "rig",
   "adult_locomotion": "side_rig",
   "final_locomotion": "side_rig",
   "wind": {

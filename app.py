@@ -196,10 +196,10 @@ class PetApp:
         wa = self.sensors.work_area
         self.fsm = BehaviorFSM(dict(wa), self.cfg.get("behavior", {}))
 
-        # v0.13/v0.18 展示后端选择：presentation=frames（默认，旧行为不变）| rig
-        # （2D 骨骼蒙皮/分层绑骨）| paperdoll（部件步态）。
+        # v0.13/v0.18 展示后端选择：presentation=rig（v0.17.8 起默认，
+        # 侧身行走开箱即用）| frames（帧动画，低配回退项）| paperdoll（部件步态）。
         sprite0 = self.provider.get_static(self.store.get())
-        presentation = self.cfg.get("presentation", "frames")
+        presentation = self.cfg.get("presentation", "rig")
         if presentation in ("rig", "paperdoll"):
             from pet.rig.presenter import build_rig_window
             base_window = adapter.create_pet_window(sprite0)
@@ -471,7 +471,7 @@ class PetApp:
         20Hz 全量 FK/LBS）。rig 后端下 enricher 恒 NullEnricher，RigWindow
         ._engine 是唯一 step 者；frames 后端仍要 body_y（呼吸）故保留 motion。
         """
-        presentation = self.cfg.get("presentation", "frames")
+        presentation = self.cfg.get("presentation", "rig")
         enricher = NullEnricher()
         if presentation not in ("rig", "paperdoll"):
             try:
@@ -1091,7 +1091,7 @@ class PetApp:
             try:
                 rows.append({"type": "section", "name": "呈现"})
                 rows.append({"type": "field", "name": "立绘来源", "value": self.cfg.get("provider", "emoji"), "level": "ok"})
-                rows.append({"type": "field", "name": "展示后端", "value": self.cfg.get("presentation", "frames"), "level": "ok"})
+                rows.append({"type": "field", "name": "展示后端", "value": self.cfg.get("presentation", "rig"), "level": "ok"})
                 w = self.window
                 rows.append({"type": "field", "name": "窗口", "value": f"{w.width()}×{w.height()} @ ({w.x()},{w.y()})", "level": "ok"})
             except Exception as exc:

@@ -74,8 +74,8 @@ def main() -> int:
                    "log_level": "CHATTY",            # 非法枚举
                    "hotkeys": {"chat": 42}}, f)      # 类型错
     got = load_config(bad_cfg)
-    check("T13a 非法 presentation 回退默认 frames",
-          got["presentation"] == "frames")
+    check("T13a 非法 presentation 回退默认 rig",
+          got["presentation"] == "rig")
     check("T13b 非法 log_level 回退默认 INFO", got["log_level"] == "INFO")
     check("T13c 非法 hotkeys 段回退默认（example 值）",
           isinstance(got["hotkeys"], dict)
