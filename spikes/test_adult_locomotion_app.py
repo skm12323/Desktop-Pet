@@ -34,14 +34,17 @@ def check(name, ok, detail=""):
     print(f"  [{'OK' if ok else 'FAIL'}] {name}" + (f"  [{detail}]" if detail else ""), flush=True)
 
 
-def main():
+def main(stage="adult"):
+    global OUT
+    if stage == "final":
+        OUT = ROOT / "output/final_f7_integration_2026-10-03/app"
     OUT.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="desktop-pet-g6-") as tmp:
         with patch.dict(os.environ, {"LOCALAPPDATA": tmp}):
             adapter = get_platform_adapter()
         actual = adapter.get_paths()
         from pet.pet_state import PetState, PetStateStore, Stage
-        PetStateStore(PetState(stage=Stage.ADULT, age=14)).save(str(Path(tmp) / "pet_state.json"))
+        PetStateStore(PetState(stage=Stage(stage), age=30 if stage == "final" else 14)).save(str(Path(tmp) / "pet_state.json"))
         config_path = Path(tmp) / "config.json"
         config_path.write_text(json.dumps({"presentation": "rig", "provider": "ai"}), encoding="utf8")
         paths = dict(actual, data_dir=tmp, log_dir=tmp, config_path=str(config_path),
@@ -84,7 +87,7 @@ def main():
 
         def step_boot():
             ok = win.locomotion_available() if hasattr(win, "locomotion_available") else False
-            check("side locomotion enabled at startup (ADULT + side_rig)", ok)
+            check(f"side locomotion enabled at startup ({stage.upper()} + side_rig)", ok)
             if not ok:
                 return finish(pet)
             fsm._idle_left = 1e9           # no spontaneous wander during the test
@@ -148,4 +151,9 @@ def finish(pet, log=None):
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stage", choices=("adult", "final"), default="adult")
+    args = parser.parse_args()
+    main(args.stage)
+    sys.exit(0 if results and all(ok for _, ok, _ in results) else 1)

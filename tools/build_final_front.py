@@ -28,6 +28,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from scipy import ndimage
+from scipy.spatial import ConvexHull
 
 ROOT = Path(__file__).resolve().parent.parent
 PKG = ROOT / "assets" / "rig_final"
@@ -118,8 +119,8 @@ COMPLETIONS = {
 # ---- eyes (canvas px, measured on front_key.png)
 EYE_BOX = {"l": (436, 226, 500, 274), "r": (528, 218, 598, 268)}
 # blink zone [cx, top, bottom, radius] (mesh_generator): lash top -> lower lid
-BLINK_ZONES = {"l": [470, 238, 270, 31], "r": [563, 228, 263, 30]}
-BLINK_BLEND_PX = 10       # the eyes are 33 px apart: the default 25 px side bands overlap and double the squash
+BLINK_ZONES = {"l": [469, 238, 270, 34], "r": [555, 228, 267, 36]}
+BLINK_BLEND_PX = 6        # includes the right eye's inner corner; side bands must stay separate
 
 # ---- skeleton: ADULT's 47 bones (names drive motion.py), joints placed on the FINAL art (px)
 BONES_PX = [
@@ -204,6 +205,11 @@ SPEC_LAYERS = {
     "ahoge_headdress": {"bind_bone": "head", "influence_bones": ["head"]},
 }
 EYE_LAYERS_Z = {"pupil_l": 110, "pupil_r": 115, "eyelid_l": 120, "eyelid_r": 125}
+for _side in ("l", "r"):
+    for _half in ("upper", "lower"):
+        _name = f"eye_cover_{_side}_{_half}"
+        EYE_LAYERS_Z[_name] = 118
+        SPEC_LAYERS[_name] = {"bind_bone": "head", "influence_bones": ["head"]}
 GROUND_Y = 1764
 
 
@@ -272,7 +278,9 @@ def stage_masks() -> None:
                  **SOURCES})
     _write_json(PKG / "prep" / "layer_plan.json",
                 {"layers": LAYERS, "priority": PRIORITY, "mask_to_layer": {}, "multi": MULTI, "hair_split": None,
-                 "edge_to_occluder": [{"layer": "tail", "occluder": "skirt", "px": 3}]})
+                 "edge_to_occluder": [{"layer": "tail", "occluder": "skirt", "px": 3}]
+                    + [{"layer": layer, "occluder": f"arm_{side}", "px": 3, "box": list(HAND_BOX[side])}
+                       for side in ("l", "r") for layer in ("skirt", f"hair_back_{side}")]})
     print("[OK] derived masks + plan")
 
 
@@ -280,6 +288,9 @@ def _run_layers(labels_only: bool) -> None:
     cmd = [sys.executable, "-X", "utf8", str(ROOT / "tools" / "build_side_layers.py"),
            "--key", str(KEY), "--masks", str(PKG / "prep"), "--out", str(PKG),
            "--plan", str(PKG / "prep" / "layer_plan.json")]
+    # A translucent source pixel cannot hide an opaque completion without
+    # changing its original colour/alpha, even in a perfectly still pose.
+    cmd += ["--completion-alpha-min", "255"]
     if labels_only:
         cmd.append("--labels-only")
     subprocess.run(cmd, check=True)
@@ -293,8 +304,11 @@ def _diffuse_fill(rgba: np.ndarray, own: np.ndarray, region: np.ndarray, iters: 
     out[region, :3] = rgba[iy[region], ix[region], :3]
     out[region, 3] = 255
     f = out[..., :3].astype(np.float32)
+    support = out[..., 3] > 0
+    coverage = ndimage.uniform_filter(support.astype(np.float32), 9)
     for _ in range(iters):
-        blur = np.stack([ndimage.uniform_filter(f[..., c], 9) for c in range(3)], -1)
+        blur = np.stack([ndimage.uniform_filter(f[..., c] * support, 9) for c in range(3)], -1)
+        blur /= np.maximum(coverage[..., None], 1e-6)
         f[region] = blur[region]
     out[..., :3] = np.clip(f + 0.5, 0, 255).astype(np.uint8)
     return out
@@ -381,6 +395,8 @@ def stage_completions() -> None:
             own = own | m
         under = np.isin(labels, [ids.index(u) for u in p["under"]])
         region = ndimage.binary_dilation(own, iterations=p["grow"]) & under & ~own
+        if lid in peel:
+            region &= ~np.isin(labels, [ids.index(o) for o in ARM_PEEL["occluders"]])
         if p.get("aline_hull"):
             region &= aline_hull(labels == ids.index(lid), labels, p["aline_hull"])
         src = ndimage.binary_erosion(own, iterations=3) if p.get("interior_src") else own
@@ -454,11 +470,18 @@ def stage_eyes() -> dict:
     head = np.asarray(Image.open(full / "head_base.png").convert("RGBA")).copy()
     lum = head[..., :3].astype(np.float32) @ np.array([0.299, 0.587, 0.114], np.float32)
     geo = {}
+    eye_openings = np.zeros((H, W), bool)
     for side, (x0, y0, x1, y1) in EYE_BOX.items():
         box = _box_mask((x0, y0, x1, y1))
         iris = _load_mask(f"sam_masks/eye_{side}") & box
         iris = ndimage.binary_fill_holes(ndimage.binary_closing(iris, iterations=2))
         iris = iris & box & (head[..., 3] > 0)
+        hc = head[..., :3].astype(np.int16)
+        # The lower iris contour is part of the iris. Leaving it in the face
+        # made a second arc when gaze moved the pupil upwards.
+        cy0 = float(np.where(iris)[0].mean())
+        rim = ndimage.binary_dilation(iris, iterations=2) & box & (np.arange(H)[:, None] >= cy0-3)
+        iris |= rim & (hc[..., 2] > hc[..., 0]+10) & (lum < 225)
         ys, xs = np.where(iris)
         cx, cy = float(xs.mean()), float(ys.mean())
         rx, ry = (xs.max() - xs.min()) / 2, (ys.max() - ys.min()) / 2
@@ -467,30 +490,97 @@ def stage_eyes() -> dict:
         pup[iris] = head[iris]
         Image.fromarray(pup, "RGBA").save(full / f"pupil_{side}.png")
         # upper lash: dark pixels above the iris centre line + the outer-corner wing
-        dark = box & (lum < 110) & (head[..., 3] == 255) & ~iris
+        hc = head[..., :3].astype(np.int16)
+        hair_blue = (hc[..., 2] > hc[..., 0]+12) & (hc[..., 2] > hc[..., 1]+3)
+        dark = box & (lum < 110) & (head[..., 3] >= 240) & ~iris & ~hair_blue
         lab, n = ndimage.label(dark, structure=np.ones((3, 3)))
         top_rows = dark & (np.arange(H)[:, None] < cy)
         keep = np.unique(lab[top_rows])
         lash = np.isin(lab, keep[keep > 0])
-        lash = ndimage.binary_dilation(lash, iterations=1) & box & (lum < 170) & (head[..., 3] == 255) & ~iris
+        lash = ndimage.binary_dilation(lash, iterations=1) & box & (lum < 170) & (head[..., 3] >= 240) & ~iris & ~hair_blue
         lid = np.zeros_like(head)
         lid[lash] = head[lash]
         Image.fromarray(lid, "RGBA").save(full / f"eyelid_{side}.png")
+        # Record the actual sclera opening. The old iris-sized ellipse cut a
+        # crescent out of the iris when its sampling UVs moved during look-at.
+        c = head[..., :3].astype(np.int16)
+        white = box & (head[..., 3] > 200) & (c.min(-1) > 200) & (np.ptp(c, axis=-1) < 25)
+        white &= (c[..., 0] <= c[..., 1]+2) & (c[..., 0] <= c[..., 2]+2)
+        opening = ndimage.binary_fill_holes(ndimage.binary_closing(iris | white, iterations=1))
+        labels, _ = ndimage.label(opening)
+        selected = np.bincount(labels[iris]).argmax()
+        yy, xx = np.where(labels == selected)
+        eye_openings |= labels == selected
+        pixels = np.column_stack([xx, yy])
+        # Vertices bound whole pixel cells. A hull through their top-left
+        # coordinates clipped the outer row of iris pixels even at rest.
+        points = np.concatenate([pixels + offset for offset in ((0, 0), (1, 0), (1, 1), (0, 1))])
+        outline = points[ConvexHull(points).vertices].tolist()
+        # The lash must have one moving copy. Keeping it in head_base as well
+        # left stretched vertical dark strokes beside the fully closed eyelid.
+        skin_src = box & ~iris & ~lash & (head[..., 3] >= 240) & (c.min(-1) > 215) & (c[..., 0] > c[..., 2] + 12)
+        _, (sy, sx) = ndimage.distance_transform_edt(~skin_src, return_indices=True)
+        head[lash, :3] = head[sy[lash], sx[lash], :3]
         # sclera under the iris (gaze moves the iris, blink squashes it): nearest light eye-white
-        sclera_src = box & ~iris & ~lash & (lum > 205) & (head[..., 3] == 255)
+        # Bright bangs/skin are not eye white: sampling them produced a grey
+        # vertical streak under the iris after the eye closed.
+        sclera_src = white & ~iris & ~lash
+        if not sclera_src.any():
+            raise ValueError(f"eye {side}: no opaque eye-white pixels for completion")
         hole = iris                     # not dilated: that painted white over the lid lines
         _, (iy, ix) = ndimage.distance_transform_edt(~sclera_src, return_indices=True)
         fill = hole & ~sclera_src
         head[fill, :3] = head[iy[fill], ix[fill], :3]
         head[fill, 3] = 255
-        f = head[..., :3].astype(np.float32)
-        for _ in range(4):
-            blur = np.stack([ndimage.uniform_filter(f[..., c], 5) for c in range(3)], -1)
-            f[fill] = blur[fill]
-        head[..., :3] = np.clip(f + 0.5, 0, 255).astype(np.uint8)
+        # Eye white comes only from eye white; a blur across the lower lid
+        # reintroduced the dark iris outline into the empty opening.
+        opening_mask = (labels == selected) | iris
+        yy, xx = np.mgrid[0:H, 0:W]
+        bcx, top, bottom, radius = BLINK_ZONES[side]
+        oy, ox = np.where(opening_mask)
+        # Cover the anti-aliased eyelid fringe too; a thresholded eye opening
+        # alone leaves isolated white/black pixels after complete closure.
+        cover = box & (xx >= ox.min()-2) & (xx <= ox.max()+2) & (yy >= top-4) & (yy <= bottom+2)
+        cover_skin = box & (head[..., 3] >= 240) & ~iris & ~lash & (c.min(-1) > 185)
+        cover_skin &= c[..., 0] > np.maximum(c[..., 1], c[..., 2])+20
+        if not cover_skin.any():
+            raise ValueError(f"eye {side}: no warm eyelid skin samples")
+        _, (cyi, cxi) = ndimage.distance_transform_edt(~cover_skin, return_indices=True)
+        skin_colors = head[cyi, cxi, :3].astype(np.float32)
+        for channel in range(3):
+            skin_colors[..., channel] = ndimage.gaussian_filter(skin_colors[..., channel], 6)
+        skin_colors = np.clip(skin_colors+.5,0,255).astype(np.uint8)
+        seam = top + (bottom-top)*.78 + 6*np.clip(1-((xx-bcx)/radius)**2,0,1)
+        for half, mask in (("upper", cover & (yy <= seam+1)), ("lower", cover & (yy >= seam-1))):
+            patch = np.zeros_like(head)
+            patch[mask, :3] = skin_colors[mask]
+            patch[mask, 3] = 255
+            Image.fromarray(patch).save(full / f"eye_cover_{side}_{half}.png")
         geo[side] = {"center": [round(cx, 1), round(cy, 1)], "radius": [round(rx, 1), round(ry, 1)],
-                     "iris_px": int(iris.sum()), "lash_px": int(lash.sum())}
+                     "iris_px": int(iris.sum()), "lash_px": int(lash.sum()), "opening_polygon": outline}
         print(f"[OK] eye {side}: iris {int(iris.sum())} px centre ({cx:.1f},{cy:.1f}), lash {int(lash.sum())} px")
+    # SAM left a thin blue-grey fringe of the bangs on the face. It must move
+    # with the hair, rather than stretch down the forehead with the eyelids.
+    c = head[..., :3].astype(np.int16)
+    blink_band = np.zeros((H, W), bool)
+    for cx, top, bottom, radius in BLINK_ZONES.values():
+        blink_band |= _box_mask((cx-radius-BLINK_BLEND_PX, top-32,
+                                cx+radius+BLINK_BLEND_PX+1, bottom+33))
+    bangs = np.asarray(Image.open(full / "bangs.png").convert("RGBA")).copy()
+    near_bangs = ndimage.binary_dilation(bangs[..., 3] > 127, iterations=3)
+    # The anti-aliased hair/skin boundary also contains grey and warm pixels.
+    # Keep the whole narrow boundary with the hair, outside the eye opening.
+    fringe = blink_band & ~eye_openings & near_bangs & (bangs[..., 3] == 0) & (head[..., 3] > 0)
+    bangs[fringe] = head[fringe]
+    skin = (head[..., 3] >= 240) & ~fringe & (c[..., 0] > c[..., 2]+12) & (c.min(-1) > 215)
+    _, (sy, sx) = ndimage.distance_transform_edt(~skin, return_indices=True)
+    head[fringe, :3] = head[sy[fringe], sx[fringe], :3]
+    # Partial-alpha silhouette pixels now have one owner. Leaving a skin
+    # copy underneath would darken/thicken the source AA rim at rest.
+    source_alpha = np.asarray(Image.open(KEY).convert("RGBA"))[..., 3]
+    head[fringe & (source_alpha < 240)] = 0
+    Image.fromarray(bangs, "RGBA").save(full / "bangs.png")
+    print(f"[OK] blink hair fringe -> bangs: {int(fringe.sum())} px")
     Image.fromarray(head, "RGBA").save(full / "head_base.png")
     _write_json(PKG / "prep" / "eyes.json", geo)
     return geo
@@ -519,21 +609,37 @@ def stage_spec() -> None:
         bones.append({"bone_name": name, "parent": parent, "joint_pos": [round(x / W, 4), round(y / H, 4)],
                       "angle_clamp": list(clamp), "is_chain": chain})
     z_of = {l["id"]: l["z"] for l in LAYERS} | EYE_LAYERS_Z
+    z_of = {lid: z for lid, z in z_of.items()
+            if not lid.startswith("eye_cover_") or Image.open(PKG / "layers_full" / f"{lid}.png").getbbox()}
     order = sorted(z_of, key=z_of.get)
     offs = trim_layers(order)
     layers = []
     for lid in order:
         e = {"id": lid, **SPEC_LAYERS[lid], "z_order": z_of[lid], "trim_offset_px": offs[lid]}
         if lid in ("head_base",):
-            e["blink_zones"] = [BLINK_ZONES["l"], BLINK_ZONES["r"]]
-            e["blink_blend_px"] = BLINK_BLEND_PX
+            # Closing skin patches cover the opening while the face and its
+            # boundary stay still, avoiding stretched forehead/bangs seams.
+            e["grid_step"] = 4
+        if lid.startswith("eye_cover_"):
+            _, _, side, half = lid.split("_")
+            zone = BLINK_ZONES[side]
+            e["blink_reveal_pivot_y"] = zone[1] if half == "upper" else zone[2]
+            e["grid_step"] = 2
+            e["min_component_px"] = 0
+        if lid == "bangs":
+            e["min_component_px"] = 0
+            e["grid_step"] = 8
         if lid.startswith(("pupil_", "eyelid_")):
             e["blink_zones"] = [BLINK_ZONES[lid[-1]]]
+        if lid.startswith("eyelid_"):
+            e["grid_step"] = 4
         if lid.startswith("pupil_"):
             g = geo[lid[-1]]
-            # the iris is sampled through its own rest outline: it never draws over lids or skin
+            # The original ellipse is retained as metadata; sampling uses the
+            # full eye opening, so looking around does not cut off the iris.
             e["gaze_ellipse"] = [g["center"][0], g["center"][1], g["radius"][0], g["radius"][1]]
-        if lid in MULTI or lid in ("tail", "arm_l", "arm_r", "leg_l", "leg_r"):
+            e["gaze_polygon"] = g["opening_polygon"]
+        if (lid in MULTI or lid in ("tail", "arm_l", "arm_r", "leg_l", "leg_r")) and lid != "bangs":
             e["min_component_px"] = 40
         layers.append(e)
     fm = json.loads(json.dumps(adult["face_mechanics"]))

@@ -49,7 +49,12 @@ class FakeClock:
         return self.t
 
 
-def main() -> None:
+def main(stage="adult", size=256) -> None:
+    global PKG, OUT, WIN
+    PKG = str(ROOT / "assets" / f"rig_{stage}_walk_v1")
+    WIN = size
+    if stage == "final":
+        OUT = ROOT / "output/final_f7_integration_2026-10-03/scenes"
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QImage
     from PySide6.QtWidgets import QApplication
@@ -63,8 +68,8 @@ def main() -> None:
     app = QApplication.instance() or QApplication([])
     clock = FakeClock()
     pres.time = clock                     # presenter reads time.perf_counter()
-    spec = load_rig_spec(str(ROOT / "assets" / "rig" / "adult"), "adult")
-    win = build_rig_window(WindowBase, SpriteRef(spec.figures["healthy_neutral"], WIN, WIN), "adult")
+    spec = load_rig_spec(str(ROOT / "assets" / "rig" / stage), stage)
+    win = build_rig_window(WindowBase, SpriteRef(spec.figures["healthy_neutral"], WIN, WIN), stage)
     win._motion_timer.stop()
     win.setAttribute(Qt.WA_DontShowOnScreen, True)
     win.show()
@@ -121,7 +126,7 @@ def main() -> None:
 
     print("== enable ==")
     ok = win.enable_side_locomotion(PKG)
-    check("side locomotion enabled on ADULT", ok and win.locomotion_available())
+    check(f"side locomotion enabled on {stage.upper()}", ok and win.locomotion_available())
     if not ok:
         finish()
         return
@@ -282,4 +287,10 @@ def finish() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stage", choices=("adult", "final"), default="adult")
+    parser.add_argument("--size", type=int)
+    args = parser.parse_args()
+    main(args.stage, args.size or (320 if args.stage == "final" else 256))
+    sys.exit(0 if all(ok for _, ok, _ in results) else 1)

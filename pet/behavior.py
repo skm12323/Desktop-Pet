@@ -104,7 +104,7 @@ class BehaviorFSM:
     def __init__(self, work_area: dict, cfg: dict | None = None):
         cfg = cfg or {}
         self._work_area = work_area
-        self._speed = float(cfg.get("walk_speed", 120))        # px/s
+        self._speed = float(cfg.get("walk_speed", 80))         # px/s
         self._follow_speed = float(cfg.get("follow_speed", 600))  # px/s（follow 跟手，远快于 walk）
         self._climb_min_depth = float(cfg.get("climb_min_depth_px", _CLIMB_MIN_DEPTH))
         # P3-10（REVIEW-2026-09-05）：pet_height_px 只是启动喂真实显示尺寸

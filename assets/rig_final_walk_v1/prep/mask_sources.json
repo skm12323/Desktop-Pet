@@ -41,8 +41,7 @@
   "derived/leg_r"
  ],
  "tail": [
-  "sam_masks/tail",
-  "derived/tail_rim"
+  "derived/tail_native"
  ],
  "torso": [
   "sam_masks_f4/t_bodice",

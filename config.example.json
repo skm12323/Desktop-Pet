@@ -12,6 +12,7 @@
   "provider": "ai",
   "presentation": "frames",
   "adult_locomotion": "side_rig",
+  "final_locomotion": "side_rig",
   "wind": {
     "enabled": false,
     "latitude": 0.0,
@@ -41,7 +42,7 @@
     "poke": -8
   },
   "behavior": {
-    "walk_speed": 120,
+    "walk_speed": 80,
     "follow_speed": 600,
     "wander_idle_min_s": 5,
     "wander_idle_max_s": 15,

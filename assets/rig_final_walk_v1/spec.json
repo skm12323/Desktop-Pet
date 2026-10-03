@@ -755,8 +755,8 @@
   ]
  },
  "gait": {
-  "frequency_hz": 2.2,
-  "speed_world_px_s": 120.0,
+  "frequency_hz": 1.6,
+  "speed_world_px_s": 80.0,
   "stance_ratio": 0.6,
   "knee_bend_direction": -1,
   "park_feet": true,
@@ -831,7 +831,7 @@
     {
      "bone": "tail_fluke",
      "y": 1110,
-     "blend": 50,
+     "blend": 100,
      "x_max": 345
     }
    ],
@@ -843,8 +843,8 @@
    "z_order": 0,
    "per_component": true,
    "trim_offset_px": [
-    4,
-    895
+    6,
+    927
    ]
   },
   {
@@ -888,7 +888,7 @@
    "z_order": 8,
    "per_component": true,
    "trim_offset_px": [
-    589,
+    590,
     297
    ]
   },
@@ -933,7 +933,7 @@
    "per_component": true,
    "trim_offset_px": [
     594,
-    415
+    414
    ]
   },
   {
@@ -1137,8 +1137,8 @@
    "z_order": 25,
    "per_component": true,
    "trim_offset_px": [
-    335,
-    289
+    307,
+    296
    ]
   },
   {
@@ -1162,8 +1162,8 @@
    "z_order": 30,
    "per_component": true,
    "trim_offset_px": [
-    399,
-    603
+    415,
+    618
    ]
   },
   {
@@ -1178,7 +1178,7 @@
    "per_component": true,
    "trim_offset_px": [
     254,
-    822
+    807
    ]
   },
   {
@@ -1192,8 +1192,8 @@
    "z_order": 41,
    "per_component": true,
    "trim_offset_px": [
-    277,
-    635
+    270,
+    632
    ]
   },
   {
@@ -1207,8 +1207,8 @@
    "z_order": 42,
    "per_component": true,
    "trim_offset_px": [
-    335,
-    468
+    336,
+    456
    ]
   },
   {
@@ -1221,8 +1221,8 @@
    "z_order": 45,
    "per_component": true,
    "trim_offset_px": [
-    389,
-    375
+    391,
+    377
    ]
   },
   {
@@ -1250,8 +1250,8 @@
    "z_order": 50,
    "per_component": true,
    "trim_offset_px": [
-    420,
-    136
+    429,
+    144
    ]
   },
   {
@@ -1273,7 +1273,7 @@
    "z_order": 51,
    "per_component": true,
    "trim_offset_px": [
-    481,
+    484,
     245
    ]
   },
@@ -1296,7 +1296,7 @@
    "z_order": 52,
    "per_component": true,
    "trim_offset_px": [
-    566,
+    569,
     251
    ]
   },
@@ -1311,8 +1311,8 @@
    "z_order": 53,
    "per_component": true,
    "trim_offset_px": [
-    290,
-    36
+    292,
+    37
    ]
   },
   {
@@ -1360,7 +1360,7 @@
    "per_component": true,
    "trim_offset_px": [
     363,
-    60
+    62
    ]
   }
  ]

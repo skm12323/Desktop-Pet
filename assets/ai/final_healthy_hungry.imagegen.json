@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-02",
+  "tool": "image_gen.imagegen (built-in)",
+  "asset": "assets/ai/final_healthy_hungry.png",
+  "input_target_backup": "output/final_front_fix_2026-10-02/hungry_before.png",
+  "identity_reference": "assets/rig_final/references/front_key.png",
+  "transparent_background": true,
+  "native_size_px": [
+    1024,
+    1536
+  ],
+  "prompt": "Use case: identity-preserve. Asset type: production RGBA sprite for an anime desktop pet, FINAL healthy/hungry state. Image 1 is the edit target, a full-body blue-haired whale-themed maid holding a bowl and chopsticks. Image 2 is a supporting character identity and face-style reference, NOT a pose or costume replacement. Edit Image 1, focusing on fixing the unnatural face. Make the face anatomically coherent and match this same character: soft blue irises (not green), aligned eye directions, clean natural eyelids and highlights, relaxed brows, a small gently parted smiling mouth that expresses hopeful anticipation of food, subtle blush. No circular O-shaped mouth, no exaggerated surprise or manic stare. Keep the head angle, hair silhouette, full-body pose, hands holding bowl and chopsticks, long navy and blue striped skirt with gold details, white apron and whale motif, bow, tail, stockings, shoes, their relative positions and full-body portrait framing of Image 1. Preserve the existing illustration style and linework. Render a clean white maid headdress while keeping its existing shape. Keep the entire figure including shoes and hair tip in frame with clear transparent margins. Produce one isolated full-body sprite with genuinely transparent background and clean opaque character interior. No checkerboard drawn into pixels, no text or watermark. The intended output matches the 1024 by 1536 aspect ratio of Image 1.",
+  "input_target_sha256": "2edd1a4228e2c9cdbeb470f2ac17850c561cd09bdd26be9733916fca2ee323b2",
+  "output_sha256": "1712b4b17d87d42746ea94e28351648ea1ce537c15cf32d5ce40192b66b906eb"
+}

@@ -18,7 +18,10 @@ sys.path[:0] = [str(ROOT), str(ROOT / "tools")]
 OUT = ROOT / "spikes/_qa/adult_visual_fix_2026-09-30"
 
 
-def main():
+def main(stage="adult", size=256):
+    global OUT
+    if stage == "final":
+        OUT = ROOT / "output/final_f7_integration_2026-10-03/moods"
     from render_rig_rest import RigRenderer
     from pet.rig import presenter
     from pet.asset_provider import AIArtProvider
@@ -34,8 +37,10 @@ def main():
 
     clock = Clock()
     presenter.time = clock
-    r = RigRenderer()
+    r = RigRenderer(stage=stage)
     w = r.win
+    w.resize(size, size)
+    r._pump()
     w._last_tick_s = clock.t
     provider = AIArtProvider()
     w.set_sprite_provider(provider)
@@ -66,12 +71,12 @@ def main():
             name = f"{branch.value}_{mood.value}"
             w.stop_frames()
             w.disable_side_locomotion()
-            state = PetState(stage=Stage.ADULT, branch=branch)
+            state = PetState(stage=Stage(stage), branch=branch)
             app.store, app._anim_key = PetStateStore(state), None
             w._conversation_mood = mood
             w.on_state_change(state)
             logical = w._sprite.path
-            assert w.enable_side_locomotion(str(ROOT / "assets/rig_adult_walk_v1"))
+            assert w.enable_side_locomotion(str(ROOT / f"assets/rig_{stage}_walk_v1"))
             w.move(200, 300)
             for i in range(360):
                 tick(120)
@@ -108,7 +113,7 @@ def main():
     ratio = chroma(by_name["neglected_neutral"]) / chroma(by_name["healthy_neutral"])
     check(f"neglected rendered palette is visibly muted (chroma ratio {ratio:.2f})", ratio < 0.6)
 
-    state = PetState(stage=Stage.ADULT, branch=Branch.HEALTHY)
+    state = PetState(stage=Stage(stage), branch=Branch.HEALTHY)
     w._conversation_mood = Mood.HAPPY
     w.on_state_change(state)
     for _ in range(250):
@@ -130,7 +135,7 @@ def main():
     w.locomotion_interrupt()
     check("pre-tick interrupt releases carrier", not w._loco_carrying)
     w.set_locomotion_intent(120)
-    w.play_frames(provider.frames_for("adult", "fall")[:1])
+    w.play_frames(provider.frames_for(stage, "fall")[:1])
     check("action frames interrupt locomotion", not w._loco_carrying and not w._loco.active)
     w.stop_frames()
     check("action restores latest mood", w._root.property("activeFigure") == "healthy_sad")
@@ -139,11 +144,11 @@ def main():
     check("missing assets preserve fallback mood", not w._loco_carrying
           and w._root.property("activeFigure") == "healthy_sad")
 
-    canvas = Image.new("RGB", (256 * 5, 284 * 2), (245, 246, 250))
+    canvas = Image.new("RGB", (size * 5, (size+28) * 2), (245, 246, 250))
     for i, (name, im) in enumerate(images):
         b = Image.new("RGBA", im.size, (245, 246, 250, 255))
         b.alpha_composite(im)
-        x, y = i % 5 * 256, i // 5 * 284
+        x, y = i % 5 * size, i // 5 * (size+28)
         canvas.paste(b.convert("RGB"), (x, y + 28))
         ImageDraw.Draw(canvas).text((x + 4, y + 8), name, fill="black")
     canvas.save(OUT / "mood_walk_after_256.png")
@@ -151,8 +156,12 @@ def main():
     r.close()
     n = sum(x["pass"] for x in results)
     print(f"{n}/{len(results)} passed")
-    assert n == len(results), "ADULT mood locomotion regression"
+    assert n == len(results), f"{stage.upper()} mood locomotion regression"
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stage", choices=("adult", "final"), default="adult")
+    args = parser.parse_args()
+    main(args.stage, 320 if args.stage == "final" else 256)

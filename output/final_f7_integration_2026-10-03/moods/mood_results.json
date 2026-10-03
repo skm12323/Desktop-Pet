@@ -1,0 +1,274 @@
+[
+  {
+    "name": "healthy_happy: visible side rig, no old walk frames",
+    "pass": true
+  },
+  {
+    "name": "healthy_happy: logical mood retained",
+    "pass": true
+  },
+  {
+    "name": "healthy_happy: branch palette during walk",
+    "pass": true
+  },
+  {
+    "name": "healthy_happy: nonblank framebuffer",
+    "pass": true
+  },
+  {
+    "name": "healthy_happy: carrier kept while braking/parking",
+    "pass": true
+  },
+  {
+    "name": "healthy_happy: restores original mood after whole session",
+    "pass": true
+  },
+  {
+    "name": "healthy_neutral: visible side rig, no old walk frames",
+    "pass": true
+  },
+  {
+    "name": "healthy_neutral: logical mood retained",
+    "pass": true
+  },
+  {
+    "name": "healthy_neutral: branch palette during walk",
+    "pass": true
+  },
+  {
+    "name": "healthy_neutral: nonblank framebuffer",
+    "pass": true
+  },
+  {
+    "name": "healthy_neutral: carrier kept while braking/parking",
+    "pass": true
+  },
+  {
+    "name": "healthy_neutral: restores original mood after whole session",
+    "pass": true
+  },
+  {
+    "name": "healthy_sad: visible side rig, no old walk frames",
+    "pass": true
+  },
+  {
+    "name": "healthy_sad: logical mood retained",
+    "pass": true
+  },
+  {
+    "name": "healthy_sad: branch palette during walk",
+    "pass": true
+  },
+  {
+    "name": "healthy_sad: nonblank framebuffer",
+    "pass": true
+  },
+  {
+    "name": "healthy_sad: carrier kept while braking/parking",
+    "pass": true
+  },
+  {
+    "name": "healthy_sad: restores original mood after whole session",
+    "pass": true
+  },
+  {
+    "name": "healthy_sleepy: visible side rig, no old walk frames",
+    "pass": true
+  },
+  {
+    "name": "healthy_sleepy: logical mood retained",
+    "pass": true
+  },
+  {
+    "name": "healthy_sleepy: branch palette during walk",
+    "pass": true
+  },
+  {
+    "name": "healthy_sleepy: nonblank framebuffer",
+    "pass": true
+  },
+  {
+    "name": "healthy_sleepy: carrier kept while braking/parking",
+    "pass": true
+  },
+  {
+    "name": "healthy_sleepy: restores original mood after whole session",
+    "pass": true
+  },
+  {
+    "name": "healthy_hungry: visible side rig, no old walk frames",
+    "pass": true
+  },
+  {
+    "name": "healthy_hungry: logical mood retained",
+    "pass": true
+  },
+  {
+    "name": "healthy_hungry: branch palette during walk",
+    "pass": true
+  },
+  {
+    "name": "healthy_hungry: nonblank framebuffer",
+    "pass": true
+  },
+  {
+    "name": "healthy_hungry: carrier kept while braking/parking",
+    "pass": true
+  },
+  {
+    "name": "healthy_hungry: restores original mood after whole session",
+    "pass": true
+  },
+  {
+    "name": "neglected_happy: visible side rig, no old walk frames",
+    "pass": true
+  },
+  {
+    "name": "neglected_happy: logical mood retained",
+    "pass": true
+  },
+  {
+    "name": "neglected_happy: branch palette during walk",
+    "pass": true
+  },
+  {
+    "name": "neglected_happy: nonblank framebuffer",
+    "pass": true
+  },
+  {
+    "name": "neglected_happy: carrier kept while braking/parking",
+    "pass": true
+  },
+  {
+    "name": "neglected_happy: restores original mood after whole session",
+    "pass": true
+  },
+  {
+    "name": "neglected_neutral: visible side rig, no old walk frames",
+    "pass": true
+  },
+  {
+    "name": "neglected_neutral: logical mood retained",
+    "pass": true
+  },
+  {
+    "name": "neglected_neutral: branch palette during walk",
+    "pass": true
+  },
+  {
+    "name": "neglected_neutral: nonblank framebuffer",
+    "pass": true
+  },
+  {
+    "name": "neglected_neutral: carrier kept while braking/parking",
+    "pass": true
+  },
+  {
+    "name": "neglected_neutral: restores original mood after whole session",
+    "pass": true
+  },
+  {
+    "name": "neglected_sad: visible side rig, no old walk frames",
+    "pass": true
+  },
+  {
+    "name": "neglected_sad: logical mood retained",
+    "pass": true
+  },
+  {
+    "name": "neglected_sad: branch palette during walk",
+    "pass": true
+  },
+  {
+    "name": "neglected_sad: nonblank framebuffer",
+    "pass": true
+  },
+  {
+    "name": "neglected_sad: carrier kept while braking/parking",
+    "pass": true
+  },
+  {
+    "name": "neglected_sad: restores original mood after whole session",
+    "pass": true
+  },
+  {
+    "name": "neglected_sleepy: visible side rig, no old walk frames",
+    "pass": true
+  },
+  {
+    "name": "neglected_sleepy: logical mood retained",
+    "pass": true
+  },
+  {
+    "name": "neglected_sleepy: branch palette during walk",
+    "pass": true
+  },
+  {
+    "name": "neglected_sleepy: nonblank framebuffer",
+    "pass": true
+  },
+  {
+    "name": "neglected_sleepy: carrier kept while braking/parking",
+    "pass": true
+  },
+  {
+    "name": "neglected_sleepy: restores original mood after whole session",
+    "pass": true
+  },
+  {
+    "name": "neglected_hungry: visible side rig, no old walk frames",
+    "pass": true
+  },
+  {
+    "name": "neglected_hungry: logical mood retained",
+    "pass": true
+  },
+  {
+    "name": "neglected_hungry: branch palette during walk",
+    "pass": true
+  },
+  {
+    "name": "neglected_hungry: nonblank framebuffer",
+    "pass": true
+  },
+  {
+    "name": "neglected_hungry: carrier kept while braking/parking",
+    "pass": true
+  },
+  {
+    "name": "neglected_hungry: restores original mood after whole session",
+    "pass": true
+  },
+  {
+    "name": "neglected rendered palette is visibly muted (chroma ratio 0.40)",
+    "pass": true
+  },
+  {
+    "name": "paperdoll carrier cannot replace active side rig",
+    "pass": true
+  },
+  {
+    "name": "mood change during walking retains rig",
+    "pass": true
+  },
+  {
+    "name": "interrupt restores latest mood",
+    "pass": true
+  },
+  {
+    "name": "pre-tick interrupt releases carrier",
+    "pass": true
+  },
+  {
+    "name": "action frames interrupt locomotion",
+    "pass": true
+  },
+  {
+    "name": "action restores latest mood",
+    "pass": true
+  },
+  {
+    "name": "missing assets preserve fallback mood",
+    "pass": true
+  }
+]

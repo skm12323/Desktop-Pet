@@ -100,6 +100,50 @@
    "layer": "tail",
    "occluder": "skirt",
    "px": 3
+  },
+  {
+   "layer": "skirt",
+   "occluder": "arm_l",
+   "px": 3,
+   "box": [
+    228,
+    815,
+    348,
+    965
+   ]
+  },
+  {
+   "layer": "hair_back_l",
+   "occluder": "arm_l",
+   "px": 3,
+   "box": [
+    228,
+    815,
+    348,
+    965
+   ]
+  },
+  {
+   "layer": "skirt",
+   "occluder": "arm_r",
+   "px": 3,
+   "box": [
+    676,
+    815,
+    800,
+    965
+   ]
+  },
+  {
+   "layer": "hair_back_r",
+   "occluder": "arm_r",
+   "px": 3,
+   "box": [
+    676,
+    815,
+    800,
+    965
+   ]
   }
  ]
 }

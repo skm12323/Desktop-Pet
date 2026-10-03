@@ -448,6 +448,7 @@ class _LayerSkin:
     weights: np.ndarray              # (V,K) f32（行和=1）
     blink: _EyeBlinkCfg | None = None
     blink_delta: np.ndarray | None = None
+    blink_reveal_pivot_y: float | None = None
     gaze_uv: bool = False
     texture_size: tuple[float, float] = (1.0, 1.0)
     # ---- 以下均为帧复用缓冲，加载期一次分配 ----
@@ -667,6 +668,13 @@ class RigRuntime:
 
     def effective_rest(self, layer: _LayerSkin, blink: float) -> np.ndarray:
         """层的有效静止坐标：眼睑层施加眨眼挤压（带缓存），普通层直返 rest。"""
+        if layer.blink_reveal_pivot_y is not None:
+            if layer._blink_applied != blink:
+                layer.eff_rest[:] = layer.rest
+                pivot = layer.blink_reveal_pivot_y
+                layer.eff_rest[:, 1] = pivot + (layer.rest[:, 1] - pivot) * blink
+                layer._blink_applied = blink
+            return layer.eff_rest
         if layer.blink_delta is not None:
             if layer._blink_applied != blink:
                 np.multiply(layer.blink_delta, blink, out=layer.eff_rest)
@@ -1001,6 +1009,11 @@ class RigRuntime:
         if len(texture_size) != 2 or not all(math.isfinite(v) and v > 0 for v in texture_size):
             raise ValueError("invalid texture_size_px")
         delta = ml.get("blink_delta")
+        reveal = ml.get("blink_reveal_pivot_y")
+        if reveal is not None:
+            reveal = float(reveal)
+            if not math.isfinite(reveal):
+                raise ValueError("invalid blink_reveal_pivot_y")
         if delta is not None:
             delta = np.asarray(delta, np.float32)
             if delta.shape != (vcount, 2) or not np.isfinite(delta).all():
@@ -1019,10 +1032,11 @@ class RigRuntime:
             weights=weights,
             blink=blink,
             blink_delta=delta,
+            blink_reveal_pivot_y=reveal,
             gaze_uv=bool(ml.get("gaze_uv", False)),
             texture_size=texture_size,
             scratch=np.zeros((vcount, 3), np.float32),
-            eff_rest=np.zeros((vcount, 3), np.float32) if blink or delta is not None else None,
+            eff_rest=np.zeros((vcount, 3), np.float32) if blink or delta is not None or reveal is not None else None,
             upper_mask=(None if blink is None else
                         verts[:, 1] < blink.center_y),
             lower_mask=(None if blink is None else

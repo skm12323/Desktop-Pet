@@ -1,0 +1,13 @@
+{
+ "native_tip": [
+  312.5,
+  936
+ ],
+ "redraw_tip": [
+  275.0,
+  981
+ ],
+ "hinge_x": 140.0,
+ "horizontal_scale": 1.2777777777777777,
+ "vertical_shear": -0.3333333333333333
+}

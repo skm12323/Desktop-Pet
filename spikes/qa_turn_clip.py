@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import shutil
 from fractions import Fraction
 from pathlib import Path
 
@@ -30,6 +31,8 @@ from PIL import Image, ImageDraw
 
 def decode(path: str) -> tuple[list[np.ndarray], float]:
     """Decode all frames with the system ffmpeg (no PyAV / imageio-ffmpeg needed)."""
+    if not (shutil.which("ffmpeg") and shutil.which("ffprobe")):
+        return decode_qt(path)
     probe = json.loads(subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
          "stream=width,height,avg_frame_rate", "-of", "json", path],
@@ -41,6 +44,56 @@ def decode(path: str) -> tuple[list[np.ndarray], float]:
     n = len(raw) // (w * h * 3)
     arr = np.frombuffer(raw[: n * w * h * 3], np.uint8).reshape(n, h, w, 3)
     return [arr[i] for i in range(n)], fps
+
+
+def decode_qt(path: str) -> tuple[list[np.ndarray], float]:
+    """Use Qt's bundled video decoder when no system ffmpeg is available."""
+    from PySide6.QtCore import QCoreApplication, QEventLoop, QTimer, QUrl
+    from PySide6.QtGui import QImage
+    from PySide6.QtMultimedia import QMediaPlayer, QVideoSink
+    app = QCoreApplication.instance() or QCoreApplication([])
+    player, sink, loop = QMediaPlayer(), QVideoSink(), QEventLoop()
+    frames, timestamps, errors = [], [], []
+    def receive(frame):
+        if not frame.isValid():
+            return
+        stamp = frame.startTime()
+        if timestamps and stamp == timestamps[-1]:
+            return
+        im = frame.toImage().convertToFormat(QImage.Format_RGBA8888)
+        if im.isNull():
+            errors.append("video frame cannot be mapped")
+            loop.quit()
+            return
+        rgba = np.frombuffer(im.constBits(), np.uint8).reshape(im.height(),im.bytesPerLine()//4,4)
+        frames.append(rgba[:,:im.width(),:3].copy())
+        timestamps.append(stamp)
+    def status(value):
+        if value == QMediaPlayer.MediaStatus.EndOfMedia:
+            loop.quit()
+    def failure(*_):
+        errors.append(player.errorString())
+        loop.quit()
+    sink.videoFrameChanged.connect(receive)
+    player.mediaStatusChanged.connect(status)
+    player.errorOccurred.connect(failure)
+    player.setVideoSink(sink)
+    player.setSource(QUrl.fromLocalFile(str(Path(path).resolve())))
+    timeout = QTimer()
+    timeout.setSingleShot(True)
+    timeout.timeout.connect(lambda: (errors.append("video decode timed out"),loop.quit()))
+    timeout.start(30000)
+    player.play()
+    loop.exec()
+    player.stop()
+    timeout.stop()
+    if errors or len(frames) < 2:
+        raise RuntimeError("Qt video decoding failed: " + "; ".join(errors))
+    spacing = np.diff(timestamps)
+    period = float(np.median(spacing))
+    if period <= 0 or np.max(np.abs(spacing-period)) > period*.1:
+        raise RuntimeError("Qt video decoder skipped a frame; cannot build a deterministic clip")
+    return frames, 1e6/period
 
 KEY = np.array([0, 177, 64], np.float32)
 CANVAS = (960, 1696)

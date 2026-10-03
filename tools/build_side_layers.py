@@ -143,6 +143,32 @@ def main() -> None:
     if unassigned.any():
         _, (iy, ix) = ndimage.distance_transform_edt(label < 0, return_indices=True)
         label[unassigned] = label[iy[unassigned], ix[unassigned]]
+    plan_cfg = json.loads(Path(a.plan).read_text(encoding="utf-8")) if a.plan else {}
+    hc = plan_cfg.get("hair_material_cleanup")
+    if hc:
+        rgb = key[..., :3].astype(np.int16)
+        lum = rgb @ np.array([.299,.587,.114])
+        hair_seed = (rgb[..., 2]-rgb[..., 0] > 45) & (lum > 95) & opaque
+        distance = ndimage.distance_transform_edt(~hair_seed)
+        bad = np.isin(label, [ids.index(n) for n in hc["layers"]])
+        bad &= (distance > hc.get("rim_px", 4)) & (np.arange(H)[:, None] > hc["start_y"])
+        navy = bad & (lum < 140)
+        above_waist = np.arange(H)[:, None] < hc["waist_y"]
+        label[navy & above_waist] = ids.index("torso")
+        label[navy & ~above_waist] = ids.index("skirt")
+        # Cloth fragments enclosed by SAM's broad curl mask belong to the
+        # nearby solid cloth/cuff, rather than move with the back hair.
+        white = bad & (lum > 185)
+        candidates = opaque & ~np.isin(label, [ids.index(n) for n in hc["layers"]])
+        _, (iy, ix) = ndimage.distance_transform_edt(~candidates, return_indices=True)
+        label[white] = label[iy[white], ix[white]]
+    if plan_cfg.get("antialias_owner_nearest"):
+        # Matte fringes inherit the material of the nearby solid pixel. SAM
+        # often leaves these fine curl outlines to a broad skirt catch-all.
+        solid = (key[..., 3] >= 200) & (label >= 0)
+        _, (iy, ix) = ndimage.distance_transform_edt(~solid, return_indices=True)
+        fringe = opaque & ~solid
+        label[fringe] = label[iy[fringe], ix[fringe]]
     # islands join their surrounding layer: < 40 px everywhere; for rigid parts (limbs, tail,
     # ears...) every piece not connected to the main body (< 5 % of it) - a stray outline
     # fragment would fly off as soon as the part moves
@@ -165,6 +191,11 @@ def main() -> None:
     for rule in (json.loads(Path(a.plan).read_text(encoding="utf-8")).get("edge_to_occluder", []) if a.plan else []):
         lo, hi = ids.index(rule["layer"]), ids.index(rule["occluder"])
         near = ndimage.binary_dilation(label == hi, iterations=int(rule["px"])) & (label == lo)
+        if rule.get("box"):
+            x0, y0, x1, y1 = rule["box"]
+            roi = np.zeros((H, W), bool)
+            roi[y0:y1, x0:x1] = True
+            near &= roi
         label[near] = hi
         edge_moved += int(near.sum())
     (Path(a.out) / "prep").mkdir(parents=True, exist_ok=True)

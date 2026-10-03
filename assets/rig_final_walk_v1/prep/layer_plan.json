@@ -101,6 +101,16 @@
   "tail"
  ],
  "hair_split": null,
+ "antialias_owner_nearest": true,
+ "hair_material_cleanup": {
+  "layers": [
+   "hair_back",
+   "hair_side_r"
+  ],
+  "rim_px": 4,
+  "start_y": 400,
+  "waist_y": 650
+ },
  "edge_to_occluder": [
   {
    "layer": "tail",

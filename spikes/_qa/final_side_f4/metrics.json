@@ -1,20 +1,20 @@
 {
  "rest_recovery": {
-  "canvas_mean_255": 1.5733580589294434,
-  "canvas_p99_255": 66.33333587646484,
-  "disp256_mean_255": 1.3979625701904297,
-  "disp256_p99_255": 50.051753997802734,
-  "holes_frac": 0.0006138099851354449,
-  "spill_frac": 0.0007925297599238777,
+  "canvas_mean_255": 2.637382745742798,
+  "canvas_p99_255": 94.62200927734375,
+  "disp256_mean_255": 2.383373498916626,
+  "disp256_p99_255": 83.72752380371094,
+  "holes_frac": 0.007747810374621299,
+  "spill_frac": 0.003003724766616625,
   "pass": false,
   "excl_far_arm_redraw": {
-   "disp256_mean_255": 0.40867745876312256,
-   "disp256_p99_255": 5.562982082366943
+   "disp256_mean_255": 1.4311671257019043,
+   "disp256_p99_255": 59.92460250854492
   }
  },
  "poses": {
   "near_leg_fwd": {
-   "new_holes_disp_px2": 30,
+   "new_holes_disp_px2": 2,
    "flipped_triangles": {
     "leg_r": 11
    }
@@ -26,14 +26,14 @@
    }
   },
   "passing": {
-   "new_holes_disp_px2": 14,
+   "new_holes_disp_px2": 78,
    "flipped_triangles": {
     "leg_r": 3,
     "leg_l": 4
    }
   },
   "elbows40": {
-   "new_holes_disp_px2": 42,
+   "new_holes_disp_px2": 1,
    "flipped_triangles": {}
   },
   "skirt_spread": {
@@ -41,36 +41,30 @@
    "flipped_triangles": {}
   },
   "skirt_sway_fwd": {
-   "new_holes_disp_px2": 101,
+   "new_holes_disp_px2": 85,
    "flipped_triangles": {}
   },
   "tail_head": {
-   "new_holes_disp_px2": 301,
-   "flipped_triangles": {
-    "tail": 6
-   }
+   "new_holes_disp_px2": 343,
+   "flipped_triangles": {}
   },
   "dbg_tail": {
-   "new_holes_disp_px2": 17,
-   "flipped_triangles": {
-    "tail": 1
-   }
+   "new_holes_disp_px2": 12,
+   "flipped_triangles": {}
   },
   "dbg_hair": {
-   "new_holes_disp_px2": 74,
+   "new_holes_disp_px2": 78,
    "flipped_triangles": {}
   },
   "idle_sway": {
-   "new_holes_disp_px2": 176,
-   "flipped_triangles": {
-    "tail": 1
-   }
+   "new_holes_disp_px2": 158,
+   "flipped_triangles": {}
   }
  },
  "poses_pass": false,
  "idle_pass": false,
  "weights": {
-  "row_sum_max_err": 1.1102230246251565e-16,
+  "row_sum_max_err": 0.0,
   "leg_r_shoe_foot_weight_min": 1.0,
   "leg_l_shoe_foot_weight_min": 1.0,
   "skirt_leg_weight_max": 0.0,

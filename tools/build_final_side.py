@@ -43,7 +43,7 @@ HEAD_BOX = (300, 40, 720, 362)           # hair inside moves with the head (crow
 FAR_HAIR = {"x_min": 598, "y_min": 362}  # far-side hair hanging beside the far shoulder
 TORSO_BOX = (410, 330, 612, 660)       # right edge stops before the far upper arm
 SKIRT_BOX = (110, 600, 900, 1640)
-NEAR_CUFF_BOX = (285, 820, 395, 885)
+NEAR_CUFF_BOX = (270, 810, 420, 925)
 FAR_CUFF_BOX = (612, 820, 700, 885)
 FRILL_BOX = (370, 380, 470, 560)
 LEG_BOX = (400, 1560, 700, 1790)
@@ -79,7 +79,7 @@ SOURCES = {
     "apron": [f"{S1}/t_apron"],
     "leg_l": ["derived/leg_l"],
     "leg_r": ["derived/leg_r"],
-    "tail": [f"{S1}/tail", "derived/tail_rim"],
+    "tail": ["derived/tail_native"],
     "torso": [f"{S2}/t_bodice", f"{S2}/t_bow", "derived/torso_box"],
     "hair_side_r": ["derived/hair_side_r"],
     "hair_back": ["derived/hair_back"],
@@ -104,7 +104,7 @@ COMPLETIONS = {
     # the Qwen whole-tail redraw registers poorly (IoU 0.58: different curl) and left ghost outlines
     # and stray islands that flew off with the fluke - the base is extruded under the skirt instead
     "tail": {"grow": 24, "under": ["arm_l", "hair_back", "skirt"], "interior": True,
-             "fluke_image": "prep/peel/tail_canvas.png",
+             "fluke_image": "prep/derived/tail_fluke_aligned.png",
              "extrude_right": {"box": (240, 1120, 420, 1360), "px": 110}},
     "hair_back": {"grow": 40, "under": ["torso", "arm_l", "arm_r", "skirt", "head_base", "ear_fin_l",
                                        "shoulder_frill_l", "apron"], "interior": True},
@@ -182,7 +182,7 @@ SPEC_LAYERS = {
              "min_component_px": 150,
              # the whole fluke (both lobes, up to x 280) is one rigid shape - a chain-weighted right
              # lobe tore off as a block under the near hand
-             "rigid_above": [{"bone": "tail_fluke", "y": 1110, "blend": 50, "x_max": 345}],
+             "rigid_above": [{"bone": "tail_fluke", "y": 1110, "blend": 100, "x_max": 345}],
              "weights": {"mode": "chain", "blend_px": 40}, "grid_step": 20},
     "hair_back": {"bind_bone": "head", "influence_bones": ["head", "hair_back_l_01", "hair_back_l_02", "hair_back_l_03"],
                   "root_lock": {"bone": "head", "full_before_y": 380, "free_after_y": 520},
@@ -239,7 +239,8 @@ SPEC_LAYERS = {
 Z_OVERRIDE = {}
 SKIRT_DRIVE = {"gain": 0.6, "side_gain": 0.6, "shin_frac": 0.7, "limit_deg": 8.0,
                "freq_hz": 3.0, "halflife_s": 0.10, "side_freq_hz": 1.8, "side_halflife_s": 0.18}
-GAIT_OVERRIDES = {"frequency_hz": 2.2,          # long skirt: small steps (stride = speed / cadence)
+GAIT_OVERRIDES = {"frequency_hz": 1.6,          # relaxed long-skirt walk, nominal 80 px/s
+                  "speed_world_px_s": 80.0,
                   "skirt_follow_gain": 0.0}     # the panel bones replace the two hem bones (F6 drive)
 
 
@@ -281,6 +282,40 @@ def _labels() -> tuple[np.ndarray, list[str]]:
 FAR_ARM_GPT = "prep/peel/arm_r_gpt_canvas.png"   # tools/register_far_arm_final.py (gpt-image-2.5 whole arm)
 
 
+def _align_hidden_fluke(key: np.ndarray) -> np.ndarray:
+    """Align only the redrawn right lobe to the original visible tip."""
+    ref = np.asarray(Image.open(PKG / "prep/peel/tail_canvas.png").convert("RGBA"))
+    c = key[..., :3].astype(np.int16)
+    blue = (c[..., 1] >= c[..., 0]-3) & (c[..., 2] > c[..., 0]+20) & (_lum(key) < 150)
+    roi = _box((230, 900, 430, 1110))
+    visible = (_mask(f"{S1}/tail") | _mask("derived/tail_rim")) & roi & blue & (key[..., 3] > 127)
+    red = (ref[..., 3] > 127) & roi
+    if not visible.any() or not red.any():
+        raise ValueError("right fluke has no source/redraw tip for alignment")
+    ty, ry = int(np.where(visible)[0].min()), int(np.where(red)[0].min())
+    tx, rx = float(np.where(visible[ty])[0].mean()), float(np.where(red[ry])[0].mean())
+    hinge = 140.0
+    scale = (tx-hinge)/(rx-hinge)
+    shear = (ty-ry)/(rx-hinge)
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    sx = hinge+(xx-hinge)/scale
+    sy = yy-shear*(sx-hinge)
+    premul = ref.astype(np.float32)
+    premul[..., :3] *= premul[..., 3:]/255
+    warped = np.stack([ndimage.map_coordinates(premul[..., i],[sy,sx],order=1,mode="constant",prefilter=False)
+                       for i in range(4)],-1)
+    warped[..., :3] *= 255/np.maximum(warped[..., 3:],1e-6)
+    out = ref.copy()
+    use = (xx >= hinge) & (yy < 1120)
+    out[use] = np.clip(warped[use]+.5,0,255).astype(np.uint8)
+    out[out[..., 3] == 0] = 0
+    Image.fromarray(out).save(PKG / "prep/derived/tail_fluke_aligned.png")
+    _json(PKG / "prep/derived/tail_fluke_alignment.json", {
+        "native_tip": [tx,ty], "redraw_tip": [rx,ry], "hinge_x": hinge,
+        "horizontal_scale": scale, "vertical_shear": shear})
+    return out
+
+
 def _far_arm_visible(key: np.ndarray) -> np.ndarray:
     gpt = PKG / FAR_ARM_GPT
     if gpt.exists():
@@ -291,7 +326,8 @@ def _far_arm_visible(key: np.ndarray) -> np.ndarray:
         hair = (k[..., 2] - k[..., 0] > 45) & (k[..., 2] > 140)
         # the far arm hangs BEHIND the bodice, apron and hair: those keep their own pixels
         front = _mask(f"{S2}/t_bodice") | _mask(f"{S2}/t_bow") | _box(TORSO_BOX) | _mask(f"{S1}/t_apron")
-        out = g & (key[..., 3] > 200) & ~hair & ~front
+        original = ndimage.binary_dilation(_mask(f"{S2}/far_arm"), iterations=3)
+        out = (g | original) & (key[..., 3] > 0) & ~hair & ~front
         lab, n = ndimage.label(out, structure=np.ones((3, 3)))
         if n > 1:
             sizes = ndimage.sum(out, lab, range(1, n + 1))
@@ -343,7 +379,13 @@ def stage_masks() -> None:
     op = key[..., 3] > 0
     lum = _lum(key)
     yy, xx = np.mgrid[0:H, 0:W]
-    hair = _mask(f"{S1}/t_hair")
+    # SAM stops inside anti-aliased curls. Their outlines must move with the
+    # hair, rather than remain as loose arcs on the skirt.
+    hs = _mask(f"{S1}/t_hair")
+    kc = key[..., :3].astype(np.int16)
+    hair_color = (kc[..., 2]-kc[..., 0] > 40) & (lum > 80)
+    hair = (ndimage.binary_dilation(hs, iterations=3) |
+            (hair_color & ndimage.binary_dilation(hs, iterations=12))) & op
     head_hair = hair & _box(HEAD_BOX)
     side = hair & ~head_hair & (xx >= FAR_HAIR["x_min"]) & (yy >= FAR_HAIR["y_min"])
     lab, n = ndimage.label(side)
@@ -386,7 +428,32 @@ def stage_masks() -> None:
     c = key[..., :3].astype(np.int16)
     navy = (c[..., 2] - c[..., 0] > 25) & (lum < 120)
     arm_l = _mask(f"{S2}/near_arm") | _mask(f"{S1}/t_sleeve") | _mask(f"{S2}/near_hand") | _mask("derived/cuff_l")
+    arm_rim = ndimage.binary_dilation(arm_l, iterations=3) & op & ~hair
+    arm_l |= arm_rim & ((yy < 880) | (c[..., 0] >= c[..., 2]-12))
+    cuff_rim = ndimage.binary_dilation(arm_l, iterations=4) & _box((275, 812, 410, 900)) & op
+    arm_l |= cuff_rim & (lum > 165)
     gap = navy & _box((230, 880, 410, 1070))
+    tail_rim = _mask("derived/tail_rim") | (gap & ~back_edge & ~hair)
+    _save_mask("derived/tail_rim", tail_rim)
+    tail_native = _mask(f"{S1}/tail") | tail_rim
+    tail_ref_path = PKG / "prep/peel/tail_canvas.png"
+    if tail_ref_path.exists():
+        ref = _align_hidden_fluke(key)
+        # The exposed right fluke lies behind the fingers. Navy cloth next
+        # to it shares its colour, but must stay on the skirt when it sways.
+        fluke_roi = _box((230, 840, 430, 1110))
+        silhouette = ndimage.binary_dilation(ref[..., 3] > 127, iterations=2)
+        outside = tail_native & fluke_roi & ~silhouette & op
+        # Keep genuine tail-coloured source pixels. Skin/ruffle pixels must
+        # follow the hand; navy cloth must follow the dress.
+        native_blue = (kc[..., 1] >= kc[..., 0]-3) & (kc[..., 2] > kc[..., 0]+20) & (lum < 150)
+        hand_bits = outside & ~native_blue & ((kc[..., 0] > kc[..., 2]+8) | (lum > 180))
+        misplaced_cloth = outside & ~native_blue & ~hand_bits
+        tail_native &= ~(misplaced_cloth | hand_bits)
+        arm_l |= hand_bits
+        _save_mask("derived/skirt_box", _mask("derived/skirt_box") | misplaced_cloth)
+        print(f"[OK] fluke cloth -> skirt: {int(misplaced_cloth.sum())} px")
+    _save_mask("derived/tail_native", tail_native)
     _save_mask("derived/arm_l", arm_l & ~gap)
     # legs. The near shoe overlaps the far one: the near shoe and its outline (SAM mask + 4 px) are
     # the near leg's, whatever is nearer (nearest-seed handed the near toe's outline to the far
@@ -418,6 +485,9 @@ def stage_masks() -> None:
                     "tools/build_final_side.py derived regions", **SOURCES})
     _json(PKG / "prep" / "layer_plan.json",
           {"layers": LAYERS, "priority": PRIORITY, "mask_to_layer": {}, "multi": MULTI, "hair_split": None,
+           "antialias_owner_nearest": True,
+           "hair_material_cleanup": {"layers": ["hair_back", "hair_side_r"], "rim_px": 4,
+                                     "start_y": 400, "waist_y": WAIST_Y},
            "edge_to_occluder": [{"layer": "tail", "occluder": "skirt", "px": 3}]})
     print("[OK] derived masks + plan")
 
@@ -529,8 +599,11 @@ def _diffuse(rgba: np.ndarray, src: np.ndarray, region: np.ndarray, iters: int =
     out[region, :3] = rgba[iy[region], ix[region], :3]
     out[region, 3] = 255
     f = out[..., :3].astype(np.float32)
+    support = out[..., 3] > 0
+    coverage = ndimage.uniform_filter(support.astype(np.float32), 9)
     for _ in range(iters):
-        blur = np.stack([ndimage.uniform_filter(f[..., c], 9) for c in range(3)], -1)
+        blur = np.stack([ndimage.uniform_filter(f[..., c] * support, 9) for c in range(3)], -1)
+        blur /= np.maximum(coverage[..., None], 1e-6)
         f[region] = blur[region]
     out[..., :3] = np.clip(f + 0.5, 0, 255).astype(np.uint8)
     return out
@@ -548,7 +621,7 @@ def _near_arm_peel(lab: np.ndarray, ids: list[str]) -> dict:
     occ = np.isin(lab, [ids.index("arm_l"), ids.index("shoulder_frill_l")])
     x0, y0, x1, y1 = PEELS["near_arm_bg"]["crop"]
     occ &= _box((x0, y0, x1, y1))
-    hair = (c[..., 2] - c[..., 0] > 45) & (lum > 95)      # the navy dress is blue too, but dark
+    hair = (c[..., 2] - c[..., 0] > 45) & (lum > 95)
     navy = (lum < 95) & ~hair
     white = (lum > 195) & (sat < 30)
     yy = np.mgrid[0:H, 0:W][0]
@@ -558,7 +631,13 @@ def _near_arm_peel(lab: np.ndarray, ids: list[str]) -> dict:
     # every hidden pixel takes the edit's colour (a blurred diffuse fill there read as a ghost of the
     # arm once it swung); material only decides the layer: hair -> back hair, white below the
     # waist band next to the apron -> apron, the rest (bodice, back bow, dress) -> torso / skirt
-    cloth = ~hair & (c.sum(-1) < 720)                         # not the edit's white background
+    # Include curl outlines and bright highlights with the surrounding hair.
+    # Colour thresholds alone left white shards on the skirt and black rims
+    # on the procedural hair fill.
+    paper = (lum > 235) & (sat < 12)
+    hair = ndimage.binary_closing(hair, iterations=1)
+    hair = ndimage.binary_dilation(hair, iterations=1) & ~paper & (c[..., 2]-c[..., 0] > 25) & (lum > 85)
+    cloth = ~hair & ~paper & (c.sum(-1) < 720)
     apron_w = white & near("apron", 14) & (yy >= WAIST_Y)
     pick = {"hair_back": hair,
             "apron": apron_w,
@@ -638,6 +717,10 @@ def _aline_hull(own: np.ndarray, lab: np.ndarray, z: dict, ids: list[str], rows:
 
 def stage_completions() -> None:
     key = _key()
+    if (PKG / "prep/peel/tail_canvas.png").exists():
+        # `all` registers peels after masks; refresh the aligned lobe from
+        # that registered image too, including a fresh build without cache.
+        _align_hidden_fluke(key)
     lab, ids = _labels()
     z = {l["id"]: l["z"] for l in LAYERS}
     peel = _near_arm_peel(lab, ids)
@@ -661,6 +744,16 @@ def stage_completions() -> None:
             own = own | m
         under = np.isin(lab, [ids.index(u) for u in p["under"]])
         region = ndimage.binary_dilation(own, iterations=p["grow"]) & under & ~own
+        if lid in peel:
+            # Within the edited crop, the authored arm-removed silhouette is
+            # authoritative. Do not paint generic cloth/hair into its paper
+            # background or recreate the shape of the removed sleeve.
+            near_arm = np.isin(lab, [ids.index("arm_l"), ids.index("shoulder_frill_l")])
+            region &= ~(near_arm & _box(PEELS["near_arm_bg"]["crop"]))
+        if lid in ("hair_back", "hair_side_r"):
+            # The arm-removed artwork supplies the hidden curl contour. A
+            # generic dilation under a hand made an angular blue slab.
+            region &= ~np.isin(lab, [ids.index("arm_l"), ids.index("arm_r"), ids.index("skirt")])
         if p.get("aline_rows"):
             region &= _aline_hull(lab == ids.index(lid), lab, z, ids, p["aline_rows"])
         if p.get("fluke_image") and (PKG / p["fluke_image"]).exists():
@@ -684,6 +777,9 @@ def stage_completions() -> None:
                 region &= ~use
                 own = own | use
         src = ndimage.binary_erosion(own, iterations=3) if p.get("interior") else own
+        if lid in ("hair_back", "hair_side_r"):
+            col = rgba[..., :3].astype(np.int16)
+            src &= (col[..., 2]-col[..., 0] > 45) & (_lum(rgba) > 95)
         if p.get("skin_only"):
             # the blink stretches the skin around the eye: what the bangs hide must be skin
             c = key[..., :3].astype(np.int16)
@@ -723,6 +819,101 @@ def _far_arm_whole() -> None:
     near_own = ndimage.binary_dilation(own, iterations=8)
     cur[higher & ~own & ~use & ~near_own] = 0
     Image.fromarray(cur, "RGBA").save(PKG / "layers_full" / "arm_r.png")
+
+
+def _clean_hidden_contours() -> None:
+    """Keep the hidden skirt/fluke fills inside their authored silhouettes."""
+    lab, ids = _labels()
+    z = {layer["id"]: layer["z"] for layer in LAYERS}
+    own = lab == ids.index("skirt")
+    hull = _aline_hull(own, lab, z, ids, COMPLETIONS["skirt"]["aline_rows"])
+    path = PKG / "layers_full/skirt.png"
+    skirt = np.asarray(Image.open(path).convert("RGBA")).copy()
+    # Apply after underlap too: a thin bridge had reattached the orphan
+    # cloth/cuff-shaped fill to the middle of the rear skirt edge.
+    stray = (skirt[..., 3] > 0) & ~own & ~hull & _box((200, 930, 450, 1130))
+    skirt[stray] = 0
+    # Remove the remaining narrow-necked spur inside the broad fitted hull.
+    # It is connected only by an underlap strip, not by the solid dress body.
+    solid = ndimage.binary_opening(skirt[..., 3] > 127, iterations=8)
+    pieces, _ = ndimage.label(solid)
+    sizes = np.bincount(pieces.ravel())
+    sizes[0] = 0
+    body = pieces == int(sizes.argmax())
+    body = ndimage.binary_dilation(body, iterations=2)
+    spur = (skirt[..., 3] > 0) & ~body & _box((200, 930, 450, 1130))
+    skirt[spur] = 0
+    Image.fromarray(skirt).save(path)
+
+    path = PKG / "layers_full/tail.png"
+    tail = np.asarray(Image.open(path).convert("RGBA")).copy()
+    ref = np.asarray(Image.open(PKG / COMPLETIONS["tail"]["fluke_image"]).convert("RGBA"))
+    # Reconstruct the fluke as one piece. Mixing the source tip with a
+    # different redrawn outline produced a double rim and detached shards.
+    # Retain the curved body; match the fluke palette to the source.
+    lobe_roi = _box((0, 840, 430, 1109))
+    key = _key()
+    native = lobe_roi & (lab == ids.index("tail")) & (key[..., 3] > 240) & (ref[..., 3] > 240)
+    kc = key[..., :3].astype(np.int16)
+    native &= (kc[..., 1] >= kc[..., 0]-3) & (kc[..., 2] > kc[..., 0]+20)
+    corrected = ref.copy()
+    if native.any():
+        offset = np.median(key[native, :3].astype(float)-ref[native, :3],axis=0)
+        corrected[..., :3] = np.clip(ref[..., :3].astype(float)+offset+.5,0,255).astype(np.uint8)
+    authored_lobe = lobe_roi & (ref[..., 3] > 0)
+    tail[lobe_roi] = corrected[lobe_roi]
+    roi = _box((230, 840, 430, 1110))
+    silhouette = ndimage.binary_dilation(ref[..., 3] > 127, iterations=2)
+    stray_tail = roi & ~silhouette & (tail[..., 3] > 0) & (lab != ids.index("tail"))
+    tail[stray_tail] = 0
+    # De-spill the registered green-screen completion's rim, while leaving
+    # original visible pixels and the redraw's alpha/outline intact.
+    rgb = ref[..., :3].astype(np.int16)
+    green_rim = (rgb[..., 1]-rgb[..., 0] > 8) & ((rgb[..., 1]-rgb[..., 0]) > .4*(rgb[..., 2]-rgb[..., 0]))
+    rim = ndimage.distance_transform_edt(ref[..., 3] > 127) <= 4
+    use = lobe_roi & green_rim & rim & (tail[..., 3] > 0)
+    interior = ndimage.binary_erosion(ref[..., 3] > 240, iterations=4) & ~green_rim
+    if use.any() and interior.any():
+        _, (iy, ix) = ndimage.distance_transform_edt(~interior, return_indices=True)
+        tail[use, :3] = corrected[iy[use], ix[use], :3]
+    # Drop the old lobe's thin remnant at the handoff to the retained tail
+    # body. Keep both substantial lobes/body components and their AA rims.
+    opened = ndimage.binary_opening(tail[..., 3] > 127, iterations=5)
+    pieces, _ = ndimage.label(opened)
+    sizes = np.bincount(pieces.ravel())
+    keep = np.isin(pieces, np.where(sizes > 1000)[0]) & (pieces > 0)
+    safe = ndimage.binary_dilation(keep, iterations=3)
+    old_spur = (tail[..., 3] > 0) & ~safe & _box((70, 1040, 240, 1190))
+    tail[old_spur] = 0
+    # The old right lobe tapered farther right than the replacement at its
+    # base. Join the new fork to the retained curved body with one smooth
+    # rear contour, instead of leaving that old triangular lip below it.
+    top = np.where(tail[1108, :, 3] > 127)[0]
+    bottom = np.where(tail[1140, :, 3] > 127)[0]
+    join_removed = 0
+    if len(top) and len(bottom):
+        x_top, x_bottom = int(top.max()), int(bottom.max())
+        for y in range(1109, 1140):
+            t = (y-1108)/32
+            boundary = round(x_top*(1-t)+x_bottom*t)
+            xs = np.where(tail[y, :240, 3] > 127)[0]
+            if not len(xs) or xs.max() <= boundary:
+                continue
+            old_edge = int(xs.max())
+            ink = tail[y, max(0,old_edge-2):old_edge+1].copy()
+            join_removed += int((tail[y,boundary+1:240,3]>0).sum())
+            tail[y,boundary+1:240] = 0
+            tail[y,boundary-1:boundary+1,:3] = ink[-2:,:3]
+    Image.fromarray(tail).save(path)
+    _json(PKG / "prep/contour_cleanup.json", {
+        "tail_rebuilt_fluke_pixels": int(authored_lobe.sum()),
+        "skirt_hidden_stray_pixels": int(stray.sum()),
+        "skirt_attached_spur_pixels": int(spur.sum()),
+        "tail_outside_reference_pixels": int(stray_tail.sum()),
+        "tail_green_rim_pixels": int(use.sum()),
+        "tail_old_lobe_spur_pixels": int(old_spur.sum()),
+        "tail_fork_join_trimmed_pixels": join_removed})
+    print(f"[OK] contour cleanup: skirt {int(stray.sum())}, tail {int(stray_tail.sum())}, green rim {int(use.sum())} px")
 
 
 def _split_hinged() -> dict:
@@ -832,6 +1023,7 @@ def stage_rig(fresh_layers: bool = True) -> None:
         _run_layers(False)
     _far_arm_whole()
     _far_shoe_whole()
+    _clean_hidden_contours()
     zoff = _split_hinged()
     _eyelids()
     part = json.loads((PKG / "prep" / "partition.json").read_text(encoding="utf-8"))["layers"]

@@ -451,7 +451,7 @@
     "bone_name": "pupil_l",
     "parent": "head",
     "joint_pos": [
-     0.4581,
+     0.4582,
      0.1401
     ],
     "angle_clamp": [
@@ -464,8 +464,8 @@
     "bone_name": "pupil_r",
     "parent": "head",
     "joint_pos": [
-     0.5415,
-     0.1358
+     0.5414,
+     0.1359
     ],
     "angle_clamp": [
      0,
@@ -644,15 +644,15 @@
     {
      "bone": "pupil_l",
      "rest_center": [
-      0.4581,
+      0.4582,
       0.1401
      ]
     },
     {
      "bone": "pupil_r",
      "rest_center": [
-      0.5415,
-      0.1358
+      0.5414,
+      0.1359
      ]
     }
    ]
@@ -990,7 +990,7 @@
    "z_order": 60,
    "trim_offset_px": [
     137,
-    522
+    552
    ],
    "min_component_px": 40
   },
@@ -1004,7 +1004,7 @@
    ],
    "z_order": 65,
    "trim_offset_px": [
-    345,
+    366,
     272
    ],
    "min_component_px": 40
@@ -1019,8 +1019,8 @@
    ],
    "z_order": 70,
    "trim_offset_px": [
-    325,
-    567
+    339,
+    589
    ],
    "min_component_px": 40
   },
@@ -1085,21 +1085,7 @@
     399,
     132
    ],
-   "blink_zones": [
-    [
-     470,
-     238,
-     270,
-     31
-    ],
-    [
-     563,
-     228,
-     263,
-     30
-    ]
-   ],
-   "blink_blend_px": 10
+   "grid_step": 4
   },
   {
    "id": "pupil_l",
@@ -1114,17 +1100,83 @@
    ],
    "blink_zones": [
     [
-     470,
+     469,
      238,
      270,
-     31
+     34
     ]
    ],
    "gaze_ellipse": [
-    469.1,
-    255.5,
-    17.5,
-    11.5
+    469.2,
+    255.6,
+    18.0,
+    12.0
+   ],
+   "gaze_polygon": [
+    [
+     463,
+     244
+    ],
+    [
+     477,
+     244
+    ],
+    [
+     481,
+     246
+    ],
+    [
+     482,
+     247
+    ],
+    [
+     485,
+     252
+    ],
+    [
+     485,
+     258
+    ],
+    [
+     484,
+     264
+    ],
+    [
+     482,
+     266
+    ],
+    [
+     467,
+     269
+    ],
+    [
+     465,
+     269
+    ],
+    [
+     461,
+     268
+    ],
+    [
+     455,
+     257
+    ],
+    [
+     455,
+     256
+    ],
+    [
+     458,
+     249
+    ],
+    [
+     459,
+     247
+    ],
+    [
+     460,
+     246
+    ]
    ]
   },
   {
@@ -1140,18 +1192,144 @@
    ],
    "blink_zones": [
     [
-     563,
+     555,
      228,
-     263,
-     30
+     267,
+     36
     ]
    ],
    "gaze_ellipse": [
-    554.5,
-    247.7,
+    554.4,
+    247.8,
     14.0,
     11.5
+   ],
+   "gaze_polygon": [
+    [
+     548,
+     236
+    ],
+    [
+     558,
+     236
+    ],
+    [
+     563,
+     237
+    ],
+    [
+     566,
+     238
+    ],
+    [
+     567,
+     239
+    ],
+    [
+     569,
+     243
+    ],
+    [
+     572,
+     251
+    ],
+    [
+     572,
+     252
+    ],
+    [
+     569,
+     259
+    ],
+    [
+     568,
+     260
+    ],
+    [
+     544,
+     260
+    ],
+    [
+     542,
+     258
+    ],
+    [
+     541,
+     253
+    ],
+    [
+     541,
+     245
+    ],
+    [
+     542,
+     241
+    ],
+    [
+     545,
+     238
+    ]
    ]
+  },
+  {
+   "id": "eye_cover_l_upper",
+   "bind_bone": "head",
+   "influence_bones": [
+    "head"
+   ],
+   "z_order": 118,
+   "trim_offset_px": [
+    444,
+    232
+   ],
+   "blink_reveal_pivot_y": 238,
+   "grid_step": 2,
+   "min_component_px": 0
+  },
+  {
+   "id": "eye_cover_l_lower",
+   "bind_bone": "head",
+   "influence_bones": [
+    "head"
+   ],
+   "z_order": 118,
+   "trim_offset_px": [
+    444,
+    264
+   ],
+   "blink_reveal_pivot_y": 270,
+   "grid_step": 2,
+   "min_component_px": 0
+  },
+  {
+   "id": "eye_cover_r_upper",
+   "bind_bone": "head",
+   "influence_bones": [
+    "head"
+   ],
+   "z_order": 118,
+   "trim_offset_px": [
+    537,
+    222
+   ],
+   "blink_reveal_pivot_y": 228,
+   "grid_step": 2,
+   "min_component_px": 0
+  },
+  {
+   "id": "eye_cover_r_lower",
+   "bind_bone": "head",
+   "influence_bones": [
+    "head"
+   ],
+   "z_order": 118,
+   "trim_offset_px": [
+    537,
+    260
+   ],
+   "blink_reveal_pivot_y": 267,
+   "grid_step": 2,
+   "min_component_px": 0
   },
   {
    "id": "eyelid_l",
@@ -1167,12 +1345,13 @@
    ],
    "blink_zones": [
     [
-     470,
+     469,
      238,
      270,
-     31
+     34
     ]
-   ]
+   ],
+   "grid_step": 4
   },
   {
    "id": "eyelid_r",
@@ -1188,12 +1367,13 @@
    ],
    "blink_zones": [
     [
-     563,
+     555,
      228,
-     263,
-     30
+     267,
+     36
     ]
-   ]
+   ],
+   "grid_step": 4
   },
   {
    "id": "ear_fin_l",
@@ -1237,7 +1417,8 @@
     392,
     101
    ],
-   "min_component_px": 40
+   "min_component_px": 0,
+   "grid_step": 8
   },
   {
    "id": "ahoge_headdress",

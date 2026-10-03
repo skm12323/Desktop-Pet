@@ -1,0 +1,9 @@
+{
+ "skirt_hidden_stray_pixels": 466,
+ "skirt_attached_spur_pixels": 325,
+ "tail_outside_reference_pixels": 265,
+ "tail_green_rim_pixels": 2511,
+ "tail_old_lobe_spur_pixels": 259,
+ "tail_fork_join_trimmed_pixels": 835,
+ "tail_rebuilt_fluke_pixels": 29738
+}

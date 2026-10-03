@@ -1,8 +1,8 @@
 {
   "tool": "tools/process_turn_clip.py",
-  "source_clip": "assets/rig_final_walk_v1/clips/raw/wan3/wan3_1080_l240r200_s1.mp4",
+  "source_clip": "D:/Desktop-Pet/assets/rig_final_walk_v1/clips/raw/wan3/wan3_1080_l240r200_s1.mp4",
   "source_sha256": "1107f54bc143d3a2760ca4afffdd9dfab1798f57e5dd1bffc100c3a4bf70f835",
-  "source_fps": 30.0,
+  "source_fps": 30.00030000300003,
   "source_frames": 150,
   "source_range": [
     0,
@@ -10,8 +10,8 @@
   ],
   "reversed": false,
   "motion_retime": 0.35,
-  "first_ref": "assets/rig_final_walk_v1/references/front_rest.png",
-  "last_ref": "assets/rig_final_walk_v1/references/side_rest.png",
+  "first_ref": "D:/Desktop-Pet/assets/rig_final_walk_v1/references/front_rest.png",
+  "last_ref": "D:/Desktop-Pet/assets/rig_final_walk_v1/references/side_rest.png",
   "fps": 30.0,
   "frame_count": 37,
   "duration_s": 1.2,
@@ -34,18 +34,19 @@
   "ground_y_canvas": 1764.0,
   "colour_transform": {
     "gains": [
-      0.9903159141540527,
-      1.0045157670974731,
-      0.9911340475082397
+      0.9884640574455261,
+      1.0043288469314575,
+      0.9903099536895752
     ],
     "offsets": [
-      3.809598922729492,
-      -2.534905195236206,
-      2.6818833351135254
+      3.107912302017212,
+      -2.9584052562713623,
+      2.0549049377441406
     ]
   },
   "morph_frames": 6,
   "hold_frames": 3,
+  "bidirectional_morph": true,
   "postprocess": {
     "tool": "tools/polish_turn_frames.py",
     "version": 1,
@@ -344,7 +345,7 @@
         246,
         498
       ],
-      "source_frame": 16
+      "source_frame": 15
     },
     {
       "file": "frames/012.png",
@@ -397,14 +398,14 @@
     {
       "file": "frames/016.png",
       "offset_px": [
-        81,
+        83,
         0
       ],
       "size_px": [
-        315,
+        317,
         499
       ],
-      "source_frame": 32
+      "source_frame": 31
     },
     {
       "file": "frames/017.png",
@@ -469,14 +470,14 @@
     {
       "file": "frames/022.png",
       "offset_px": [
-        53,
+        51,
         1
       ],
       "size_px": [
-        252,
+        254,
         498
       ],
-      "source_frame": 51
+      "source_frame": 52
     },
     {
       "file": "frames/023.png",
@@ -505,14 +506,14 @@
     {
       "file": "frames/025.png",
       "offset_px": [
-        43,
+        44,
         0
       ],
       "size_px": [
-        266,
+        265,
         499
       ],
-      "source_frame": 69
+      "source_frame": 70
     },
     {
       "file": "frames/026.png",
@@ -577,11 +578,11 @@
     {
       "file": "frames/031.png",
       "offset_px": [
-        65,
+        66,
         1
       ],
       "size_px": [
-        248,
+        247,
         498
       ],
       "source_frame": 84
@@ -589,11 +590,11 @@
     {
       "file": "frames/032.png",
       "offset_px": [
-        65,
+        66,
         1
       ],
       "size_px": [
-        248,
+        247,
         498
       ],
       "source_frame": 84
@@ -601,11 +602,11 @@
     {
       "file": "frames/033.png",
       "offset_px": [
-        65,
+        66,
         1
       ],
       "size_px": [
-        248,
+        247,
         498
       ],
       "source_frame": 84
@@ -613,11 +614,11 @@
     {
       "file": "frames/033.png",
       "offset_px": [
-        65,
+        66,
         1
       ],
       "size_px": [
-        248,
+        247,
         498
       ],
       "source_frame": 84
@@ -625,11 +626,11 @@
     {
       "file": "frames/033.png",
       "offset_px": [
-        65,
+        66,
         1
       ],
       "size_px": [
-        248,
+        247,
         498
       ],
       "source_frame": 84
@@ -637,11 +638,11 @@
     {
       "file": "frames/033.png",
       "offset_px": [
-        65,
+        66,
         1
       ],
       "size_px": [
-        248,
+        247,
         498
       ],
       "source_frame": 84
@@ -649,8 +650,8 @@
   ],
   "qa": {
     "endpoint_before_morph": {
-      "first_premul_mean_abs_255": 2.910444736480713,
-      "last_premul_mean_abs_255": 10.998421669006348
+      "first_premul_mean_abs_255": 2.96142578125,
+      "last_premul_mean_abs_255": 11.98642635345459
     },
     "endpoint_after_morph": {
       "first_premul_mean_abs_255": 0.0,
@@ -658,9 +659,9 @@
     },
     "endpoint_alpha_flicker_max": 0.0,
     "endpoint_alpha_flicker_pass": true,
-    "residual_green_p99_255": -2.7017173767089844,
-    "disk_bytes": 4858438,
-    "decoded_bytes": 15889304,
+    "residual_green_p99_255": -2.7689666748046875,
+    "disk_bytes": 4842682,
+    "decoded_bytes": 15889308,
     "size_pass": false
   }
 }
