@@ -45,7 +45,7 @@ Rectangle {
             eulerRotation.y: root.lightDirX === 0 && root.lightDirZ === 0
                              ? 0 : Math.atan2(root.lightDirX, root.lightDirZ) * 180 / Math.PI
             eulerRotation.x: -Math.asin(Math.max(-1, Math.min(1, root.lightDirY))) * 180 / Math.PI
-            brightness: 100 * root.lightIntensity
+            brightness: 1.4 * root.lightIntensity   // Quick3D 亮度基准=1（spike 验证 1.4；100 会过曝成白块）
             ambientColor: Qt.rgba(root.ambientR, root.ambientG, root.ambientB, 1.0)
             visible: root.lightLevel > 0
         }

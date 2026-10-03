@@ -130,11 +130,15 @@ def _smoke(duration: float, screenshot: bool) -> None:
     tick()
 
     def shot() -> None:
+        from PySide6.QtCore import QTimer
         from PySide6.QtGui import QGuiApplication
         img = QGuiApplication.primaryScreen().grabWindow(renderer._window.win_id)
-        out = os.path.join(os.path.dirname(__file__), "smoke_shot.png")
+        if img.isNull():               # 首帧未合成时偶发空图：延迟重试一次
+            QTimer.singleShot(800, shot)
+            return
+        out = "/tmp/render3d_smoke_shot.png"
         img.save(out)
-        print(f"SMOKE_SHOT {out}")
+        print(f"SMOKE_SHOT {out} {img.width()}x{img.height()}")
 
     def finish() -> None:
         from pet.render3d.scene_host import _rss_mb
