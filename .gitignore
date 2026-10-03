@@ -345,3 +345,7 @@ assets/rig_adult_walk_v1/**/*.mp4
 # DCC 资产源（.blend/.ma/VRM/贴图 PSD/图板导出等大文件，本地开发用，
 # 不随仓库/安装包分发；three_d/wiki/ 照常入库。运行时代码在 pet/render3d/，另行入库）
 three_d/assets_src/
+
+# spike 派生资产（Balsam 产物与截图，源在 assets_src/ 或可重生）
+three_d/spikes/*/assets/
+three_d/spikes/*/shot_*.png
