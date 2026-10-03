@@ -170,6 +170,7 @@ class RigWindow(WindowBase):
         self._loco_last = None             # 最近一帧 LocoFrame（测试/门禁观察）
         self._loco_pending = ""            # defer_quick 期间收到的启用请求
         self._loco_carrying = False        # side session uses one rig; _sprite stays the logical mood
+        self._loco_prewarm_frames: list[str] = []   # 片段帧缓存预热队列（_prewarm_clip_frames）
         self._setup_gait_solver()
         if spec is not None:
             if defer_quick:
@@ -358,6 +359,11 @@ class RigWindow(WindowBase):
             self._side_item = item
             self._loco_pkg = pkg_dir
             self._root.setProperty("sideMeshEnabled", True)
+            # 片段帧缓存预热（mac 首播卡顿第二轮：60Hz 拍内首次换帧需
+            # 同步 PNG 解码 ~2-18ms 尖刺；逐帧预热入 QQuickPixmapCache）
+            self._loco_prewarm_frames = [fr.path for clip in (out_clip, in_clip)
+                                         for fr in clip.frames]
+            QTimer.singleShot(33, self._prewarm_clip_frames)
             log.info("%s 侧身行走已启用：%s", self._spec.stage.upper(), pkg_dir)
             return True
         except Exception as e:
@@ -367,6 +373,7 @@ class RigWindow(WindowBase):
 
     def disable_side_locomotion(self) -> None:
         self._loco_pending = ""
+        self._loco_prewarm_frames = []
         if self._root is not None:
             self._root.setProperty("locoMode", 0)
             self._root.setProperty("sideMeshEnabled", False)
@@ -384,6 +391,20 @@ class RigWindow(WindowBase):
 
     def locomotion_available(self) -> bool:
         return self._loco is not None and self.rig_active
+
+    def _prewarm_clip_frames(self) -> None:
+        """逐帧预热片段 QML 图像缓存（33ms 一帧，~2.5s 预热完 74 帧）。
+
+        clipFrame Image 不可见（locoMode=0）但 source 变更即触发加载，
+        cache:true 落入 QQuickPixmapCache——首播 60Hz 拍内不再有 PNG 同步
+        解码尖刺。会话开始（loco.active）或禁用即停，余下帧由首播自解码。"""
+        frames = self._loco_prewarm_frames
+        if (self._root is None or not frames
+                or self._loco is None or self._loco.active):
+            self._loco_prewarm_frames = []
+            return
+        self._root.setProperty("clipFrameSrc", _file_url(frames.pop(0)))
+        QTimer.singleShot(33, self._prewarm_clip_frames)
 
     def set_locomotion_intent(self, desired_vx: float) -> None:
         """行为层行走意图（逻辑 px/s，带方向；0 = 停）。会话内窗口 x 由编排驱动。"""

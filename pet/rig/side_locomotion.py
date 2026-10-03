@@ -116,6 +116,19 @@ class SideLocomotion:
         self._win_x = 0.0              # 会话内窗口 x 浮点累加器
         self._idle_t = 0.0
         self._side_t = 0.0
+        # ---- 片段时间轴按拍量化（mac 转身顿挫修复）----
+        # 旧实现片段 media 时间按真实 dt·rate 推进、帧号 index_at(_t) 直取。
+        # spec clip_rate=1.25 → 实播 37.5fps（帧周期 26.7ms），在 16~18ms
+        # 的逻辑拍下「帧周期/拍周期」= 1.5~1.7 非整数 → 帧边界相对拍相位
+        # 漂移，显示帧长在 1 拍/2 拍间交替（mac QTimer 实测拍 ~17.7ms →
+        # 17/35ms 交替，3:2 pulldown 式顿挫；win 15.6ms 拍 → 31/47ms 混
+        # 合，同样不均但较缓——QA 抓帧门禁未覆盖节拍均匀性，两平台都漏）。
+        # 修复：进片段时按实测拍频取整「每帧持有 N 拍」（hold），media 每
+        # 拍等量前进 frame_s/hold——帧边界恒落整数拍，显示帧长严格均匀；
+        # 速率与 spec 差 ≤ 半拍/帧（mac hold=2 实播 28fps，比 37.5 慢
+        # ~25%，换均匀节拍）。淡化 _t 连续、退出时长语义不变。
+        self._tick_ema = 1.0 / 60.0    # 逻辑拍周期指数均值（跳过卡顿巨帧）
+        self._clip_step = 0.0          # 片段态每拍 media 步长（_begin_clip 定）
 
     # ---------------- 外部接口 ----------------
 
@@ -146,13 +159,19 @@ class SideLocomotion:
         move_bottom_center 同语义）。兜住步态刹车/收步的残余过冲，防窗口
         被会话推出屏、又被 app 每 tick 拉回的边缘抖动。"""
         dt = min(max(float(dt), 0.0), 0.25)
+        if 0.0 < dt < 0.2:
+            self._tick_ema = 0.9 * self._tick_ema + 0.1 * dt
         if dragged or not grounded:
             return self.interrupt()
         want = 0 if abs(desired_vx) <= 1.0 else (1 if desired_vx > 0 else -1)
         events: list = []
         s = self.state
-        rate = self.reverse_clip_rate if self._reverse_fast else self.clip_rate
-        self._t += dt * (rate if s in (LocoState.TURN_IN, LocoState.TURN_OUT) else 1.0)
+        if s in (LocoState.TURN_IN, LocoState.TURN_OUT):
+            # 片段态：media 时间按拍等量推进（见 __init__ 注释）。dt 不参与
+            # ——真实拍抖动不再映射进片段（stall 巨帧时片段暂停，恢复续播）。
+            self._t += self._clip_step
+        else:
+            self._t += dt
         if self._pending_dir and (not want or want == self.dir):
             self._pending_dir = 0              # cancellation / latest intent takes precedence
             if s is LocoState.SIDE:
@@ -182,7 +201,7 @@ class SideLocomotion:
                 self.dir = want
             w = min(1.0, self._t / max(self.settle_s, 1e-6))
             if self._t >= self.settle_s:
-                self._enter(LocoState.TURN_OUT)
+                self._begin_clip(LocoState.TURN_OUT, self.clip_out, False)
                 events.append("turn_out")
                 return self._clip_frame(self.clip_out, 0, events)
             return self._front_frame(w * w * (3 - 2 * w), events, controls=True)
@@ -206,7 +225,7 @@ class SideLocomotion:
             w = min(1.0, self._t / max(duration, 1e-6))
             w = w * w * (3 - 2 * w)
             if self._t >= duration:
-                self._enter(LocoState.TURN_IN)
+                self._begin_clip(LocoState.TURN_IN, self.clip_in, self._reverse_fast)
                 events.append("turn_in")
                 return self._clip_frame(self.clip_in, 0, events)
             return LocoFrame(self.state, "side", self.dir, settle=w, gait=self._last_gait,
@@ -233,6 +252,14 @@ class SideLocomotion:
         return self._clip_frame(self.clip_in, self.clip_in.index_at(self._t), events)
 
     # ---------------- 内部 ----------------
+
+    def _begin_clip(self, st: LocoState, clip: TurnClip, fast: bool) -> None:
+        """进入片段态并定 media 每拍步长（见 __init__ 注释：节拍量化）。"""
+        self._enter(st)
+        rate = self.reverse_clip_rate if fast else self.clip_rate
+        frame_s = 1.0 / max(clip.fps, 1e-6)
+        hold = max(1, int(round(frame_s / (rate * max(self._tick_ema, 1e-3)))))
+        self._clip_step = frame_s / hold
 
     def _enter(self, st: LocoState) -> None:
         self.state = st
