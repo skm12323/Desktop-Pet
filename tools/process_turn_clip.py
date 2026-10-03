@@ -37,6 +37,7 @@ from scipy import ndimage
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "spikes"))
 from qa_turn_clip import decode, key_frame  # noqa: E402
+from polish_turn_frames import polish_rgba  # noqa: E402
 
 CANVAS = (960, 1696)
 GROUND_Y = 1608.0
@@ -144,6 +145,21 @@ def flow_to(ref_pm: np.ndarray, mov_pm: np.ndarray) -> np.ndarray:
                              num_warp=8, num_iter=20)
 
 
+def endpoint_flow(ref_pm: np.ndarray, mov_pm: np.ndarray) -> np.ndarray:
+    """Solve endpoint registration at at most 512 px, then restore flow units."""
+    h, w = ref_pm.shape[:2]
+    if h <= 512:
+        return flow_to(ref_pm, mov_pm)
+    sh, sw = 512, round(w*512/h)
+    scale = (sh/h, sw/w, 1)
+    flow = flow_to(ndimage.zoom(ref_pm, scale, order=1, prefilter=False),
+                   ndimage.zoom(mov_pm, scale, order=1, prefilter=False))
+    full = ndimage.zoom(flow, (1,h/sh,w/sw), order=1, prefilter=False)
+    full[0] *= h/sh
+    full[1] *= w/sw
+    return full
+
+
 def warp(pm: np.ndarray, flow: np.ndarray, t: float) -> np.ndarray:
     """Sample pm at x + t * flow(x) (bilinear, premultiplied channels)."""
     h, w = pm.shape[:2]
@@ -153,15 +169,17 @@ def warp(pm: np.ndarray, flow: np.ndarray, t: float) -> np.ndarray:
                      for c in range(4)], -1)
 
 
-def morph_onto(frame_pm: np.ndarray, truth_pm: np.ndarray, w: float) -> np.ndarray:
+def morph_onto(frame_pm: np.ndarray, truth_pm: np.ndarray, w: float,
+               flows: tuple[np.ndarray, np.ndarray] | None = None) -> np.ndarray:
     """w=0 -> frame unchanged, w=1 -> truth exactly; in between flow-aligned dissolve."""
     if w <= 0:
         return frame_pm
     if w >= 1:
         return truth_pm.copy()
-    f = flow_to(truth_pm, frame_pm)            # frame(x + f) ~= truth(x)
+    f = flows[0] if flows is not None else flow_to(truth_pm, frame_pm)
     frame_w = warp(frame_pm, f, w)              # frame moved w of the way onto truth geometry
-    truth_w = warp(truth_pm, -f, 1.0 - w)       # truth moved back towards the frame geometry
+    inverse = flows[1] if flows is not None else -f
+    truth_w = warp(truth_pm, inverse, 1.0 - w)
     return (1.0 - w) * frame_w + w * truth_w
 
 
@@ -199,6 +217,8 @@ def main() -> None:
     ap.add_argument("--motion-retime", type=float, default=0.0,
                     help="0 = uniform; 0..1 = share of time spread evenly, rest follows frame-to-frame motion")
     ap.add_argument("--reverse", action="store_true", help="play the source backwards (diagnostic only)")
+    ap.add_argument("--bidirectional-morph", action="store_true",
+                    help="align both endpoint images with independently solved forward/backward flow")
     ap.add_argument("--qa-dir", default="", help="evidence dir (default spikes/_qa/adult_walk_v1/g3_turn_clip/<out name>)")
     a = ap.parse_args()
     qa = Path(a.qa_dir or f"spikes/_qa/adult_walk_v1/g3_turn_clip/{Path(a.out).name}")
@@ -209,6 +229,10 @@ def main() -> None:
     for old in (out / "frames").glob("*.png"):
         old.unlink()
     mapping = json.loads((Path(a.endpoints) / "mapping.json").read_text(encoding="utf-8"))["first"]
+    # the endpoints carry their rig canvas (ADULT 960x1696 / 1608, FINAL 1024x1824 / 1764)
+    global CANVAS, GROUND_Y
+    CANVAS = tuple(int(v) for v in mapping.get("canvas_size", CANVAS))
+    GROUND_Y = float(mapping.get("ground_y_canvas", GROUND_Y))
     space = OutputSpace(mapping, a.height)
 
     frames, src_fps = decode(a.clip)
@@ -256,8 +280,12 @@ def main() -> None:
     k = max(0, a.morph_frames)
     body = [apply_colour(keyed(int(i)), gains, offs) for i in src_idx]
     ease = lambda u: float(smoothstep(np.array(u)))   # small steps next to the rest frames
-    head = [morph_onto(body[0], truth_first, ease(1.0 - j / (k + 1))) for j in range(k + 1)] if k else []
-    tail = [morph_onto(body[-1], truth_last, ease((j + 1) / (k + 1))) for j in range(k + 1)] if k else []
+    head_flows = tail_flows = None
+    if k and a.bidirectional_morph:
+        head_flows = (endpoint_flow(truth_first, body[0]), endpoint_flow(body[0], truth_first))
+        tail_flows = (endpoint_flow(truth_last, body[-1]), endpoint_flow(body[-1], truth_last))
+    head = [morph_onto(body[0], truth_first, ease(1.0 - j / (k + 1)), head_flows) for j in range(k + 1)] if k else []
+    tail = [morph_onto(body[-1], truth_last, ease((j + 1) / (k + 1)), tail_flows) for j in range(k + 1)] if k else []
     # pure rest frames at both ends: the runtime crossfades (rig <-> clip) run over these, so the
     # fade never overlaps the morph (dedupe below stores them once)
     head = [truth_first.copy()] * a.hold_frames + head
@@ -268,13 +296,23 @@ def main() -> None:
     if not k:
         out_frames = [clean_alpha(pm, space.ground_row()) for pm in body]
         src_idx, n_out = src_idx, len(out_frames)
+    elif a.bidirectional_morph and a.hold_frames:
+        # The authored rig references already have valid alpha. Ground
+        # cleanup may trim their last AA row at 1024 px; keep the pure holds
+        # exact so the runtime handoff cannot change the shoe silhouette.
+        out_frames[:a.hold_frames] = [truth_first.copy() for _ in range(a.hold_frames)]
+        out_frames[-a.hold_frames:] = [truth_last.copy() for _ in range(a.hold_frames)]
 
     # package: straight RGBA crops (+ per-frame offsets); decoded memory = sum of crop areas
     recs, bytes_decoded = [], 0
     seen: dict = {}                               # identical frames (holds) -> one file
     for j, pm in enumerate(out_frames):
         x0, y0, x1, y1 = crop_bbox(pm)
-        img = Image.fromarray(np.clip(unpremul(pm[y0:y1, x0:x1]) + 0.5, 0, 255).astype(np.uint8), "RGBA")
+        rgba = np.clip(unpremul(pm[y0:y1, x0:x1]) + 0.5, 0, 255).astype(np.uint8)
+        keep = a.hold_frames + a.morph_frames + 1
+        if keep <= j < len(out_frames) - keep:
+            rgba, _ = polish_rgba(rgba, a.height)
+        img = Image.fromarray(rgba, "RGBA")
         digest = hashlib.sha256(img.tobytes() + bytes([x0 % 256, y0 % 256])).hexdigest()
         if digest in seen:
             name = seen[digest]
@@ -311,6 +349,9 @@ def main() -> None:
         "canvas_size": list(CANVAS), "ground_y_canvas": GROUND_Y,
         "colour_transform": {"gains": gains.tolist(), "offsets": offs.tolist()},
         "morph_frames": k, "hold_frames": a.hold_frames,
+        "bidirectional_morph": a.bidirectional_morph,
+        "postprocess": {"tool": "tools/polish_turn_frames.py", "version": 1,
+                        "alpha_unchanged": True},
         "root_motion_canvas_px": [[0.0, 0.0]] * n_out,
         "frames": recs,
         "qa": {"endpoint_before_morph": endpoint_before, "endpoint_after_morph": endpoint_after,

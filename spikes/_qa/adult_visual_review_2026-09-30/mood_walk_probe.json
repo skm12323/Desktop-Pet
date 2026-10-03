@@ -1,0 +1,23 @@
+[
+  {
+    "figure": "healthy_neutral",
+    "mode": "side",
+    "gait": "walk_loop",
+    "skinned": true,
+    "window_x": 692
+  },
+  {
+    "figure": "healthy_happy",
+    "mode": "side",
+    "gait": "walk_loop",
+    "skinned": false,
+    "window_x": 692
+  },
+  {
+    "figure": "neglected_neutral",
+    "mode": "side",
+    "gait": "walk_loop",
+    "skinned": false,
+    "window_x": 692
+  }
+]

@@ -74,6 +74,7 @@ EYE_BOX = {"eyelid_l": [444, 294, 514, 324], "eyelid_r": [538, 298, 578, 320]}
 
 LAYERS = [
     {"id": "tail", "bind_bone": "tail_01", "influence_bones": ["tail_01", "tail_02", "tail_03", "tail_fluke"],
+     "rigid_above": [{"bone": "tail_fluke", "y": 1060, "blend": 60, "x_max": 320}],
      "weights": {"mode": "chain", "blend_px": 40}, "grid_step": 20, "min_component_px": 200},
     {"id": "hair_back", "bind_bone": "head",
      "influence_bones": ["head", "hair_back_l_01", "hair_back_l_02", "hair_back_l_03"],
@@ -89,6 +90,7 @@ LAYERS = [
     # 反向弯折）：整条可见腿只由腿骨驱动，腿根在裙下的前后摆动由裙摆跟随大腿（gait
     # skirt_follow_gain）配合
     {"id": "leg_r", "bind_bone": "upper_leg_r", "influence_bones": ["upper_leg_r", "lower_leg_r", "foot_r"],
+     "joint_curve": {"parent": "upper_leg_r", "child": "lower_leg_r", "tip": "foot_r", "upper_px": 280, "lower_px": 80},
      "rigid_below": [{"bone": "foot_r", "y": 1478, "blend": 22}],
      # knee: crisp kneecap (22 px), wide crease on the back of the knee (no fold up to 90 deg)
      "weights": {"mode": "chain", "blend_px": [22, 28],
@@ -96,6 +98,7 @@ LAYERS = [
                            "foot_r": {"side": -1, "blend_px": 60, "down_px": 28, "half_width_px": 40}}},
      "grid_step": 14, "min_component_px": 150},
     {"id": "leg_l", "bind_bone": "upper_leg_l", "influence_bones": ["upper_leg_l", "lower_leg_l", "foot_l"],
+     "joint_curve": {"parent": "upper_leg_l", "child": "lower_leg_l", "tip": "foot_l", "upper_px": 280, "lower_px": 80},
      "rigid_below": [{"bone": "foot_l", "y": 1485, "blend": 22}],
      # knee: crisp kneecap (22 px), wide crease on the back of the knee (no fold up to 90 deg)
      "weights": {"mode": "chain", "blend_px": [22, 28],
@@ -140,7 +143,8 @@ GAIT = {"frequency_hz": 1.2, "speed_world_px_s": 120.0, "stance_ratio": 0.6,
         "knee_bend_direction": -1,
         "park_feet": True, "stance_extension": 0.985,
         "adaptive_cadence": True,
-        "lean_degrees": 1.8, "skirt_follow_gain": 0.8,
+        "lean_degrees": 1.8, "skirt_follow_gain": 0.4,
+        "skirt_follow_limit_deg": 8.0, "skirt_freq_hz": 3.5, "skirt_halflife_s": 0.1,
         "swing_lift_world_px": 4.0, "foot_track_sep_world_px": 0.0, "turn_duration_s": 0.02,
         "per_side_ground": 1.0, "sway_world_px": 0.0, "arm_swing_deg": 15.0, "forearm_bend_deg": 22.0,
         "forearm_base_deg": 12.0, "arm_phase_lag": 0.06, "hand_follow": 0.1, "wrist_freq_hz": 6.0, "wrist_halflife_s": 0.05, "wrist_limit_deg": 20.0, "far_arm_scale": 0.85, "track_offset_px": 0.0, "leg_shift_px": -36.0, "far_leg_shift_px": -14.0, "toe_off_end_deg": 35.0, "torso_lean_deg": 3.0,
@@ -341,7 +345,7 @@ def main() -> None:
         e = {"id": l["id"], "description": f"side rig layer {l['id']} (pixel-exact cut of side_key.png)",
              "bind_bone": l["bind_bone"], "influence_bones": l["influence_bones"], "z_order": z[l["id"]],
              "requires_inpaint": False, "bbox_hint": [0, 0, 1, 1]}
-        for k in ("root_lock", "rigid_below", "blink_zones", "weights", "grid_step", "min_component_px"):
+        for k in ("root_lock", "rigid_below", "rigid_above", "joint_curve", "blink_zones", "weights", "grid_step", "min_component_px"):
             if k in l:
                 e[k] = l[k]
         e["per_component"] = True          # no mesh welding between separate pieces (plan D5)
@@ -365,6 +369,7 @@ def main() -> None:
         "contact_markers": {k: [v[0] - BONES[f"foot_{k[-1]}"][1][0], v[1] - BONES[f"foot_{k[-1]}"][1][1]]
                             for k, v in CONTACT_POINTS.items()},
         "gait": GAIT,
+        "locomotion": {"clip_rate": 1.25, "reverse_clip_rate": 2.0, "reverse_settle_s": .12},
         "layers": sorted(layers, key=lambda e: e["z_order"]),
     }
     (PKG / "spec.json").write_bytes(json.dumps(spec, indent=2, ensure_ascii=False).encode("utf-8"))

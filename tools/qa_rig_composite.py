@@ -147,7 +147,9 @@ def evaluate(stage: str, branch: str, mood: str, alpha_thr: int = 32,
             continue
         part = Image.open(os.path.join(rig_dir, p["file"])).convert("RGBA")
         x0, y0, _x1, _y1 = p["px_rect"]
-        layer.paste(part, (x0, y0))
+        # Qt stacks transparent under_core items. paste() replaced earlier
+        # parts even in transparent pixels of the later part's rectangle.
+        layer.alpha_composite(part, (x0, y0))
         n_parts += 1
     comp = Image.alpha_composite(layer, core)   # 核心图压在部件之上
 

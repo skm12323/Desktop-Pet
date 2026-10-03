@@ -1,0 +1,16 @@
+{
+ "rest_vs_key": {
+  "mean_255": 0.013436487875878811,
+  "p99_255": 0.0,
+  "frac_gt_24": 0.00013572613482129393
+ },
+ "blink": {
+  "open_sclera_px": 466,
+  "open_iris_px": 5153,
+  "sclera_px_at_0.0": 466,
+  "sclera_px_at_0.5": 215,
+  "sclera_px_at_1.0": 100,
+  "reopen_identical": true
+ },
+ "idle_frames": 90
+}

@@ -65,7 +65,7 @@ def ref_part_angle(p, t, gait_phase, gait_k, gait_hz, walk_hz):
 
 def main() -> int:
     # ---- M1 分层呼吸 / 眨眼 / squash（P3）----
-    eng = MotionEngine(RigSpec(stage="final", parts=[]))
+    eng = MotionEngine(RigSpec(stage="young", parts=[]))
     f = eng.step(MotionInputs(), 33.0)
     check("M1a 首帧眨眼脉冲开（33ms < 130ms 窗口）", f.blink_on is True)
     # P3 分层呼吸：呼吸改「纵向浮动 body_y（3.2s）」+「左右漂 body_angle（15.5s）」
@@ -180,7 +180,7 @@ def main() -> int:
           frame.part_angles["blink"] == 0.0)
 
     # ---- M5 body 变换合成 ----
-    eng.reset()
+    eng = MotionEngine(RigSpec(stage="young", parts=parts))
     fr = eng.step(MotionInputs(tilt_deg=3.5, walking=False, facing=-1), 33.0)
     check("M5a 镜像合成（scale_x 带 facing 符号）", fr.body_scale_x < 0)
     check("M5b 倾斜弹簧首拍平滑（0 < angle < 目标）",
@@ -313,6 +313,18 @@ def main() -> int:
     a_flip = eng.step(MotionInputs(tilt_deg=-9.0), 33.0).body_angle
     check(f"M11 撞墙倾斜平滑翻转（{a_before:.2f} → {a_flip:.2f}，不瞬移）",
           a_before > 0 and -9.0 < a_flip < a_before)
+
+    # FINAL 在落地待机时保留上身呼吸，鞋底不受全身浮动/骨盆旋转驱动。
+    eng = MotionEngine(RigSpec(stage="final", parts=[]))
+    idle = [eng.step(MotionInputs(grounded=True), 66.0) for _ in range(150)]
+    check("M12a FINAL 待机全身与骨盆不漂浮",
+          all(fr.body_y == 0.0 and fr.body_angle == 0.0
+              and fr.bone_angles["root_hip"] == 0.0 for fr in idle))
+    check("M12b FINAL 待机仍有上身呼吸",
+          max(fr.bone_angles["chest"] for fr in idle)
+          - min(fr.bone_angles["chest"] for fr in idle) > 0.8)
+    air = eng.step(MotionInputs(grounded=False), 66.0)
+    check("M12c FINAL 离地时保留全身运动", abs(air.body_y) > 0.01)
 
     print(f"\nmotion 引擎: {len(PASS)} 通过, {len(FAIL)} 失败")
     return 1 if FAIL else 0

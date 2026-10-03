@@ -51,10 +51,13 @@ class SkinningRegression(unittest.TestCase):
         actual = rt.deform(rt.layers[0], rt.layers[0].rest)[:, :2]
         np.testing.assert_allclose(actual, [[9.5, 2], [24.5, 6], [22, 20]], atol=1e-5)
 
-    def test_only_young_discovers_young_assets(self):
+    def test_each_stage_discovers_only_its_own_assets(self):
+        # ADULT (v0.16.4) and FINAL (v0.16.16) now ship skinned packages too: each stage must find
+        # assets/rig_<stage>/ and never another stage's package
         self.assertTrue(self.spec.skinned_spec)
         for stage in ('adult', 'final'):
-            self.assertFalse(load_rig_spec(str(ROOT / 'assets/rig' / stage), stage).skinned_spec)
+            sp = load_rig_spec(str(ROOT / 'assets/rig' / stage), stage).skinned_spec
+            self.assertEqual(Path(sp).resolve(), (ROOT / f'assets/rig_{stage}/spec.json').resolve())
 
     def test_continuous_tail_and_rigid_face(self):
         self.assertEqual(len(self.rt.layers), 20)

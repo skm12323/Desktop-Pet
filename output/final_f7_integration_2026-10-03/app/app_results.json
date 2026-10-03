@@ -1,0 +1,62 @@
+[
+ {
+  "name": "side locomotion enabled at startup (FINAL + side_rig)",
+  "pass": true,
+  "detail": ""
+ },
+ {
+  "name": "walk_right: window fixed during settle + turn clip",
+  "pass": true,
+  "detail": "859.0..859.0"
+ },
+ {
+  "name": "walk_right: window never steps backwards while walking (no FSM/gait tug-of-war)",
+  "pass": true,
+  "detail": "0 backward steps, worst 0.0 px"
+ },
+ {
+  "name": "walk_right: FSM x follows the window (<= two 50 ms ticks of travel)",
+  "pass": true,
+  "detail": "max 6.00 px"
+ },
+ {
+  "name": "walk_right: full session incl. timeout turn back",
+  "pass": true,
+  "detail": "['front', 'settle', 'turn_out', 'side', 'side_settle', 'turn_in', 'front']"
+ },
+ {
+  "name": "walk_right: travelled ~260 px",
+  "pass": true,
+  "detail": "282 px"
+ },
+ {
+  "name": "walk_left: window fixed during settle + turn clip",
+  "pass": true,
+  "detail": "1135.0..1135.0"
+ },
+ {
+  "name": "walk_left: window never steps backwards while walking (no FSM/gait tug-of-war)",
+  "pass": true,
+  "detail": "0 backward steps, worst 0.0 px"
+ },
+ {
+  "name": "walk_left: FSM x follows the window (<= two 50 ms ticks of travel)",
+  "pass": true,
+  "detail": "max 6.00 px"
+ },
+ {
+  "name": "walk_left: full session incl. timeout turn back",
+  "pass": true,
+  "detail": "['front', 'settle', 'turn_out', 'side', 'side_settle', 'turn_in', 'front']"
+ },
+ {
+  "name": "walk_left: travelled ~260 px",
+  "pass": true,
+  "detail": "-273 px"
+ },
+ {
+  "name": "drag interrupts to front",
+  "pass": true,
+  "detail": ""
+ }
+]

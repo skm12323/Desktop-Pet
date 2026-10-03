@@ -1,0 +1,11 @@
+{
+ "spec": 1,
+ "figures": {
+  "healthy_neutral": "../../rig/final/figs/healthy_neutral.png"
+ },
+ "skinned": {
+  "spec_file": "../spec.json",
+  "mesh_file": "../mesh/mesh_data.json",
+  "layers_dir": "../layers"
+ }
+}

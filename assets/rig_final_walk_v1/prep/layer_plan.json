@@ -1,0 +1,121 @@
+{
+ "layers": [
+  {
+   "id": "tail",
+   "z": 0
+  },
+  {
+   "id": "hair_back",
+   "z": 5
+  },
+  {
+   "id": "ear_fin_r",
+   "z": 8
+  },
+  {
+   "id": "arm_r",
+   "z": 10
+  },
+  {
+   "id": "hair_side_r",
+   "z": 11
+  },
+  {
+   "id": "leg_r",
+   "z": 15
+  },
+  {
+   "id": "leg_l",
+   "z": 18
+  },
+  {
+   "id": "skirt",
+   "z": 20
+  },
+  {
+   "id": "torso",
+   "z": 25
+  },
+  {
+   "id": "apron",
+   "z": 30
+  },
+  {
+   "id": "arm_l",
+   "z": 40
+  },
+  {
+   "id": "shoulder_frill_l",
+   "z": 45
+  },
+  {
+   "id": "head_base",
+   "z": 50
+  },
+  {
+   "id": "bangs",
+   "z": 53
+  },
+  {
+   "id": "ear_fin_l",
+   "z": 55
+  },
+  {
+   "id": "ahoge",
+   "z": 60
+  },
+  {
+   "id": "headdress",
+   "z": 65
+  }
+ ],
+ "priority": [
+  "ahoge",
+  "ear_fin_r",
+  "ear_fin_l",
+  "headdress",
+  "bangs",
+  "head_base",
+  "shoulder_frill_l",
+  "arm_l",
+  "arm_r",
+  "apron",
+  "leg_l",
+  "leg_r",
+  "tail",
+  "torso",
+  "hair_side_r",
+  "hair_back",
+  "skirt"
+ ],
+ "mask_to_layer": {},
+ "multi": [
+  "hair_back",
+  "hair_side_r",
+  "skirt",
+  "torso",
+  "apron",
+  "headdress",
+  "head_base",
+  "bangs",
+  "tail"
+ ],
+ "hair_split": null,
+ "antialias_owner_nearest": true,
+ "hair_material_cleanup": {
+  "layers": [
+   "hair_back",
+   "hair_side_r"
+  ],
+  "rim_px": 4,
+  "start_y": 400,
+  "waist_y": 650
+ },
+ "edge_to_occluder": [
+  {
+   "layer": "tail",
+   "occluder": "skirt",
+   "px": 3
+  }
+ ]
+}

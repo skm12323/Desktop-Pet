@@ -32,6 +32,8 @@ import math
 import os
 import time
 
+import numpy as np
+
 from PySide6.QtCore import QPropertyAnimation, QTimer, QUrl
 from PySide6.QtGui import QFont, QImage
 
@@ -148,6 +150,7 @@ class RigWindow(WindowBase):
         self._mix_anim: QPropertyAnimation | None = None
         self._fade_ms = 110
         self._src_size_cache: dict[str, tuple[int, int]] = {}
+        self._src_bounds_cache: dict[str, tuple[int, int, int, int]] = {}
         self._air_prev = False            # 空中标志边沿检测（落地压扁）
         self._contact = 1.0               # P3 接触阴影：离地→收缩系数 lerp
         self._walk_sprite = None          # v0.14.4 行走覆盖图（neutral 核心）
@@ -166,6 +169,7 @@ class RigWindow(WindowBase):
         self._side_item = None
         self._loco_last = None             # 最近一帧 LocoFrame（测试/门禁观察）
         self._loco_pending = ""            # defer_quick 期间收到的启用请求
+        self._loco_carrying = False        # side session uses one rig; _sprite stays the logical mood
         self._setup_gait_solver()
         if spec is not None:
             if defer_quick:
@@ -300,23 +304,25 @@ class RigWindow(WindowBase):
             self._root.setProperty("skinnedGroundYPx", 0.0)
             self._skinned_item = None
 
-    # ---------------- G6：ADULT 侧身行走 ----------------
+    # ---------------- ADULT / FINAL 侧身行走 ----------------
     def enable_side_locomotion(self, pkg_dir: str) -> bool:
-        """启用侧身行走编排（ADULT）：pkg_dir = assets/rig_adult_walk_v1。
+        """启用当前阶段的侧身行走包（ADULT / FINAL）。
 
-        资产缺件 / 非 ADULT / 蒙皮不可用 → 返回 False 并保持旧路径（回退铁律）。"""
+        资产缺件 / 不支持的阶段 / 蒙皮不可用 → 保持旧路径。"""
         self.disable_side_locomotion()
         if not self.rig_active and getattr(self, "_rig_pending", False):
             self._loco_pending = pkg_dir          # 场景延迟初始化（defer_quick）：就绪后再启用
             return True
         self._loco_pending = ""
-        if not self.rig_active or self._spec is None or self._spec.stage != "adult":
+        if not self.rig_active or self._spec is None or self._spec.stage not in ("adult", "final"):
             return False
         spec_file = os.path.join(pkg_dir, "spec.json")
         mesh_file = os.path.join(pkg_dir, "mesh", "mesh_data.json")
         layers = os.path.join(pkg_dir, "layers")
-        # 片段按窗口高度选 1×（256 高）/ 2×（512 高）帧集（内存门禁：单条解码 ≤ 12 MB）
-        suffix = "_h256" if float(self.height() or 256) <= 320 else ""
+        # 片段按窗口高度选 1×（256 高）/ 2×（512 高）/ 4×（1024 高，仅大窗口与参考导出）帧集
+        # （内存门禁：单条解码 ≤ 12 MB；缺对应帧集时回退 512 高）
+        win_h = float(self.height() or 256)
+        suffix = "_h256" if win_h <= 320 else ("_h1024" if win_h >= 768 else "")
         clip_out = os.path.join(pkg_dir, "clips", "turn_front_to_side" + suffix)
         clip_in = os.path.join(pkg_dir, "clips", "turn_side_to_front" + suffix)
         if suffix and not os.path.isfile(os.path.join(clip_out, "clip.json")):
@@ -331,6 +337,14 @@ class RigWindow(WindowBase):
                 raise RuntimeError("front skinned mesh not active")
             with open(spec_file, "r", encoding="utf-8") as f:
                 side_spec = json.load(f)
+            canvas = tuple(float(v) for v in side_spec["skeleton"]["source_reference"]["image_size_px"])
+            front = self._skinned_item._rt if self._skinned_item else None
+            if (front is None or len(canvas) != 2 or
+                    canvas != (float(front.img_w), float(front.img_h))):
+                raise ValueError("side rig canvas does not match the current stage")
+            out_clip, in_clip = TurnClip(clip_out), TurnClip(clip_in)
+            if not all(os.path.isfile(fr.path) for clip in (out_clip, in_clip) for fr in clip.frames):
+                raise FileNotFoundError("turn clip frame missing")
             from PySide6.QtQuick import QQuickItem
             self._root.setProperty("sideSpecFile", spec_file)
             self._root.setProperty("sideMeshDataFile", mesh_file)
@@ -338,12 +352,13 @@ class RigWindow(WindowBase):
             item = self._root.findChild(QQuickItem, "sideMesh")
             if item is None or not item.prepare():
                 raise RuntimeError("side mesh item failed to prepare")
-            scale = float(self.height() or 256) / 1696.0
-            self._loco = SideLocomotion(side_spec, TurnClip(clip_out), TurnClip(clip_in), scale)
+            self._loco_canvas = canvas
+            scale = min(self.width() / canvas[0], self.height() / canvas[1])
+            self._loco = SideLocomotion(side_spec, out_clip, in_clip, scale)
             self._side_item = item
             self._loco_pkg = pkg_dir
             self._root.setProperty("sideMeshEnabled", True)
-            log.info("ADULT 侧身行走已启用：%s", pkg_dir)
+            log.info("%s 侧身行走已启用：%s", self._spec.stage.upper(), pkg_dir)
             return True
         except Exception as e:
             log.warning("侧身行走不可用，保持旧行走路径：%s", e)
@@ -351,10 +366,18 @@ class RigWindow(WindowBase):
             return False
 
     def disable_side_locomotion(self) -> None:
+        self._loco_pending = ""
         if self._root is not None:
             self._root.setProperty("locoMode", 0)
             self._root.setProperty("sideMeshEnabled", False)
+            self._root.setProperty("clipFrameSrc", "")
+            self._root.setProperty("sideSpecFile", "")
+            self._root.setProperty("sideMeshDataFile", "")
+            self._root.setProperty("sideLayersDir", "")
+        self._release_loco_figure()
         self._loco = None
+        self._loco_canvas = None
+        self._loco_last = None
         self._side_item = None
         self._loco_vx = 0.0
         # interval 回落交 _adapt_tick 下一拍裁决（33/66ms）
@@ -365,12 +388,44 @@ class RigWindow(WindowBase):
     def set_locomotion_intent(self, desired_vx: float) -> None:
         """行为层行走意图（逻辑 px/s，带方向；0 = 停）。会话内窗口 x 由编排驱动。"""
         self._loco_vx = float(desired_vx or 0.0)
+        if self._loco is not None and abs(self._loco_vx) > 1.0:
+            self._take_loco_figure()
+
+    def _take_loco_figure(self) -> None:
+        """Keep mood sprites out of the rig/clip session, including brake and turn-back.
+
+        Each stage's bundle currently has one skinned character. Mood poses use this
+        carrier during locomotion; the logical sprite remains the restoration target.
+        Neglected uses the same geometry with its muted palette across all three modes.
+        """
+        if not self.rig_active or self._spec is None or self._spec.stage not in ("adult", "final"):
+            return
+        if self._walk_showing:
+            self._walk_showing = False
+            self._sprite = getattr(self, "_static_sprite", self._sprite)
+        key = self._display_figure_key(self._sprite.path)
+        carrier = self._spec.figures.get("healthy_neutral", "")
+        if not key.startswith(("healthy_", "neglected_")) or not os.path.isfile(carrier):
+            return
+        self._loco_carrying = True
+        self._root.setProperty("locoNeglected", key.startswith("neglected_"))
+        if self._root.property("activeFigure") != "healthy_neutral":
+            self._show_now(carrier)
+
+    def _release_loco_figure(self) -> None:
+        if not getattr(self, "_loco_carrying", False):
+            return
+        self._loco_carrying = False
+        if self._root is not None:
+            self._root.setProperty("locoNeglected", False)
+        if self.rig_active and os.path.isfile(self._sprite.path) and not self._frames:
+            self._show_now(self._sprite.path)
 
     def locomotion_controls_x(self) -> bool:
         return self._loco is not None and self._loco.active
 
     def locomotion_interrupt(self) -> None:
-        if self._loco is not None and self._loco.active:
+        if self._loco is not None and (self._loco.active or self._loco_carrying):
             self._apply_loco(self._loco.interrupt(), None)
 
     def _apply_loco(self, lf, frame) -> None:
@@ -432,6 +487,8 @@ class RigWindow(WindowBase):
             nx = int(round(lf.window_x))
             if nx != self.x():
                 self.move(nx, self.y())
+        if lf.mode == "front" and not lf.controls_x:
+            self._release_loco_figure()
 
     @staticmethod
     def _pose_rest(item, rest: dict) -> None:
@@ -561,17 +618,18 @@ class RigWindow(WindowBase):
                         stage, self._spec.stage if self._spec else None)
             return
         old = self._spec.stage if self._spec else None
+        self.disable_side_locomotion()
         self._spec = spec
         self._engine = MotionEngine(spec)
+        self._setup_gait_solver()
         self._src_size_cache.clear()
+        self._src_bounds_cache.clear()
         log.info("rig 换档 %s → %s：%d figures / %d parts",
                  old, stage, len(spec.figures), len(spec.parts))
         if not self.rig_active:
             return
         self._root.setProperty("partsModel", self._parts_model(spec))
         self._setup_skinned_mesh()
-        if self._loco is not None and stage != "adult":
-            self.disable_side_locomotion()
         # 当前画面按新 spec 重解析（帧序列播放中不动——收尾路径自然重解）
         if self._walk_showing and self._walk_sprite is not None:
             self._show_now(self._walk_sprite.path)
@@ -587,8 +645,17 @@ class RigWindow(WindowBase):
             if not self._quick.isVisible():
                 self._label.hide()
                 self._quick.setVisible(True)
-            self._show_now(sprite.path)
+            if getattr(self, "_loco_carrying", False):
+                key = self._display_figure_key(sprite.path)
+                if key.startswith(("healthy_", "neglected_")):
+                    self._take_loco_figure()
+                else:
+                    self.locomotion_interrupt()
+                    self._show_now(sprite.path)
+            else:
+                self._show_now(sprite.path)
         elif self.rig_active and not is_file:
+            self.locomotion_interrupt()
             # emoji 降级：场景让位避免双层叠加，label 接管
             self._quick.setVisible(False)
             self._label.show()
@@ -616,6 +683,8 @@ class RigWindow(WindowBase):
         经典 2/4 帧小跑的正确播法是快速硬切。表情类变化连续、淡化才丝滑。
         判定按首帧行为文件名前缀，零配置数据。
         """
+        if frames and getattr(self, "_loco_carrying", False):
+            self.locomotion_interrupt()
         if not frames or not self.rig_active \
                 or not os.path.isfile(frames[0].path):
             # L2（REVIEW-2026-09-04）：非文件帧（emoji 文本，rig+emoji 组合
@@ -810,6 +879,8 @@ class RigWindow(WindowBase):
                 pass
         frame = self._engine.step(self._motion_inputs, dt * 1000.0)
         if self._loco is not None:
+            cw, ch = self._loco_canvas
+            self._loco.set_window_scale(min(self.width() / cw, self.height() / ch))
             # G7 边缘修复：会话可驱动范围 = 整窗在屏内（与 move_bottom_center
             # 同语义）。注意坐标系：_win_x 是窗口 **top-left x**（update 喂
             # self.x()、_apply_loco 按 move(nx, y) 落位），故范围是
@@ -955,6 +1026,8 @@ class RigWindow(WindowBase):
                 self.set_sprite(getattr(self, "_static_sprite", self._sprite))
 
     def _walk_edge(self, walking: bool) -> None:
+        if self._loco is not None:
+            return                   # full side session owns its carrier, including stop/turn-back
         if not self.rig_active or self._walk_sprite is None:
             return
         if walking and not self._walk_showing:
@@ -1015,6 +1088,37 @@ class RigWindow(WindowBase):
             self._src_size_cache[path] = size
         return size
 
+    def _source_bounds(self, path: str) -> tuple[int, int, int, int]:
+        """Visible bounds, cached per sprite; padding does not determine FINAL's size."""
+        bounds = self._src_bounds_cache.get(path)
+        if bounds is None:
+            img = QImage(path).convertToFormat(QImage.Format_RGBA8888)
+            if img.isNull():
+                return (0, 0, 1, 1)
+            rgba = np.frombuffer(img.constBits(), np.uint8).reshape(
+                img.height(), img.bytesPerLine() // 4, 4)[:, :img.width()]
+            ys, xs = np.where(rgba[:, :, 3] >= 24)
+            bounds = ((int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1)
+                      if len(xs) else (0, 0, img.width(), img.height()))
+            self._src_bounds_cache[path] = bounds
+        return bounds
+
+    def _align_static_figure(self, path: str, display: str) -> None:
+        key = self._display_figure_key(path, display)
+        align = bool(self._spec and self._spec.stage == "final"
+                     and key.startswith(("healthy_", "neglected_"))
+                     and key != "healthy_side")
+        if align:
+            # Provider sprites include the whole figure; a derived core omits parts.
+            bounds_path = path
+            if os.path.abspath(path) == os.path.abspath(display):
+                assets_dir = os.path.dirname(os.path.dirname(self._spec.skinned_spec))
+                original = os.path.join(assets_dir, "ai", f"final_{key}.png")
+                if os.path.isfile(original):
+                    bounds_path = original
+            self._root.setProperty("staticBounds", list(self._source_bounds(bounds_path)))
+        self._root.setProperty("staticAlignEnabled", align)
+
     def _canonicalize(self) -> None:
         """双槽状态收敛回规范形"A 前景 + mix=0"（中断与完成共用一条路）。"""
         anim = self._mix_anim
@@ -1061,6 +1165,7 @@ class RigWindow(WindowBase):
         disp = self._resolve_display(path)
         w, h = self._src_size(disp)
         self._root.setSourceSize(w, h)
+        self._align_static_figure(path, disp)
         self._root.setProperty("figASrc", _file_url(disp))
         self._root.setProperty("figBSrc", "")
         self._root.setProperty("mix", 0.0)
@@ -1081,6 +1186,7 @@ class RigWindow(WindowBase):
             self._canonicalize()
             w, h = self._src_size(path)
             self._root.setSourceSize(w, h)
+            self._align_static_figure(path, path)
             self._root.setProperty("figASrc", _file_url(path))
             self._root.setProperty("figBSrc", "")
             self._root.setProperty("mix", 0.0)
@@ -1090,6 +1196,7 @@ class RigWindow(WindowBase):
         disp = self._resolve_display(path)
         w, h = self._src_size(disp)
         self._root.setSourceSize(w, h)
+        self._align_static_figure(path, disp)
         self._root.setProperty("figBSrc", _file_url(disp))
         self._set_prop("activeFigure", self._display_figure_key(path, disp))
         anim = self._mix_anim

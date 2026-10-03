@@ -1,0 +1,1437 @@
+{
+ "source_facing": 1,
+ "texture_mipmaps": true,
+ "ground_anchor_y_px": 1764,
+ "rest_pose_angles": {},
+ "skeleton": {
+  "bones": [
+   {
+    "bone_name": "root_hip",
+    "parent": null,
+    "joint_pos": [
+     0.5,
+     0.3947
+    ],
+    "angle_clamp": [
+     -4,
+     4
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "spine",
+    "parent": "root_hip",
+    "joint_pos": [
+     0.5,
+     0.3235
+    ],
+    "angle_clamp": [
+     -3,
+     3
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "chest",
+    "parent": "spine",
+    "joint_pos": [
+     0.5,
+     0.2577
+    ],
+    "angle_clamp": [
+     -4,
+     4
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "neck",
+    "parent": "chest",
+    "joint_pos": [
+     0.5,
+     0.2001
+    ],
+    "angle_clamp": [
+     -5,
+     5
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "head",
+    "parent": "neck",
+    "joint_pos": [
+     0.5,
+     0.1809
+    ],
+    "angle_clamp": [
+     -10,
+     10
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "tail_01",
+    "parent": "root_hip",
+    "joint_pos": [
+     0.6836,
+     0.8662
+    ],
+    "angle_clamp": [
+     -1.5,
+     1.5
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "tail_02",
+    "parent": "tail_01",
+    "joint_pos": [
+     0.8594,
+     0.8388
+    ],
+    "angle_clamp": [
+     -5,
+     5
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "tail_03",
+    "parent": "tail_02",
+    "joint_pos": [
+     0.874,
+     0.7785
+    ],
+    "angle_clamp": [
+     -8,
+     8
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "tail_fluke",
+    "parent": "tail_03",
+    "joint_pos": [
+     0.8838,
+     0.7292
+    ],
+    "angle_clamp": [
+     -12,
+     12
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "hair_back_l_01",
+    "parent": "head",
+    "joint_pos": [
+     0.4102,
+     0.1206
+    ],
+    "angle_clamp": [
+     -6,
+     6
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "hair_back_l_02",
+    "parent": "hair_back_l_01",
+    "joint_pos": [
+     0.293,
+     0.2741
+    ],
+    "angle_clamp": [
+     -9,
+     9
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "hair_back_l_03",
+    "parent": "hair_back_l_02",
+    "joint_pos": [
+     0.2246,
+     0.4276
+    ],
+    "angle_clamp": [
+     -12,
+     12
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "hair_back_r_01",
+    "parent": "head",
+    "joint_pos": [
+     0.5898,
+     0.1206
+    ],
+    "angle_clamp": [
+     -6,
+     6
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "hair_back_r_02",
+    "parent": "hair_back_r_01",
+    "joint_pos": [
+     0.707,
+     0.2741
+    ],
+    "angle_clamp": [
+     -9,
+     9
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "hair_back_r_03",
+    "parent": "hair_back_r_02",
+    "joint_pos": [
+     0.7754,
+     0.4276
+    ],
+    "angle_clamp": [
+     -12,
+     12
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "upper_leg_l",
+    "parent": "root_hip",
+    "joint_pos": [
+     0.4609,
+     0.8114
+    ],
+    "angle_clamp": [
+     -4,
+     4
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "lower_leg_l",
+    "parent": "upper_leg_l",
+    "joint_pos": [
+     0.4609,
+     0.8991
+    ],
+    "angle_clamp": [
+     -6,
+     3
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "foot_l",
+    "parent": "lower_leg_l",
+    "joint_pos": [
+     0.4609,
+     0.943
+    ],
+    "angle_clamp": [
+     -4,
+     4
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "upper_leg_r",
+    "parent": "root_hip",
+    "joint_pos": [
+     0.541,
+     0.8114
+    ],
+    "angle_clamp": [
+     -4,
+     4
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "lower_leg_r",
+    "parent": "upper_leg_r",
+    "joint_pos": [
+     0.541,
+     0.8991
+    ],
+    "angle_clamp": [
+     -6,
+     3
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "foot_r",
+    "parent": "lower_leg_r",
+    "joint_pos": [
+     0.541,
+     0.943
+    ],
+    "angle_clamp": [
+     -4,
+     4
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "ear_fin_l",
+    "parent": "head",
+    "joint_pos": [
+     0.4219,
+     0.1601
+    ],
+    "angle_clamp": [
+     -12,
+     12
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "ear_fin_r",
+    "parent": "head",
+    "joint_pos": [
+     0.5801,
+     0.1568
+    ],
+    "angle_clamp": [
+     -12,
+     12
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "skirt_root",
+    "parent": "root_hip",
+    "joint_pos": [
+     0.5,
+     0.3509
+    ],
+    "angle_clamp": [
+     -4,
+     4
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "skirt_hem_l",
+    "parent": "skirt_root",
+    "joint_pos": [
+     0.293,
+     0.8114
+    ],
+    "angle_clamp": [
+     -6,
+     6
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "skirt_hem_r",
+    "parent": "skirt_root",
+    "joint_pos": [
+     0.707,
+     0.8114
+    ],
+    "angle_clamp": [
+     -6,
+     6
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "apron_root",
+    "parent": "spine",
+    "joint_pos": [
+     0.5,
+     0.3344
+    ],
+    "angle_clamp": [
+     -4,
+     4
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "apron_tip",
+    "parent": "apron_root",
+    "joint_pos": [
+     0.5,
+     0.5757
+    ],
+    "angle_clamp": [
+     -8,
+     8
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "upper_arm_l",
+    "parent": "chest",
+    "joint_pos": [
+     0.3887,
+     0.2643
+    ],
+    "angle_clamp": [
+     -20,
+     20
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "forearm_l",
+    "parent": "upper_arm_l",
+    "joint_pos": [
+     0.3223,
+     0.3618
+    ],
+    "angle_clamp": [
+     -25,
+     15
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "hand_l",
+    "parent": "forearm_l",
+    "joint_pos": [
+     0.293,
+     0.4605
+    ],
+    "angle_clamp": [
+     -15,
+     15
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "upper_arm_r",
+    "parent": "chest",
+    "joint_pos": [
+     0.6113,
+     0.2643
+    ],
+    "angle_clamp": [
+     -20,
+     20
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "forearm_r",
+    "parent": "upper_arm_r",
+    "joint_pos": [
+     0.6797,
+     0.3618
+    ],
+    "angle_clamp": [
+     -25,
+     15
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "hand_r",
+    "parent": "forearm_r",
+    "joint_pos": [
+     0.709,
+     0.4605
+    ],
+    "angle_clamp": [
+     -15,
+     15
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "pupil_l",
+    "parent": "head",
+    "joint_pos": [
+     0.4582,
+     0.1401
+    ],
+    "angle_clamp": [
+     0,
+     0
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "pupil_r",
+    "parent": "head",
+    "joint_pos": [
+     0.5414,
+     0.1359
+    ],
+    "angle_clamp": [
+     0,
+     0
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "eyelid_l",
+    "parent": "head",
+    "joint_pos": [
+     0.457,
+     0.1316
+    ],
+    "angle_clamp": [
+     0,
+     0
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "eyelid_r",
+    "parent": "head",
+    "joint_pos": [
+     0.5498,
+     0.1261
+    ],
+    "angle_clamp": [
+     0,
+     0
+    ],
+    "is_chain": false
+   },
+   {
+    "bone_name": "bangs_01",
+    "parent": "head",
+    "joint_pos": [
+     0.5,
+     0.0822
+    ],
+    "angle_clamp": [
+     -6,
+     6
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "bangs_02",
+    "parent": "bangs_01",
+    "joint_pos": [
+     0.5,
+     0.1096
+    ],
+    "angle_clamp": [
+     -8,
+     8
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "bangs_03",
+    "parent": "bangs_02",
+    "joint_pos": [
+     0.5,
+     0.1371
+    ],
+    "angle_clamp": [
+     -10,
+     10
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "hair_side_l_01",
+    "parent": "head",
+    "joint_pos": [
+     0.4219,
+     0.1809
+    ],
+    "angle_clamp": [
+     -8,
+     8
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "hair_side_l_02",
+    "parent": "hair_side_l_01",
+    "joint_pos": [
+     0.4297,
+     0.2522
+    ],
+    "angle_clamp": [
+     -12,
+     12
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "hair_side_r_01",
+    "parent": "head",
+    "joint_pos": [
+     0.5801,
+     0.1809
+    ],
+    "angle_clamp": [
+     -8,
+     8
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "hair_side_r_02",
+    "parent": "hair_side_r_01",
+    "joint_pos": [
+     0.5742,
+     0.2522
+    ],
+    "angle_clamp": [
+     -12,
+     12
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "ahoge_01",
+    "parent": "head",
+    "joint_pos": [
+     0.4297,
+     0.0603
+    ],
+    "angle_clamp": [
+     -15,
+     15
+    ],
+    "is_chain": true
+   },
+   {
+    "bone_name": "ahoge_02",
+    "parent": "ahoge_01",
+    "joint_pos": [
+     0.3955,
+     0.0219
+    ],
+    "angle_clamp": [
+     -25,
+     25
+    ],
+    "is_chain": true
+   }
+  ],
+  "source_reference": {
+   "image_size_px": [
+    1024,
+    1824
+   ],
+   "key_art": "references/front_key.png"
+  }
+ },
+ "face_mechanics": {
+  "blink": {
+   "close_ratio_upper": 0.78,
+   "close_ratio_lower": 0.22,
+   "duration_ms": 220,
+   "timing_curve": "half_sine_decay"
+  },
+  "look_at": {
+   "tracking_axis": "xy",
+   "max_displacement_radius_px": 4,
+   "axis_limits_px": [
+    4,
+    3
+   ],
+   "smoothing_time_ms": 75,
+   "eyes": [
+    {
+     "bone": "pupil_l",
+     "rest_center": [
+      0.4582,
+      0.1401
+     ]
+    },
+    {
+     "bone": "pupil_r",
+     "rest_center": [
+      0.5414,
+      0.1359
+     ]
+    }
+   ]
+  }
+ },
+ "physics_presets": {
+  "spring_damper": {
+   "tail_01": {
+    "freq": 1.5,
+    "zeta": 0.72
+   },
+   "tail_02": {
+    "freq": 1.3,
+    "zeta": 0.65
+   },
+   "tail_03": {
+    "freq": 1.1,
+    "zeta": 0.6
+   },
+   "tail_fluke": {
+    "freq": 0.95,
+    "zeta": 0.55
+   },
+   "hair_back_l_01": {
+    "freq": 1.2,
+    "zeta": 0.6
+   },
+   "hair_back_l_02": {
+    "freq": 1.0,
+    "zeta": 0.55
+   },
+   "hair_back_l_03": {
+    "freq": 0.85,
+    "zeta": 0.5
+   },
+   "hair_back_r_01": {
+    "freq": 1.2,
+    "zeta": 0.6
+   },
+   "hair_back_r_02": {
+    "freq": 1.0,
+    "zeta": 0.55
+   },
+   "hair_back_r_03": {
+    "freq": 0.85,
+    "zeta": 0.5
+   },
+   "ahoge_01": {
+    "freq": 4.0,
+    "zeta": 0.5
+   },
+   "ahoge_02": {
+    "freq": 3.5,
+    "zeta": 0.45
+   },
+   "ear_fin_l": {
+    "freq": 3.0,
+    "zeta": 0.55
+   },
+   "ear_fin_r": {
+    "freq": 3.0,
+    "zeta": 0.55
+   },
+   "skirt_hem_l": {
+    "freq": 1.2,
+    "zeta": 0.65
+   },
+   "skirt_hem_r": {
+    "freq": 1.2,
+    "zeta": 0.65
+   },
+   "apron_tip": {
+    "freq": 1.3,
+    "zeta": 0.68
+   },
+   "forearm_l": {
+    "freq": 2.5,
+    "zeta": 0.7
+   },
+   "forearm_r": {
+    "freq": 2.5,
+    "zeta": 0.7
+   }
+  },
+  "spring_groups": [
+   {
+    "id": "tail_01",
+    "bones": [
+     "tail_01"
+    ],
+    "natural_frequency_hz": 1.5,
+    "damping_ratio": 0.72
+   },
+   {
+    "id": "tail_02",
+    "bones": [
+     "tail_02"
+    ],
+    "natural_frequency_hz": 1.3,
+    "damping_ratio": 0.65
+   },
+   {
+    "id": "tail_03",
+    "bones": [
+     "tail_03"
+    ],
+    "natural_frequency_hz": 1.1,
+    "damping_ratio": 0.6
+   },
+   {
+    "id": "tail_fluke",
+    "bones": [
+     "tail_fluke"
+    ],
+    "natural_frequency_hz": 0.95,
+    "damping_ratio": 0.55
+   },
+   {
+    "id": "hair_back_l_01",
+    "bones": [
+     "hair_back_l_01"
+    ],
+    "natural_frequency_hz": 1.2,
+    "damping_ratio": 0.6
+   },
+   {
+    "id": "hair_back_l_02",
+    "bones": [
+     "hair_back_l_02"
+    ],
+    "natural_frequency_hz": 1.0,
+    "damping_ratio": 0.55
+   },
+   {
+    "id": "hair_back_l_03",
+    "bones": [
+     "hair_back_l_03"
+    ],
+    "natural_frequency_hz": 0.85,
+    "damping_ratio": 0.5
+   },
+   {
+    "id": "hair_back_r_01",
+    "bones": [
+     "hair_back_r_01"
+    ],
+    "natural_frequency_hz": 1.2,
+    "damping_ratio": 0.6
+   },
+   {
+    "id": "hair_back_r_02",
+    "bones": [
+     "hair_back_r_02"
+    ],
+    "natural_frequency_hz": 1.0,
+    "damping_ratio": 0.55
+   },
+   {
+    "id": "hair_back_r_03",
+    "bones": [
+     "hair_back_r_03"
+    ],
+    "natural_frequency_hz": 0.85,
+    "damping_ratio": 0.5
+   },
+   {
+    "id": "ahoge_01",
+    "bones": [
+     "ahoge_01"
+    ],
+    "natural_frequency_hz": 4.0,
+    "damping_ratio": 0.5
+   },
+   {
+    "id": "ahoge_02",
+    "bones": [
+     "ahoge_02"
+    ],
+    "natural_frequency_hz": 3.5,
+    "damping_ratio": 0.45
+   },
+   {
+    "id": "ear_fin_l",
+    "bones": [
+     "ear_fin_l"
+    ],
+    "natural_frequency_hz": 3.0,
+    "damping_ratio": 0.55
+   },
+   {
+    "id": "ear_fin_r",
+    "bones": [
+     "ear_fin_r"
+    ],
+    "natural_frequency_hz": 3.0,
+    "damping_ratio": 0.55
+   },
+   {
+    "id": "skirt_hem_l",
+    "bones": [
+     "skirt_hem_l"
+    ],
+    "natural_frequency_hz": 1.2,
+    "damping_ratio": 0.65
+   },
+   {
+    "id": "skirt_hem_r",
+    "bones": [
+     "skirt_hem_r"
+    ],
+    "natural_frequency_hz": 1.2,
+    "damping_ratio": 0.65
+   },
+   {
+    "id": "apron_tip",
+    "bones": [
+     "apron_tip"
+    ],
+    "natural_frequency_hz": 1.3,
+    "damping_ratio": 0.68
+   },
+   {
+    "id": "forearm_l",
+    "bones": [
+     "forearm_l"
+    ],
+    "natural_frequency_hz": 2.5,
+    "damping_ratio": 0.7
+   },
+   {
+    "id": "forearm_r",
+    "bones": [
+     "forearm_r"
+    ],
+    "natural_frequency_hz": 2.5,
+    "damping_ratio": 0.7
+   }
+  ]
+ },
+ "layers": [
+  {
+   "id": "tail",
+   "bind_bone": "tail_01",
+   "influence_bones": [
+    "tail_01",
+    "tail_02",
+    "tail_03",
+    "tail_fluke"
+   ],
+   "rigid_above": [
+    {
+     "bone": "tail_fluke",
+     "y": 1330,
+     "blend": 30
+    }
+   ],
+   "z_order": 0,
+   "trim_offset_px": [
+    555,
+    1213
+   ],
+   "min_component_px": 40
+  },
+  {
+   "id": "hair_back_l",
+   "bind_bone": "hair_back_l_01",
+   "influence_bones": [
+    "head",
+    "hair_back_l_01",
+    "hair_back_l_02",
+    "hair_back_l_03"
+   ],
+   "z_order": 30,
+   "trim_offset_px": [
+    138,
+    87
+   ],
+   "min_component_px": 40
+  },
+  {
+   "id": "hair_back_r",
+   "bind_bone": "hair_back_r_01",
+   "influence_bones": [
+    "head",
+    "hair_back_r_01",
+    "hair_back_r_02",
+    "hair_back_r_03"
+   ],
+   "z_order": 40,
+   "trim_offset_px": [
+    505,
+    88
+   ],
+   "min_component_px": 40
+  },
+  {
+   "id": "leg_l",
+   "bind_bone": "lower_leg_l",
+   "influence_bones": [
+    "upper_leg_l",
+    "lower_leg_l",
+    "foot_l"
+   ],
+   "z_order": 50,
+   "trim_offset_px": [
+    395,
+    1514
+   ],
+   "min_component_px": 40
+  },
+  {
+   "id": "leg_r",
+   "bind_bone": "lower_leg_r",
+   "influence_bones": [
+    "upper_leg_r",
+    "lower_leg_r",
+    "foot_r"
+   ],
+   "z_order": 55,
+   "trim_offset_px": [
+    455,
+    1514
+   ],
+   "min_component_px": 40
+  },
+  {
+   "id": "skirt",
+   "bind_bone": "skirt_root",
+   "influence_bones": [
+    "root_hip",
+    "skirt_root",
+    "skirt_hem_l",
+    "skirt_hem_r"
+   ],
+   "z_order": 60,
+   "trim_offset_px": [
+    137,
+    552
+   ],
+   "min_component_px": 40
+  },
+  {
+   "id": "torso",
+   "bind_bone": "spine",
+   "influence_bones": [
+    "spine",
+    "chest",
+    "neck"
+   ],
+   "z_order": 65,
+   "trim_offset_px": [
+    366,
+    272
+   ],
+   "min_component_px": 40
+  },
+  {
+   "id": "apron",
+   "bind_bone": "apron_root",
+   "influence_bones": [
+    "spine",
+    "apron_root",
+    "apron_tip"
+   ],
+   "z_order": 70,
+   "trim_offset_px": [
+    339,
+    589
+   ],
+   "min_component_px": 40
+  },
+  {
+   "id": "arm_l",
+   "bind_bone": "upper_arm_l",
+   "influence_bones": [
+    "chest",
+    "upper_arm_l",
+    "forearm_l",
+    "hand_l"
+   ],
+   "z_order": 75,
+   "trim_offset_px": [
+    242,
+    445
+   ],
+   "min_component_px": 40
+  },
+  {
+   "id": "arm_r",
+   "bind_bone": "upper_arm_r",
+   "influence_bones": [
+    "chest",
+    "upper_arm_r",
+    "forearm_r",
+    "hand_r"
+   ],
+   "z_order": 76,
+   "trim_offset_px": [
+    603,
+    451
+   ],
+   "min_component_px": 40
+  },
+  {
+   "id": "hair_front",
+   "bind_bone": "hair_side_l_01",
+   "influence_bones": [
+    "head",
+    "hair_side_l_01",
+    "hair_side_l_02",
+    "hair_side_r_01",
+    "hair_side_r_02"
+   ],
+   "z_order": 78,
+   "trim_offset_px": [
+    388,
+    322
+   ],
+   "min_component_px": 40
+  },
+  {
+   "id": "head_base",
+   "bind_bone": "head",
+   "influence_bones": [
+    "neck",
+    "head"
+   ],
+   "z_order": 100,
+   "trim_offset_px": [
+    399,
+    132
+   ],
+   "grid_step": 4
+  },
+  {
+   "id": "pupil_l",
+   "bind_bone": "pupil_l",
+   "influence_bones": [
+    "pupil_l"
+   ],
+   "z_order": 110,
+   "trim_offset_px": [
+    446,
+    242
+   ],
+   "blink_zones": [
+    [
+     469,
+     238,
+     270,
+     34
+    ]
+   ],
+   "gaze_ellipse": [
+    469.2,
+    255.6,
+    18.0,
+    12.0
+   ],
+   "gaze_polygon": [
+    [
+     463,
+     244
+    ],
+    [
+     477,
+     244
+    ],
+    [
+     481,
+     246
+    ],
+    [
+     482,
+     247
+    ],
+    [
+     485,
+     252
+    ],
+    [
+     485,
+     258
+    ],
+    [
+     484,
+     264
+    ],
+    [
+     482,
+     266
+    ],
+    [
+     467,
+     269
+    ],
+    [
+     465,
+     269
+    ],
+    [
+     461,
+     268
+    ],
+    [
+     455,
+     257
+    ],
+    [
+     455,
+     256
+    ],
+    [
+     458,
+     249
+    ],
+    [
+     459,
+     247
+    ],
+    [
+     460,
+     246
+    ]
+   ]
+  },
+  {
+   "id": "pupil_r",
+   "bind_bone": "pupil_r",
+   "influence_bones": [
+    "pupil_r"
+   ],
+   "z_order": 115,
+   "trim_offset_px": [
+    539,
+    234
+   ],
+   "blink_zones": [
+    [
+     555,
+     228,
+     267,
+     36
+    ]
+   ],
+   "gaze_ellipse": [
+    554.4,
+    247.8,
+    14.0,
+    11.5
+   ],
+   "gaze_polygon": [
+    [
+     548,
+     236
+    ],
+    [
+     558,
+     236
+    ],
+    [
+     563,
+     237
+    ],
+    [
+     566,
+     238
+    ],
+    [
+     567,
+     239
+    ],
+    [
+     569,
+     243
+    ],
+    [
+     572,
+     251
+    ],
+    [
+     572,
+     252
+    ],
+    [
+     569,
+     259
+    ],
+    [
+     568,
+     260
+    ],
+    [
+     544,
+     260
+    ],
+    [
+     542,
+     258
+    ],
+    [
+     541,
+     253
+    ],
+    [
+     541,
+     245
+    ],
+    [
+     542,
+     241
+    ],
+    [
+     545,
+     238
+    ]
+   ]
+  },
+  {
+   "id": "eye_cover_l_upper",
+   "bind_bone": "head",
+   "influence_bones": [
+    "head"
+   ],
+   "z_order": 118,
+   "trim_offset_px": [
+    444,
+    232
+   ],
+   "blink_reveal_pivot_y": 238,
+   "grid_step": 2,
+   "min_component_px": 0
+  },
+  {
+   "id": "eye_cover_l_lower",
+   "bind_bone": "head",
+   "influence_bones": [
+    "head"
+   ],
+   "z_order": 118,
+   "trim_offset_px": [
+    444,
+    264
+   ],
+   "blink_reveal_pivot_y": 270,
+   "grid_step": 2,
+   "min_component_px": 0
+  },
+  {
+   "id": "eye_cover_r_upper",
+   "bind_bone": "head",
+   "influence_bones": [
+    "head"
+   ],
+   "z_order": 118,
+   "trim_offset_px": [
+    537,
+    222
+   ],
+   "blink_reveal_pivot_y": 228,
+   "grid_step": 2,
+   "min_component_px": 0
+  },
+  {
+   "id": "eye_cover_r_lower",
+   "bind_bone": "head",
+   "influence_bones": [
+    "head"
+   ],
+   "z_order": 118,
+   "trim_offset_px": [
+    537,
+    260
+   ],
+   "blink_reveal_pivot_y": 267,
+   "grid_step": 2,
+   "min_component_px": 0
+  },
+  {
+   "id": "eyelid_l",
+   "bind_bone": "eyelid_l",
+   "influence_bones": [
+    "head",
+    "eyelid_l"
+   ],
+   "z_order": 120,
+   "trim_offset_px": [
+    439,
+    235
+   ],
+   "blink_zones": [
+    [
+     469,
+     238,
+     270,
+     34
+    ]
+   ],
+   "grid_step": 4
+  },
+  {
+   "id": "eyelid_r",
+   "bind_bone": "eyelid_r",
+   "influence_bones": [
+    "head",
+    "eyelid_r"
+   ],
+   "z_order": 125,
+   "trim_offset_px": [
+    531,
+    223
+   ],
+   "blink_zones": [
+    [
+     555,
+     228,
+     267,
+     36
+    ]
+   ],
+   "grid_step": 4
+  },
+  {
+   "id": "ear_fin_l",
+   "bind_bone": "ear_fin_l",
+   "influence_bones": [
+    "head",
+    "ear_fin_l"
+   ],
+   "z_order": 130,
+   "trim_offset_px": [
+    313,
+    238
+   ]
+  },
+  {
+   "id": "ear_fin_r",
+   "bind_bone": "ear_fin_r",
+   "influence_bones": [
+    "head",
+    "ear_fin_r"
+   ],
+   "z_order": 135,
+   "trim_offset_px": [
+    615,
+    221
+   ]
+  },
+  {
+   "id": "bangs",
+   "bind_bone": "bangs_01",
+   "influence_bones": [
+    "head",
+    "bangs_01",
+    "bangs_02",
+    "bangs_03",
+    "hair_side_l_01",
+    "hair_side_r_01"
+   ],
+   "z_order": 140,
+   "trim_offset_px": [
+    392,
+    101
+   ],
+   "min_component_px": 0,
+   "grid_step": 8
+  },
+  {
+   "id": "ahoge_headdress",
+   "bind_bone": "head",
+   "influence_bones": [
+    "head"
+   ],
+   "z_order": 150,
+   "trim_offset_px": [
+    374,
+    16
+   ],
+   "min_component_px": 40
+  }
+ ]
+}

@@ -1437,7 +1437,7 @@ class PetApp:
         self.fsm.handle_event(f"motion_mode:{mode}")
         self.window.set_motion_mode(self.fsm.motion_mode)
 
-    # ---- G6 ADULT 侧身行走（config adult_locomotion = "side_rig"）----
+    # ---- ADULT / FINAL 侧身行走（各阶段 locomotion 配置）----
     _LOCO_SPEED_CAP = 200.0     # px/s；跟随模式 600 px/s 限速到步行上限（方案 §8 决策 4 缺省）
     _LOCO_BREAK_MODES = ("fall", "thrown", "drag", "climb", "eat_approach", "eat_mouse")
     # G7 跟手/边缘：意图按误差比例给速——远处贴上限、近处随距离减速，步态
@@ -1480,17 +1480,17 @@ class PetApp:
             self.window.set_locomotion_intent(0.0)
 
     def _setup_side_locomotion(self) -> None:
-        """ADULT + adult_locomotion=side_rig + 资产齐 → 启用侧身行走；否则旧路径。"""
+        """按当前阶段配置和资产包启用侧身行走。"""
         enable = getattr(self.window, "enable_side_locomotion", None)
         disable = getattr(self.window, "disable_side_locomotion", None)
         stage = getattr(self.store.get(), "stage", None)
         stage = getattr(stage, "value", stage)
         if not callable(enable):
             return
-        if self.cfg.get("adult_locomotion", "side_rig") == "side_rig" and stage == "adult":
-            pkg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "rig_adult_walk_v1")
+        if stage in ("adult", "final") and self.cfg.get(f"{stage}_locomotion", "side_rig") == "side_rig":
+            pkg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", f"rig_{stage}_walk_v1")
             if not enable(pkg):
-                self.logger.warning("adult_locomotion=side_rig 但侧身行走资产不可用，回退旧路径")
+                self.logger.warning("%s_locomotion=side_rig 但侧身行走资产不可用，回退旧路径", stage)
         elif callable(disable):
             disable()
 

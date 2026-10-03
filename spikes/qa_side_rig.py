@@ -53,6 +53,65 @@ def enclosed_holes(alpha: np.ndarray) -> np.ndarray:
     return ndimage.binary_fill_holes(solid) & ~solid
 
 
+def classify_material_holes(rt, alpha: np.ndarray, holes: np.ndarray) -> list[dict]:
+    """A new enclosed background region is not necessarily missing artwork.
+
+    Inspect the visible material around each region using inverse triangle UVs.
+    Gaps inside one garment/limb are defects; spaces between an arm and the
+    dress, and the interiors of hair curls, are expected negative space.
+    Unknown boundaries remain conservative defects rather than being ignored.
+    """
+    layers = []
+    for layer in rt.layers:
+        xy = rt.deform(layer, layer.rest)[:, :2].copy()
+        tri = layer.triangles.reshape(-1, 3)
+        a, b, c = xy[tri[:, 0]], xy[tri[:, 1]], xy[tri[:, 2]]
+        v0, v1 = b-a, c-a
+        den = v0[:, 0]*v1[:, 1]-v1[:, 0]*v0[:, 1]
+        den = np.where(np.abs(den) < 1e-8, np.inf, den)
+        tex = np.asarray(Image.open(layer.texture_path).convert("RGBA"))[..., 3]
+        name = layer.layer_id
+        family = "dress" if name in ("torso", "skirt", "apron", "shoulder_frill_l") else name
+        for prefix in ("arm_l", "arm_r", "leg_l", "leg_r", "hair"):
+            if name.startswith(prefix):
+                family = prefix
+                break
+        layers.append((family, a, v0, v1, den, layer.uv[tri], tex))
+    lab, n = ndimage.label(holes)
+    result = []
+    for k in range(1, n+1):
+        own = lab == k
+        ring = ndimage.binary_dilation(own, iterations=2) & ~own & (alpha > 127)
+        ys, xs = np.where(ring)
+        if not len(xs):
+            continue
+        pick = np.linspace(0, len(xs)-1, min(96, len(xs))).round().astype(int)
+        points = np.column_stack((xs[pick]+.5, ys[pick]+.5))
+        owners = np.full(len(points), "unknown", dtype=object)
+        for family, a, v0, v1, den, uv, tex in layers:
+            delta = points[None, :, :]-a[:, None, :]
+            u = (delta[..., 0]*v1[:, None, 1]-delta[..., 1]*v1[:, None, 0])/den[:, None]
+            v = (v0[:, None, 0]*delta[..., 1]-v0[:, None, 1]*delta[..., 0])/den[:, None]
+            ti, pi = np.where((u >= -1e-5) & (v >= -1e-5) & (u+v <= 1+1e-5))
+            if len(ti):
+                q = uv[ti, 0]+u[ti, pi, None]*(uv[ti, 1]-uv[ti, 0])+v[ti, pi, None]*(uv[ti, 2]-uv[ti, 0])
+                tx = np.clip((q[:, 0]*tex.shape[1]).astype(int), 0, tex.shape[1]-1)
+                ty = np.clip((q[:, 1]*tex.shape[0]).astype(int), 0, tex.shape[0]-1)
+                owners[pi[tex[ty, tx] > 63]] = family
+        known = owners != "unknown"
+        names, counts = np.unique(owners[known], return_counts=True)
+        dominant = str(names[counts.argmax()]) if len(names) else "unknown"
+        share = float(counts.max()/known.sum()) if known.any() else 0.0
+        solid = dominant in ("dress", "arm_l", "arm_r", "leg_l", "leg_r")
+        defect = float(known.mean()) < .7 or (solid and share >= .8)
+        hy, hx = np.where(own)
+        result.append({"bbox_canvas": [int(hx.min()), int(hy.min()), int(hx.max()+1), int(hy.max()+1)],
+                       "area_disp_px2": float(own.sum()*DISP*DISP),
+                       "boundary_materials": dict(zip(names.tolist(), counts.tolist())),
+                       "dominant_share": share, "material_defect": bool(defect)})
+    return result
+
+
 def main() -> None:
     from render_rig_rest import RigRenderer
     from pet.rig.skinned_mesh_item import RigRuntime
@@ -129,7 +188,12 @@ def main() -> None:
         pose_rep[name] = {"new_hole_max_disp_px2": float((sizes.max() if len(sizes) else 0) * DISP * DISP),
                           "new_hole_total_disp_px2": float(new_holes.sum() * DISP * DISP),
                           "flipped_triangles": flips}
-        pose_rep[name]["pass"] = bool(pose_rep[name]["new_hole_max_disp_px2"] <= 4 and not flips)
+        regions = classify_material_holes(rt, img[..., 3], new_holes)
+        defects = [x["area_disp_px2"] for x in regions if x["material_defect"]]
+        pose_rep[name]["material_hole_max_disp_px2"] = max(defects, default=0.0)
+        pose_rep[name]["hole_regions"] = regions
+        pose_rep[name]["pass_basis"] = "continuous garment/limb holes; natural inter-part/hair spaces excluded"
+        pose_rep[name]["pass"] = bool(max(defects, default=0.0) <= 4 and not flips)
     metrics["extreme_poses"] = pose_rep
 
     # weights

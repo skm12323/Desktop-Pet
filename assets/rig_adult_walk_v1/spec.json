@@ -761,7 +761,10 @@
     "stance_extension": 0.985,
     "adaptive_cadence": true,
     "lean_degrees": 1.8,
-    "skirt_follow_gain": 0.8,
+    "skirt_follow_gain": 0.4,
+    "skirt_follow_limit_deg": 8.0,
+    "skirt_freq_hz": 3.5,
+    "skirt_halflife_s": 0.1,
     "swing_lift_world_px": 4.0,
     "foot_track_sep_world_px": 0.0,
     "turn_duration_s": 0.02,
@@ -787,6 +790,11 @@
     "speed_cap_world_px_s": 200.0,
     "reference_curves": true
   },
+  "locomotion": {
+    "clip_rate": 1.25,
+    "reverse_clip_rate": 2.0,
+    "reverse_settle_s": 0.12
+  },
   "layers": [
     {
       "id": "tail",
@@ -805,6 +813,14 @@
         0,
         1,
         1
+      ],
+      "rigid_above": [
+        {
+          "bone": "tail_fluke",
+          "y": 1060,
+          "blend": 60,
+          "x_max": 320
+        }
       ],
       "weights": {
         "mode": "chain",
@@ -1003,6 +1019,13 @@
           "blend": 22
         }
       ],
+      "joint_curve": {
+        "parent": "upper_leg_r",
+        "child": "lower_leg_r",
+        "tip": "foot_r",
+        "upper_px": 280,
+        "lower_px": 80
+      },
       "weights": {
         "mode": "chain",
         "blend_px": [
@@ -1056,6 +1079,13 @@
           "blend": 22
         }
       ],
+      "joint_curve": {
+        "parent": "upper_leg_l",
+        "child": "lower_leg_l",
+        "tip": "foot_l",
+        "upper_px": 280,
+        "lower_px": 80
+      },
       "weights": {
         "mode": "chain",
         "blend_px": [
@@ -1153,7 +1183,7 @@
       "min_component_px": 150,
       "per_component": true,
       "trim_offset_px": [
-        306,
+        216,
         409
       ]
     },

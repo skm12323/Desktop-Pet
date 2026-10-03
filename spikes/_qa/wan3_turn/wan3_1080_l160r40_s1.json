@@ -1,0 +1,36 @@
+{
+  "tool": "tools/wan3_flf2v_api.py",
+  "endpoint": "https://dashscope.aliyuncs.com/api/v1",
+  "model": "wan3.0-video",
+  "task_id": "fb937199-c9f2-40bf-9990-ac7f9248c51c",
+  "seconds": 172.2,
+  "parameters": {
+    "resolution": "1080P",
+    "ratio": "9:16",
+    "duration": 5,
+    "audio": false,
+    "seed": 1,
+    "prompt_extend": false,
+    "watermark": false
+  },
+  "prompt": "The same anime girl (whale maid) turns in place from facing the viewer to a three-quarter view facing the right side of the frame, then holds still. Her eyes and head lead, shoulders and chest follow, hips last; her long hair and whale tail swing slightly with the turn and settle. She stays in place: a small weight shift, at most one small step, both feet always on the same ground line. Locked-off static camera: no zoom, no pan, no dolly. Solid flat chroma-key green background throughout, evenly lit, no floor, no shadow, no reflection. Line art, flat cel shading, colors, outfit and every accessory stay identical to the first and last frames. No other action: no talking, no waving, no change of expression, mouth stays closed.",
+  "first": {
+    "path": "assets/rig_adult_walk_v1/clips/endpoints/front_to_side_l160r40/first.png",
+    "sha256": "e6d8133d8d091cc267de7869ad8373e2f690cb694a2fe5e873e9940efca3e9d3"
+  },
+  "last": {
+    "path": "assets/rig_adult_walk_v1/clips/endpoints/front_to_side_l160r40/last.png",
+    "sha256": "07a588e73b521a70f342be983914e8a91ded08aec17991fc1a2375768baf050d"
+  },
+  "usage": {
+    "duration": 5,
+    "input_video_duration": 0,
+    "output_video_duration": 5,
+    "fps": 30,
+    "video_count": 1,
+    "SR": 1080,
+    "ratio": "9:16"
+  },
+  "output": "assets/rig_adult_walk_v1/clips/raw/wan3/wan3_1080_l160r40_s1.mp4",
+  "output_sha256": "48aff17e24ee341055315df21f0f9c34276f63981881212f35910ca4fffa00c1"
+}

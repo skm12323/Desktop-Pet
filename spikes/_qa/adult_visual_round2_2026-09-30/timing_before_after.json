@@ -1,0 +1,23 @@
+[
+  {
+    "request_at": 6.1,
+    "reverse_delay_before_s": 3.75,
+    "reverse_delay_after_s": 2.25,
+    "start_before_s": 1.4666666666666666,
+    "start_after_s": 1.2333333333333334
+  },
+  {
+    "request_at": 6.4,
+    "reverse_delay_before_s": 3.533333333333333,
+    "reverse_delay_after_s": 2.333333333333332,
+    "start_before_s": 1.4666666666666666,
+    "start_after_s": 1.2333333333333334
+  },
+  {
+    "request_at": 6.7,
+    "reverse_delay_before_s": 3.5666666666666673,
+    "reverse_delay_after_s": 2.466666666666666,
+    "start_before_s": 1.4666666666666666,
+    "start_after_s": 1.2333333333333334
+  }
+]

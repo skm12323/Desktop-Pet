@@ -172,6 +172,11 @@ def main() -> None:
     a = ap.parse_args()
     front_im = Image.open(a.front).convert("RGBA")
     front = np.asarray(front_im, np.float32)
+    # the side key shares the front rig's canvas (ADULT 960x1696, FINAL 1024x1824)
+    global CANVAS, GROUND_Y
+    if front_im.size != CANVAS:
+        CANVAS = front_im.size
+        GROUND_Y = metrics(front, CANVAS[0])["sole"] + 4
     aligned, info = align(Image.open(a.candidate), front)
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)

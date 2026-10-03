@@ -323,9 +323,9 @@ class MotionEngine:
             2.0 * math.pi * t / self._BREATH_FLOAT_PERIOD_MS)
         drift_deg = self._DRIFT_AMP_DEG * math.sin(
             2.0 * math.pi * t / self._DRIFT_PERIOD_MS)
-        # ADULT 的站立脚与窗口地面重合；原先整身漂浮会反复抬起鞋底。
+        # ADULT/FINAL 的站立脚与窗口地面重合；整身漂浮会反复抬起鞋底。
         # 把呼吸留在脊柱/胸部，步态包络只在移动时恢复全身律动。
-        if self._spec is not None and self._spec.stage == "adult" and inputs.grounded:
+        if self._spec is not None and self._spec.stage in ("adult", "final") and inputs.grounded:
             breath_float *= self._gait_k
             drift_deg *= self._gait_k
 
@@ -403,7 +403,7 @@ class MotionEngine:
         # 1. 躯干脊柱呼吸微动
         ph_breath = 2.0 * math.pi * t / self._BREATH_FLOAT_PERIOD_MS
         hip_breath = 0.2 * math.sin(ph_breath)
-        if self._spec is not None and self._spec.stage == "adult" and inputs.grounded:
+        if self._spec is not None and self._spec.stage in ("adult", "final") and inputs.grounded:
             hip_breath *= self._gait_k
         angles["root_hip"] = hip_breath
         angles["spine"] = 0.4 * math.sin(ph_breath + 0.3)

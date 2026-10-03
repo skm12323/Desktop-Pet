@@ -1,4 +1,4 @@
-"""ADULT 侧身行走编排（G6）：正面骨骼 ⇄ 转身片段 ⇄ 侧身骨骼（gait.py）。
+"""ADULT / FINAL 侧身行走编排：正面骨骼 ⇄ 转身片段 ⇄ 侧身骨骼（gait.py）。
 
 方案：docs/ADULT转身视频过渡与侧身骨骼行走方案-2026-09-27.md §2 / §6。本模块只做纯逻辑
 （无 Qt），呈现层每拍调用 ``update`` 并按返回的 ``LocoFrame`` 摆放画面：
@@ -101,6 +101,11 @@ class SideLocomotion:
         self.side_idle_timeout_s = float(side_idle_timeout_s)
         self.fade_in_s = float(fade_in_s)          # 片段结束后次级运动渐入（§6）
         self.crossfade_s = float(crossfade_s)      # 片段两端交叉淡化 ≈ 3 帧 @30fps
+        timing = side_spec.get("locomotion") or {}
+        self.clip_rate = max(1.0, min(1.5, float(timing.get("clip_rate", 1.0))))
+        self.reverse_clip_rate = max(1.0, min(2.0, float(timing.get("reverse_clip_rate", 1.0))))
+        self.reverse_settle_s = max(.05, min(self.settle_s, float(timing.get("reverse_settle_s", self.settle_s))))
+        self._reverse_fast = False
         self._front_fade = 0.0                      # 正面刚从片段返回：剩余渐入时间
         self._last_gait: Optional[GaitOutputs] = None
         self.state = LocoState.FRONT
@@ -129,6 +134,7 @@ class SideLocomotion:
         self._enter(LocoState.FRONT)
         self._solver = None
         self._pending_dir = 0
+        self._reverse_fast = False
         return LocoFrame(LocoState.FRONT, "front", self.dir,
                          events=[f"interrupt:{was.value}"] if was is not LocoState.FRONT else [])
 
@@ -145,7 +151,12 @@ class SideLocomotion:
         want = 0 if abs(desired_vx) <= 1.0 else (1 if desired_vx > 0 else -1)
         events: list = []
         s = self.state
-        self._t += dt
+        rate = self.reverse_clip_rate if self._reverse_fast else self.clip_rate
+        self._t += dt * (rate if s in (LocoState.TURN_IN, LocoState.TURN_OUT) else 1.0)
+        if self._pending_dir and (not want or want == self.dir):
+            self._pending_dir = 0              # cancellation / latest intent takes precedence
+            if s is LocoState.SIDE:
+                self._reverse_fast = False
 
         if s is LocoState.FRONT:
             fade = 0.0
@@ -179,6 +190,7 @@ class SideLocomotion:
         if s is LocoState.TURN_OUT:
             if self._t >= self.clip_out.duration:
                 self._start_side()
+                self._reverse_fast = False
                 events.append("side")
                 return self._side_step(0.0, desired_vx, events)
             return self._clip_frame(self.clip_out, self.clip_out.index_at(self._t), events)
@@ -186,12 +198,14 @@ class SideLocomotion:
         if s is LocoState.SIDE:
             if want and want != self.dir:
                 self._pending_dir = want                   # 反向：先停步，再转回正面
+                self._reverse_fast = True
             return self._side_step(dt, desired_vx, events, bounds)
 
         if s is LocoState.SIDE_SETTLE:
-            w = min(1.0, self._t / max(self.settle_s, 1e-6))
+            duration = self.reverse_settle_s if self._reverse_fast else self.settle_s
+            w = min(1.0, self._t / max(duration, 1e-6))
             w = w * w * (3 - 2 * w)
-            if self._t >= self.settle_s:
+            if self._t >= duration:
                 self._enter(LocoState.TURN_IN)
                 events.append("turn_in")
                 return self._clip_frame(self.clip_in, 0, events)
@@ -205,7 +219,7 @@ class SideLocomotion:
             self._solver = None
             self._front_fade = self.fade_in_s
             events.append("front")
-            nxt = self._pending_dir or want
+            nxt = want                                    # never execute a cancelled stale reversal
             self._pending_dir = 0
             if nxt:                                        # 反向 / 立刻再走：直接下一次会话
                 self.dir = nxt
@@ -214,6 +228,7 @@ class SideLocomotion:
                 self._front_fade = 0.0
                 events.append("settle")
                 return self._front_frame(1.0, events, controls=True)
+            self._reverse_fast = False
             return self._front_frame(1.0, events)
         return self._clip_frame(self.clip_in, self.clip_in.index_at(self._t), events)
 

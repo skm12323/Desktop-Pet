@@ -47,8 +47,10 @@ PLAN = {
 # of the key-art crop). Pixels under the occluder are handed to the layers behind it by a
 # nearest-neighbour classifier on (position, colour) trained on the labelled ring around it.
 PEELS = [
-    {"id": "arm_l", "crop": [160, 400, 480, 976], "image": "prep/peel/arm_l_edit_s1.png",
-     "occluder": ["arm_l"], "targets": ["hair_back", "torso", "apron", "skirt"]},
+    {"id": "arm_l", "crop": [160, 400, 480, 976], "image": "prep/peel/arm_l_edit_s2.png",
+     "occluder": ["arm_l"], "targets": ["hair_back", "torso", "apron", "skirt"],
+     "outlined_foreground": True, "lower_reference": "prep/peel/arm_l_edit_s1.png",
+     "lower_from_y": 620},
     # 围裙后面的裙子/衣身：裙摆随大腿摆动时会从围裙边缘下露出（旧邻色填充 = 黑色涂抹）
     {"id": "apron", "crop": [384, 643, 736, 1091], "image": "prep/peel/apron_edit_s1.png",
      "occluder": ["apron"], "targets": ["torso", "skirt"]},
@@ -62,6 +64,14 @@ def peel_assignments(root: Path, key: np.ndarray, labels: np.ndarray, idx: dict)
         x0, y0, x1, y1 = pl["crop"]
         img = np.asarray(Image.open(root / pl["image"]).convert("RGB").resize(
             (x1 - x0, y1 - y0), Image.Resampling.LANCZOS), np.float32)
+        if pl.get("lower_reference"):
+            # s2 removes the upper sleeve; s1 already has the approved compact
+            # waist bow. Keep the latter instead of importing s2's new ribbon.
+            lower = np.asarray(Image.open(root / pl["lower_reference"]).convert("RGB").resize(
+                (x1 - x0, y1 - y0), Image.Resampling.LANCZOS), np.float32)
+            start = int(pl["lower_from_y"]) - y0
+            blend = np.clip((np.arange(y1 - y0) - (start - 16)) / 16, 0, 1)[:, None, None]
+            img = img * (1 - blend) + lower * blend
         lab = labels[y0:y1, x0:x1]
         occ = np.isin(lab, [idx[o] for o in pl["occluder"]])
         region = ndimage.binary_dilation(occ, iterations=3)
@@ -83,13 +93,42 @@ def peel_assignments(root: Path, key: np.ndarray, labels: np.ndarray, idx: dict)
             score = np.stack([ndimage.uniform_filter((cmap == c).astype(np.float32), 7) for c in classes])
             best = classes[score.argmax(0)]
             cmap[region] = best[region]
-        # colour decides the body/background border (the peel shows it exactly): white paper
-        # labelled skirt/hair -> background; coloured pixels labelled background -> nearest body class
+        # Paper is white connected to the crop boundary. White cloth inside its
+        # outlined silhouette is not background (the old color-only rule erased
+        # the near-side waist bow whenever it was classified as skirt/hair).
         white = (img.min(-1) > 190) & (img.max(-1) - img.min(-1) < 30)
+        paper_color = (img.min(-1) >= 248) & (img.max(-1) - img.min(-1) <= 5)
+        seeds = np.zeros(paper_color.shape, bool)
+        seeds[0] = paper_color[0]
+        seeds[-1] = paper_color[-1]
+        seeds[:, 0] |= paper_color[:, 0]
+        seeds[:, -1] |= paper_color[:, -1]
+        paper = ndimage.binary_propagation(seeds, mask=paper_color)
         dark_cls = [idx[n] for n in ("skirt", "hair_back") if n in pl["targets"]]
         cmap[region & white & np.isin(cmap, dark_cls)] = 0
+        cloth_repair = np.zeros(region.shape, bool)
+        if pl.get("outlined_foreground"):
+            # The complete-arm peel has continuous outlined cloth. Unlike the
+            # older partial peel, its white foreground can be classified across
+            # the full occluder: paper is only the edge-connected white region.
+            cloth_repair = region & ~paper
+            cmap[region & paper] = 0
+            cloth_sources = ring & white & ~paper & np.isin(lab, [idx["torso"], idx["apron"]])
+            if cloth_sources.any():
+                # Assign the white bow and its outline to a white-cloth layer,
+                # rather than smoothing it into the dark skirt or the hair.
+                _, (cy, cx) = ndimage.distance_transform_edt(~cloth_sources, return_indices=True)
+                cloth = cloth_repair & ~paper & ndimage.binary_dilation(white & ~paper, iterations=2)
+                cmap[cloth] = lab[cy[cloth], cx[cloth]]
+            # Grey folds inside the registered white waist bow are cloth too.
+            # A color-only classifier otherwise cuts dark creases out as paper
+            # or attaches them to the skirt, leaving a bite in the lower lobe.
+            yy, xx = np.mgrid[y0:y1, x0:x1]
+            bow = (xx >= 310) & (xx <= 443) & (yy >= 632) & (yy <= 775)
+            grey = (img.max(-1)-img.min(-1) < 65) & (np.abs(img[..., 0]-img[..., 1]) < 45)
+            cmap[cloth_repair & bow & grey] = idx["torso"]
         body = region & (cmap > 0)
-        fix = region & (cmap == 0) & ~white
+        fix = region & (cmap == 0) & ~white & ~paper
         if fix.any() and body.any():
             _, (iy, ix) = ndimage.distance_transform_edt(~body, return_indices=True)
             cmap[fix] = cmap[iy[fix], ix[fix]]
@@ -101,7 +140,13 @@ def peel_assignments(root: Path, key: np.ndarray, labels: np.ndarray, idx: dict)
                 m[qy[sel] + y0, qx[sel] + x0] = True
                 # drop 1-2 px stripes (old arm outline strokes split between body/background)
                 own_t = labels == idx[tname]
-                m = ndimage.binary_opening(m | own_t, iterations=2) & m
+                opened = ndimage.binary_opening(m | own_t, iterations=2) & m
+                if pl["id"] == "arm_l":
+                    keep = np.zeros(labels.shape, bool)
+                    keep[y0:y1, x0:x1] = cloth_repair & ~paper
+                    m = opened | (m & keep)
+                else:
+                    m = opened
                 col = np.zeros(key.shape[:2] + (3,), np.uint8)
                 col[qy[sel] + y0, qx[sel] + x0] = np.clip(img[qy[sel], qx[sel]] + 0.5, 0, 255).astype(np.uint8)
                 col[~m] = 0

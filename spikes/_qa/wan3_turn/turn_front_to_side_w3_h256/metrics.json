@@ -1,0 +1,16 @@
+{
+  "endpoint_before_morph": {
+    "first_premul_mean_abs_255": 1.491968035697937,
+    "last_premul_mean_abs_255": 9.433631896972656
+  },
+  "endpoint_after_morph": {
+    "first_premul_mean_abs_255": 0.0,
+    "last_premul_mean_abs_255": 0.0
+  },
+  "endpoint_alpha_flicker_max": 0.0,
+  "endpoint_alpha_flicker_pass": true,
+  "residual_green_p99_255": 0.0,
+  "disk_bytes": 1412487,
+  "decoded_bytes": 3867444,
+  "size_pass": true
+}

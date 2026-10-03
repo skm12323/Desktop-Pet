@@ -193,11 +193,18 @@ def generate_layer_mesh(
     gy = sorted(set([max(0, y0 - 2), min(th, y1 + 2)] + list(range(y0, y1, max(2, int(step / scale_y))))))
     # Add exact eye-opening boundaries so full closure cannot leave white slivers.
     for zone in layer_spec.get("blink_zones", []):
+        xs_zone = [zone[0] - zone[3], zone[0], zone[0] + zone[3]]
+        if "blink_blend_px" in layer_spec:     # exact outer edge of the narrower side band
+            xs_zone += [zone[0] - zone[3] - layer_spec["blink_blend_px"], zone[0] + zone[3] + layer_spec["blink_blend_px"]]
+        for value in xs_zone:
+            tx = (value - off_x) / scale_x
+            if min(gx) < tx < max(gx):
+                gx.append(tx)
         for value in [zone[1] - 35, zone[1], zone[2], zone[2] + 35]:
             ty = (value - off_y) / scale_y
-            if gy[0] < ty < gy[-1]:
+            if min(gy) < ty < max(gy):
                 gy.append(ty)
-    gy = sorted(set(gy))
+    gx, gy = sorted(set(gx)), sorted(set(gy))
     points, lookup, triangles = [], {}, []
     # per_component: grid cells shared by two separate pieces (gap < one cell) used to weld them
     # through common vertices (measured: 92 bridging triangles on the ADULT side rig). Each piece
@@ -230,7 +237,17 @@ def generate_layer_mesh(
     influence_bones = layer_spec.get("influence_bones", [layer_spec["bind_bone"]])
     bones_dict = {b["bone_name"]: b for b in skeleton_spec["bones"]}
 
-    if layer_spec.get("gaze_ellipse"):
+    if layer_spec.get("gaze_polygon"):
+        # Sample the iris inside the eye opening, rather than clipping it to
+        # the iris's original outline as soon as the look direction changes.
+        outline = layer_spec["gaze_polygon"]
+        cx, cy = np.asarray(outline, float).mean(axis=0)
+        count = len(outline)
+        vertices = [[float(cx), float(cy)]] + [[float(x), float(y)] for x, y in outline]
+        uvs = [[(x - trim_off_x) / tw, (y - trim_off_y) / th] for x, y in vertices]
+        triangles = [idx for j in range(count) for idx in (0, 1 + j, 1 + (j + 1) % count)]
+        pts_arr = np.asarray(vertices)
+    elif layer_spec.get("gaze_ellipse"):
         # The pupil is sampled through the fixed sclera silhouette. Moving UVs
         # looks around without drawing iris pixels over the surrounding skin.
         cx, cy, rx, ry = layer_spec["gaze_ellipse"]
@@ -333,23 +350,52 @@ def generate_layer_mesh(
             weight_bones[index] = list(weights)
             weight_values[index] = [round(v, 6) for v in weights.values()]
 
+    # A forked fin is one rigid shape, even when its two lobes are far away
+    # from the skeleton's centreline. Blend into the narrow peduncle below it.
+    for ra in layer_spec.get("rigid_above", []):
+        t = np.clip((ra["y"] + ra.get("blend", 20) - pts_arr[:, 1]) /
+                    max(ra.get("blend", 20), 1e-6), 0, 1)
+        t = t * t * (3 - 2 * t)
+        if "x_max" in ra:
+            t[pts_arr[:, 0] > ra["x_max"]] = 0
+        for index, blend in enumerate(t):
+            if blend <= 0:
+                continue
+            weights = {b: w * (1-blend) for b, w in zip(weight_bones[index], weight_values[index])}
+            weights[ra["bone"]] = weights.get(ra["bone"], 0) + blend
+            weights = {b: w for b, w in weights.items() if w > 1e-6}
+            weight_bones[index] = list(weights)
+            weight_values[index] = [round(v, 6) for v in weights.values()]
+
     blink_delta = np.zeros_like(pts_arr)
     for cx, top, bottom, radius in layer_spec.get("blink_zones", []):
         x, y = pts_arr[:, 0], pts_arr[:, 1]
         closure = top + (bottom - top) * 0.78
-        mapped = np.interp(y, [top - 16, top, bottom, bottom + 16],
-                           [top - 16, closure, closure, bottom + 16])
-        mapped = np.where((y < top - 16) | (y > bottom + 16), y, mapped)
+        vb = float(layer_spec.get("blink_vertical_blend_px", 16))
+        mapped = np.interp(y, [top - vb, top, bottom, bottom + vb],
+                           [top - vb, closure, closure, bottom + vb])
+        mapped = np.where((y < top - vb) | (y > bottom + vb), y, mapped)
         # A slight downward arc and retained stroke thickness read as a closed eye.
         curve = 6 * np.clip(1 - ((x - cx) / radius) ** 2, 0, 1)
-        ramp = np.interp(y, [top - 16, top, bottom, bottom + 16], [0, 1, 1, 0])
+        ramp = np.interp(y, [top - vb, top, bottom, bottom + vb], [0, 1, 1, 0])
         mapped += curve * ramp
         if layer_id.startswith("eyelid"):
             mapped = closure + curve + (y - top) * 0.25
             blend = np.ones_like(x)
         else:
-            blend = np.clip((radius + 25 - abs(x - cx)) / 25, 0, 1)
+            bb = float(layer_spec.get("blink_blend_px", 25))   # skin band beside the eye that follows the lid
+            blend = np.clip((radius + bb - abs(x - cx)) / bb, 0, 1)
         blink_delta[:, 1] += (mapped - y) * blend
+    edge_fade = float(layer_spec.get("blink_edge_fade_px", 0))
+    if edge_fade > 0:
+        # Skin bordering a cut-out (e.g. bangs) keeps its silhouette. Moving
+        # the contour with the eyelid stretched the cut into a vertical seam.
+        distance = ndimage.distance_transform_edt(mask)
+        tx = (pts_arr[:, 0] - off_x) / scale_x
+        ty = (pts_arr[:, 1] - off_y) / scale_y
+        edge_dist = ndimage.map_coordinates(distance, [ty, tx], order=1, mode="constant", cval=0, prefilter=False)
+        t = np.clip(edge_dist / edge_fade, 0, 1)
+        blink_delta *= (t*t*(3-2*t))[:, None]
     blink_delta = np.round(blink_delta, 4).tolist()
 
     return {
@@ -357,7 +403,8 @@ def generate_layer_mesh(
         "texture": layer_spec.get("texture", f"{layer_id}.png"),
         "trim_offset_px": [trim_off_x, trim_off_y],   # 便于回算；运行时不消费
         "blink_delta": blink_delta if layer_spec.get("blink_zones") else None,
-        "gaze_uv": bool(layer_spec.get("gaze_ellipse")),
+        "blink_reveal_pivot_y": layer_spec.get("blink_reveal_pivot_y"),
+        "gaze_uv": bool(layer_spec.get("gaze_ellipse") or layer_spec.get("gaze_polygon")),
         "texture_size_px": [tw, th],
         "z_order": layer_spec["z_order"],
         "vertices": vertices,
@@ -422,4 +469,3 @@ if __name__ == "__main__":
     out = args.out or f"assets/rig_{args.stage}/mesh/mesh_data.json"
 
     generate_all_meshes(spec, layers, out, grid_step=args.grid_step)
-

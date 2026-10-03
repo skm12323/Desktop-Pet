@@ -1,0 +1,14 @@
+{
+ "raw": "prep/peel/tail_redraw_s1.png",
+ "crop": [
+  560,
+  1150,
+  1024,
+  1640
+ ],
+ "shift_px": [
+  3,
+  14
+ ],
+ "own_coverage": 0.8055
+}

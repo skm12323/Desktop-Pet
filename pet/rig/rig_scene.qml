@@ -12,6 +12,7 @@
 //   · 部件清单 partsModel 由 Python 注入（dict 附 _url 绝对 file:// 地址）；
 //     每部件角度由 partAngles 映射（part_id → 度）提供，Python 每帧推入。
 import QtQuick
+import QtQuick.Effects
 import PetRig 1.0
 
 Item {
@@ -35,6 +36,7 @@ Item {
     // 片段/侧身显示期间不会竖直跳变（计划 §3 G6 注明的坑）。
     property int locoMode: 0
     property bool sideMeshEnabled: false
+    property bool locoNeglected: false
     property string sideSpecFile: ""
     property string sideMeshDataFile: ""
     property string sideLayersDir: ""
@@ -94,11 +96,22 @@ Item {
     // ---- 源图→画布几何（与 QLabel KeepAspectRatio+AlignCenter 同构）----
     property real srcW: 1024
     property real srcH: 1536
-    readonly property double fitScale: Math.min(width / srcW, height / srcH)
+    // FINAL keeps its mood poses; size and floor are based on visible artwork,
+    // including its paperdoll parts, rather than each sprite's different padding.
+    property bool staticAlignEnabled: false
+    property var staticBounds: [0, 0, 1024, 1536]
+    property real staticTargetHeightRatio: 1746.0 / 1824.0
+    readonly property bool alignStatic: staticAlignEnabled && !skinnedMeshVisible
+    readonly property double fitScale: alignStatic
+        ? Math.min(height * staticTargetHeightRatio / Math.max(1, staticBounds[3] - staticBounds[1]),
+                   width * 0.96 / Math.max(1, staticBounds[2] - staticBounds[0]))
+        : Math.min(width / srcW, height / srcH)
     readonly property double dispW: srcW * fitScale
     readonly property double dispH: srcH * fitScale
-    readonly property double offX: (width - dispW) / 2
-    readonly property double offY: (height - dispH) / 2
+    readonly property double offX: alignStatic
+        ? width / 2 - (staticBounds[0] + staticBounds[2]) * fitScale / 2
+        : (width - dispW) / 2
+    readonly property double offY: alignStatic ? height - staticBounds[3] * fitScale : (height - dispH) / 2
 
     function setSourceSize(w, h) { srcW = w; srcH = h }
 
@@ -130,6 +143,14 @@ Item {
     Item {
         id: mirrorNode
         anchors.fill: parent
+        // One palette for front rig, turn clip and side rig during a neglected session.
+        // The offscreen layer is allocated only for this branch, not normal idle/walk.
+        layer.enabled: root.locoNeglected
+        layer.effect: MultiEffect {
+            saturation: -0.65
+            brightness: -0.025
+            autoPaddingEnabled: false
+        }
         transform: [
             Rotation {   // 速度倾斜 + 步态滚转（脚底原点）
                 origin.x: root.width / 2; origin.y: root.height
@@ -150,6 +171,13 @@ Item {
             width: parent.width
             height: parent.height
             y: root.bodyY + root.skinnedGroundShift
+            // Composite the legacy FINAL cuts before reducing their resolution.
+            // Independent mip levels on the core and moving parts expose the
+            // feathered cut masks as grids and rectangular seams.
+            layer.enabled: root.alignStatic && root.activeFigure === "neglected_neutral"
+            layer.textureSize: Qt.size(root.srcW, root.srcH)
+            layer.smooth: true
+            layer.mipmap: true
             // bob 不加 Behavior：33ms 步进本身平滑，Behavior 反而滞后抖动
 
             // 2D 骨骼蒙皮渲染节点（当 skinnedMeshEnabled 时接管渲染）
@@ -209,7 +237,8 @@ Item {
 
             Image {
                 id: figA
-                anchors.fill: parent
+                x: root.offX; y: root.offY
+                width: root.dispW; height: root.dispH
                 source: root.figASrc
                 scale: root.frameDisplayScale(source)
                 fillMode: Image.PreserveAspectFit
@@ -218,7 +247,8 @@ Item {
             }
             Image {
                 id: figB
-                anchors.fill: parent
+                x: root.offX; y: root.offY
+                width: root.dispW; height: root.dispH
                 source: root.figBSrc
                 scale: root.frameDisplayScale(source)
                 fillMode: Image.PreserveAspectFit

@@ -1,0 +1,428 @@
+{
+  "revision": "7e9ca9c3808a574cadeb3261f8941a2029b1c8c6",
+  "render_size": 256,
+  "sample_hz": 60,
+  "capture_hz": 30,
+  "note": "Mesh sigma metrics include transparent mesh cells; appearance assessed in Qt renders. Stress poses excluded here.",
+  "transitions": [
+    {
+      "t": 0.016666666666666666,
+      "state": "front",
+      "mode": "front",
+      "x": 200,
+      "facing": 1,
+      "gait": ""
+    },
+    {
+      "t": 2.0,
+      "state": "settle",
+      "mode": "front",
+      "x": 200,
+      "facing": 1,
+      "gait": ""
+    },
+    {
+      "t": 2.2,
+      "state": "turn_out",
+      "mode": "clip",
+      "x": 200,
+      "facing": 1,
+      "gait": ""
+    },
+    {
+      "t": 3.1666666666666665,
+      "state": "side",
+      "mode": "side",
+      "x": 200,
+      "facing": 1,
+      "gait": "idle_front"
+    },
+    {
+      "t": 3.183333333333333,
+      "state": "side",
+      "mode": "side",
+      "x": 200,
+      "facing": 1,
+      "gait": "turn_to_side"
+    },
+    {
+      "t": 3.2,
+      "state": "side",
+      "mode": "side",
+      "x": 200,
+      "facing": 1,
+      "gait": "walk_start"
+    },
+    {
+      "t": 5.033333333333333,
+      "state": "side",
+      "mode": "side",
+      "x": 369,
+      "facing": 1,
+      "gait": "walk_loop"
+    },
+    {
+      "t": 9.0,
+      "state": "side",
+      "mode": "side",
+      "x": 844,
+      "facing": 1,
+      "gait": "walk_brake"
+    },
+    {
+      "t": 9.383333333333333,
+      "state": "side",
+      "mode": "side",
+      "x": 866,
+      "facing": 1,
+      "gait": "walk_stop"
+    },
+    {
+      "t": 9.4,
+      "state": "side",
+      "mode": "side",
+      "x": 866,
+      "facing": 1,
+      "gait": "walk_park"
+    },
+    {
+      "t": 9.9,
+      "state": "side",
+      "mode": "side",
+      "x": 886,
+      "facing": 1,
+      "gait": "idle_side"
+    },
+    {
+      "t": 13.9,
+      "state": "side_settle",
+      "mode": "side",
+      "x": 886,
+      "facing": 1,
+      "gait": "idle_side"
+    },
+    {
+      "t": 14.116666666666667,
+      "state": "turn_in",
+      "mode": "clip",
+      "x": 886,
+      "facing": 1,
+      "gait": ""
+    },
+    {
+      "t": 15.083333333333334,
+      "state": "front",
+      "mode": "front",
+      "x": 886,
+      "facing": 1,
+      "gait": ""
+    },
+    {
+      "t": 17.0,
+      "state": "settle",
+      "mode": "front",
+      "x": 886,
+      "facing": 1,
+      "gait": ""
+    },
+    {
+      "t": 17.2,
+      "state": "turn_out",
+      "mode": "clip",
+      "x": 886,
+      "facing": 1,
+      "gait": ""
+    },
+    {
+      "t": 18.166666666666668,
+      "state": "side",
+      "mode": "side",
+      "x": 886,
+      "facing": 1,
+      "gait": "idle_front"
+    },
+    {
+      "t": 18.183333333333334,
+      "state": "side",
+      "mode": "side",
+      "x": 886,
+      "facing": 1,
+      "gait": "turn_to_side"
+    },
+    {
+      "t": 18.2,
+      "state": "side",
+      "mode": "side",
+      "x": 886,
+      "facing": 1,
+      "gait": "walk_start"
+    },
+    {
+      "t": 20.033333333333335,
+      "state": "side",
+      "mode": "side",
+      "x": 1055,
+      "facing": 1,
+      "gait": "walk_loop"
+    },
+    {
+      "t": 24.0,
+      "state": "side",
+      "mode": "side",
+      "x": 1530,
+      "facing": 1,
+      "gait": "walk_brake"
+    },
+    {
+      "t": 24.383333333333333,
+      "state": "side",
+      "mode": "side",
+      "x": 1552,
+      "facing": 1,
+      "gait": "walk_stop"
+    },
+    {
+      "t": 24.4,
+      "state": "side",
+      "mode": "side",
+      "x": 1552,
+      "facing": 1,
+      "gait": "walk_park"
+    },
+    {
+      "t": 24.9,
+      "state": "side_settle",
+      "mode": "side",
+      "x": 1572,
+      "facing": 1,
+      "gait": "idle_side"
+    },
+    {
+      "t": 25.033333333333335,
+      "state": "turn_in",
+      "mode": "clip",
+      "x": 1572,
+      "facing": 1,
+      "gait": ""
+    },
+    {
+      "t": 25.65,
+      "state": "settle",
+      "mode": "front",
+      "x": 1572,
+      "facing": -1,
+      "gait": ""
+    },
+    {
+      "t": 25.666666666666668,
+      "state": "turn_out",
+      "mode": "clip",
+      "x": 1572,
+      "facing": -1,
+      "gait": ""
+    },
+    {
+      "t": 26.283333333333335,
+      "state": "side",
+      "mode": "side",
+      "x": 1572,
+      "facing": -1,
+      "gait": "idle_front"
+    },
+    {
+      "t": 26.3,
+      "state": "side",
+      "mode": "side",
+      "x": 1572,
+      "facing": -1,
+      "gait": "turn_to_side"
+    },
+    {
+      "t": 26.316666666666666,
+      "state": "side",
+      "mode": "side",
+      "x": 1572,
+      "facing": -1,
+      "gait": "walk_start"
+    },
+    {
+      "t": 28.15,
+      "state": "side",
+      "mode": "side",
+      "x": 1403,
+      "facing": -1,
+      "gait": "walk_loop"
+    },
+    {
+      "t": 31.0,
+      "state": "side",
+      "mode": "side",
+      "x": 1062,
+      "facing": -1,
+      "gait": "walk_brake"
+    },
+    {
+      "t": 31.383333333333333,
+      "state": "side",
+      "mode": "side",
+      "x": 1040,
+      "facing": -1,
+      "gait": "walk_stop"
+    },
+    {
+      "t": 31.616666666666667,
+      "state": "side",
+      "mode": "side",
+      "x": 1040,
+      "facing": -1,
+      "gait": "walk_park"
+    },
+    {
+      "t": 32.06666666666667,
+      "state": "side",
+      "mode": "side",
+      "x": 1030,
+      "facing": -1,
+      "gait": "idle_side"
+    }
+  ],
+  "actual_session_deformation": {
+    "tail": {
+      "sigma_max": 2.7390726991111305,
+      "sigma_min": 0.06195976563898466,
+      "fold_frames": 205
+    },
+    "hair_back": {
+      "sigma_max": 1.403050279796923,
+      "sigma_min": 0.5977591439831872,
+      "fold_frames": 0
+    },
+    "ear_fin_r": {
+      "sigma_max": 1.0000048450204555,
+      "sigma_min": 0.9999945947501016,
+      "fold_frames": 0
+    },
+    "hair_side_r": {
+      "sigma_max": 1.0271399267723853,
+      "sigma_min": 0.9725942168557646,
+      "fold_frames": 0
+    },
+    "arm_r_hand": {
+      "sigma_max": 1.0000062467526964,
+      "sigma_min": 0.9999932379566219,
+      "fold_frames": 0
+    },
+    "arm_r_fore": {
+      "sigma_max": 1.0000128374145543,
+      "sigma_min": 0.9999850629902175,
+      "fold_frames": 0
+    },
+    "arm_r_upper": {
+      "sigma_max": 1.0000060748577961,
+      "sigma_min": 0.9999929358347683,
+      "fold_frames": 0
+    },
+    "leg_r": {
+      "sigma_max": 1.615244375469135,
+      "sigma_min": 0.4902490485306452,
+      "fold_frames": 0
+    },
+    "leg_l": {
+      "sigma_max": 1.5152650098703109,
+      "sigma_min": 0.2920716619547849,
+      "fold_frames": 0
+    },
+    "skirt": {
+      "sigma_max": 1.3956364130011736,
+      "sigma_min": 0.8367857734649264,
+      "fold_frames": 0
+    },
+    "torso": {
+      "sigma_max": 1.0259786120616041,
+      "sigma_min": 0.9740022390749656,
+      "fold_frames": 0
+    },
+    "apron": {
+      "sigma_max": 1.0231306297281446,
+      "sigma_min": 0.97678391232706,
+      "fold_frames": 0
+    },
+    "arm_l_hand": {
+      "sigma_max": 1.0000055069420095,
+      "sigma_min": 0.9999947122055208,
+      "fold_frames": 0
+    },
+    "arm_l_fore": {
+      "sigma_max": 1.0000090781014699,
+      "sigma_min": 0.9999885006844292,
+      "fold_frames": 0
+    },
+    "arm_l_upper": {
+      "sigma_max": 1.0000068410066745,
+      "sigma_min": 0.9999924454144258,
+      "fold_frames": 0
+    },
+    "shoulder_frill_l": {
+      "sigma_max": 1.0000062727411536,
+      "sigma_min": 0.9999934116208361,
+      "fold_frames": 0
+    },
+    "head_base": {
+      "sigma_max": 1.8423973079249227,
+      "sigma_min": 0.27493012715918147,
+      "fold_frames": 0
+    },
+    "eyelid_l": {
+      "sigma_max": 1.0535985788187983,
+      "sigma_min": 0.23728345889166086,
+      "fold_frames": 0
+    },
+    "eyelid_r": {
+      "sigma_max": 1.0063269764456013,
+      "sigma_min": 0.24842541451104588,
+      "fold_frames": 0
+    },
+    "ear_fin_l": {
+      "sigma_max": 1.0000103667067384,
+      "sigma_min": 0.9999888515662435,
+      "fold_frames": 0
+    },
+    "ahoge": {
+      "sigma_max": 1.1132773515769088,
+      "sigma_min": 0.8882526462601299,
+      "fold_frames": 0
+    },
+    "headdress": {
+      "sigma_max": 1.0000141532014493,
+      "sigma_min": 0.9999857155904571,
+      "fold_frames": 0
+    }
+  },
+  "mood_backends": [
+    {
+      "figure": "healthy_neutral",
+      "skinned": true
+    },
+    {
+      "figure": "healthy_happy",
+      "skinned": false
+    },
+    {
+      "figure": "healthy_sad",
+      "skinned": false
+    },
+    {
+      "figure": "healthy_hungry",
+      "skinned": false
+    },
+    {
+      "figure": "healthy_sleepy",
+      "skinned": false
+    },
+    {
+      "figure": "neglected_neutral",
+      "skinned": false
+    }
+  ],
+  "max_solver_drift": 2.0463630789890885e-12
+}
