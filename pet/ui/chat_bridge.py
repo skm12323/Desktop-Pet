@@ -146,17 +146,22 @@ class ChatBridge(QAbstractListModel):
         self._store = store if store is not None else SessionStore()
         if self._store.active is None:
             self._store.new_session()
-        self._streaming = ""
-        self._worker = None
-        self._worker_sid: str | None = None   # 在飞轮发起时的会话（落回用）
+        # v0.17.6 每会话独立在飞：sid → worker（旧版单 worker 单飞——切换
+        # 会话后立即发消息被拒）。流式按会话缓冲 _stream_bufs：sid → 已
+        # 流式文本（切走不丢，切回 streamingText 直接续显全量）。
+        self._workers: dict = {}
+        self._worker_handlers: dict = {}   # sid → {信号名: partial}（cancel 断连用）
+        self._stream_bufs: dict = {}
         self._sum_worker = None   # 滚动摘要后台线程（同一时刻至多一个）
         # 批次D/F15：本轮 user 文本——失败/离线路径也要把 user turn 补进
         # 发起会话 history（旧版只有 _on_done 的 head 带 user，失败轮 DS 历史
-        # 出现"无问之答"，摘要按 user 计数删 UI 行时错位）
-        self._pending_user = ""
+        # 出现"无问之答"，摘要按 user 计数删 UI 行时错位）。
+        # v0.17.6 sid 化：多会话同时在飞时补账不串
+        self._pending: dict = {}
         # 批次D/F10：cancel() 等 2s 未退的 worker 保引用于此，finished 后清
         # ——旧版无条件 deleteLater = 销毁可能仍在运行的 QThread（原生崩溃）
-        self._dying = None
+        # v0.17.6 多 worker：列表化
+        self._dying: list = []
         self.on_user_message = None  # v0.6 可选钩子：app 侧 follow-up 启发式
         self._offline = False
         self._pet_avatar = ""  # 对方头像 file:// URL；空=未注入（QML 回退 🐱）
@@ -176,7 +181,9 @@ class ChatBridge(QAbstractListModel):
         s = self._store.new_session()
         self.beginResetModel()
         self.endResetModel()
-        self._set_streaming("")   # 流式气泡不跨会话（落定仍完整入原会话）
+        # v0.17.6：切换只重发流式信号——getter 按 active 取缓冲，切走
+        # 自动为空、切回直接续显该会话已流式的全量前半段
+        self.streamingChanged.emit()
         self.sessionListChanged.emit()
         return s.id
 
@@ -188,7 +195,7 @@ class ChatBridge(QAbstractListModel):
             return False
         self.beginResetModel()
         self.endResetModel()
-        self._set_streaming("")
+        self.streamingChanged.emit()   # 流式按 active 重取（同 newSession）
         self.sessionListChanged.emit()
         return True
 
@@ -229,7 +236,7 @@ class ChatBridge(QAbstractListModel):
         if was_active:
             self.beginResetModel()
             self.endResetModel()
-            self._set_streaming("")
+            self.streamingChanged.emit()
         self._store.save()
         self.sessionListChanged.emit()
         return True
@@ -269,8 +276,10 @@ class ChatBridge(QAbstractListModel):
     # ---- 流式占位 Property ----
     def streamingText(self) -> str:
         # M13 修：流式文本经 _md_to_html（与落定消息同一管道）——旧版直接
-        # 返回原始 DS 增量，RichText 下未转义的 <h1> 等构成 HTML 注入面
-        return _md_to_html(self._streaming) if self._streaming else ""
+        # 返回原始 DS 增量，RichText 下未转义的 <h1> 等构成 HTML 注入面。
+        # v0.17.6 按会话取缓冲：切走后再切回，已流式的前半段直接续显
+        raw = self._stream_bufs.get(self._cur.id, "")
+        return _md_to_html(raw) if raw else ""
 
     streamingText = Property(str, fget=streamingText, notify=streamingChanged)
 
@@ -325,12 +334,15 @@ class ChatBridge(QAbstractListModel):
         if self._client is None or self._offline:
             self.offlineRequested.emit()
             return False
-        if self._worker is not None and self._worker.isRunning():
-            return False  # 在飞：丢弃，输入由 QML 侧保留
+        sid = self._cur.id
+        w = self._workers.get(sid)
+        if w is not None and w.isRunning():
+            return False  # 该会话在飞：丢弃，输入由 QML 侧保留
+            # v0.17.6 前是全局单飞——切到别的会话发消息也被拒；现每会话
+            # 独立在飞，互不阻塞
 
         self._append_message("user", text)
-        self._pending_user = text   # 批次D/F15：失败/离线路径补 user turn 用
-        self._worker_sid = self._cur.id   # v0.17.1：落回发起会话
+        self._pending[sid] = text   # 批次D/F15：失败/离线路径补 user turn 用
         # v0.9 滚动摘要：不再在 send 前同步做（H4 修）——改在轮次完成后
         # （_on_done/_on_failed）后台异步触发，见 _maybe_summarize
         if self.on_user_message is not None:
@@ -339,20 +351,33 @@ class ChatBridge(QAbstractListModel):
             except Exception:
                 # L22：钩子异常留痕（app 侧各段已有内部 try，此处兜底）
                 log.exception("on_user_message 钩子异常")
-        self._set_streaming("")
+        self._stream_bufs.pop(sid, None)   # 新轮清残留流式
+        self.streamingChanged.emit()       # 若为 active：气泡复位
+        from functools import partial
+
         from ..llm import ChatWorker
 
-        self._worker = ChatWorker(
+        worker = ChatWorker(
             self._client, self._cur.history, text, self._make_ctx(), parent=self
         )
-        self._worker.delta.connect(self._on_delta)
-        self._worker.done.connect(self._on_done)
-        self._worker.offline.connect(self._on_offline)
-        self._worker.failed.connect(self._on_failed)
+        # v0.17.6：信号经 partial(sid) 分发——每会话独立路由到对应回调，
+        # 不依赖 QObject.sender()（跨线程 queued 下 Python 侧偶发 None）
+        handlers = {
+            "delta": partial(self._on_delta, sid),
+            "done": partial(self._on_done, sid),
+            "offline": partial(self._on_offline, sid),
+            "failed": partial(self._on_failed, sid),
+        }
+        worker.delta.connect(handlers["delta"])
+        worker.done.connect(handlers["done"])
+        worker.offline.connect(handlers["offline"])
+        worker.failed.connect(handlers["failed"])
         # 批次D/F10：finished→deleteLater 唯一删除通道（QThread 铁律）——
         # 旧版自然完成路径不接，worker 挂 parent 之下永不回收=每轮泄漏
-        self._worker.finished.connect(self._worker.deleteLater)
-        self._worker.start()
+        worker.finished.connect(worker.deleteLater)
+        self._workers[sid] = worker
+        self._worker_handlers[sid] = handlers
+        worker.start()
         return True
 
     _SUMMARIZE_THRESHOLD = 20   # 超过触发
@@ -461,23 +486,25 @@ class ChatBridge(QAbstractListModel):
         （同文件摘要线程/proactive.shutdown 早已是保引用模式）。改保引用
         至 _dying，由 finished→deleteLater（send 已接）单通道收尾。
         """
-        w = self._worker
-        if w is not None:
-            try:
-                w.done.disconnect(self._on_done)
-            except (TypeError, RuntimeError):
-                pass
-            self._worker = None
+        for sid, w in list(self._workers.items()):
+            handlers = self._worker_handlers.pop(sid, None)
+            if handlers is not None:
+                for sig, fn in handlers.items():
+                    try:
+                        getattr(w, sig).disconnect(fn)
+                    except (TypeError, RuntimeError, AttributeError):
+                        pass
             if w.isRunning():
                 w.cancel()
                 if not w.wait(2000):
                     log.warning("[聊天] cancel 等待 2s 未退，保留引用待 "
                                 "finished 自清（不销毁运行中线程）")
-                    self._dying = w
+                    self._dying.append(w)
                     try:
                         w.finished.connect(self._on_dying_finished)
                     except (TypeError, RuntimeError):
                         pass
+        self._workers.clear()
         # H4 修：摘要线程一并收口（shutdown 也走这里——QThread 挂后台
         # 不等会 "Destroyed while thread is still running"）。deleteLater
         # 由 finished→deleteLater 连接兜底（含自然完成路径），此处不重复
@@ -497,42 +524,40 @@ class ChatBridge(QAbstractListModel):
                 sw.cancel()
                 sw.wait(2000)
         self._sum_worker = None
-        self._set_streaming("")
+        self._stream_bufs.clear()
+        self.streamingChanged.emit()
         # v0.17.1：shutdown 收口把内存态会话落盘（轮次完成路径已即时
         # save，此处兜底 send 后未完成即退出的 user 行）
         self._store.save()
 
-    # ---- worker 信号 ----
-    @Slot(str)
-    def _on_delta(self, chunk: str) -> None:
-        # 真流式：累加 streaming 逐字显示（v0.4 Must "DS 回复流式打字机"）。
-        # _on_done 时把 streaming 并入正式 assistant message 并清空。
-        # v0.17.1：用户已切会话时迟到的 delta 丢弃——流式气泡不进新会话
-        # UI（落定文本仍完整写回发起会话）。
-        if (self._worker is None
-                or self._worker_sid != self._cur.id):
-            return
-        self._set_streaming(self._streaming + chunk)
+    # ---- worker 信号（v0.17.6：partial(sid) 分发，签名带 sid） ----
+    def _on_delta(self, sid: str, chunk: str) -> None:
+        # 真流式：累加会话流式缓冲逐字显示（v0.4 Must "DS 回复流式打字机"）。
+        # v0.17.6：delta 恒入发起会话缓冲（切走后再切回，前半段直接续显）；
+        # 仅发起会话是 active 时 emit——流式气泡不进别的会话 UI。
+        if sid not in self._workers:
+            return  # cancel 已断连/done 后迟到的 delta
+        self._stream_bufs[sid] = self._stream_bufs.get(sid, "") + chunk
+        if sid == self._cur.id:
+            self.streamingChanged.emit()
 
-    @Slot(object)
-    def _on_done(self, appended: list) -> None:
-        if self._worker is None:
-            return  # cancel 后迟到的 done，丢弃（防幽灵回复）
-        session = self._store.get(self._worker_sid)
+    def _on_done(self, sid: str, appended: list) -> None:
+        if self._workers.pop(sid, None) is None:
+            return  # cancel 后迟到的/重复的 done，丢弃（防幽灵回复）
+        session = self._store.get(sid)
         if session is None:
             # v0.17.5：发起会话已被删除——回复无处落，丢弃（不串当前）
-            self._pending_user = ""
-            self._set_streaming("")
-            self._worker = None
+            self._pending.pop(sid, None)
+            self._clear_stream(sid)
             return
-        self._pending_user = ""   # head 已含 user，pending 清账
+        self._pending.pop(sid, None)   # head 已含 user，pending 清账
         final_text = ""
         for turn in appended:
             session.history.append(turn)
             if turn.role == "assistant":
                 final_text = turn.content
         if not final_text:
-            final_text = self._streaming
+            final_text = self._stream_bufs.get(sid, "")
         if session is self._cur:
             self._append_message("assistant", final_text)
         else:
@@ -544,8 +569,7 @@ class ChatBridge(QAbstractListModel):
             )
             session.touch()
             self.sessionListChanged.emit()
-        self._set_streaming("")
-        self._worker = None
+        self._clear_stream(sid)
         self._store.save()
         # H4 修：轮次完成后异步触发滚屏摘要（旧版在 send 前 同步做）
         self._maybe_summarize(session)
@@ -553,27 +577,28 @@ class ChatBridge(QAbstractListModel):
     @Slot()
     def _on_dying_finished(self) -> None:
         """批次D/F10：cancel 超时未退的 worker 结束后释放保命引用。"""
-        self._dying = None
+        w = self.sender()
+        if w in self._dying:
+            self._dying.remove(w)
 
-    @Slot()
-    def _on_offline(self) -> None:
+    def _on_offline(self, sid: str) -> None:
         # 失败/离线路径也追加发起会话（user 已在 send 追加 UI，这里补
         # user+assistant turn 进 DS history），否则下次 send 喂 DS 的
         # history 缺这轮，上下文脱节（批次D/F15：user turn 旧版永不入史）
         from ..llm import OFFLINE_REPLY, ChatTurn
-        session = self._store.get(self._worker_sid)
+        if self._workers.pop(sid, None) is None:
+            return
+        session = self._store.get(sid)
         if session is None:
             # v0.17.5：发起会话已被删除——丢弃（同 _on_done）
-            self._pending_user = ""
-            self._set_streaming("")
-            self._worker = None
+            self._pending.pop(sid, None)
+            self._clear_stream(sid)
             self.offlineRequested.emit()
             return
         self._offline = True
-        self._set_streaming("")
-        if self._pending_user:
-            session.history.append(ChatTurn("user", self._pending_user))
-            self._pending_user = ""
+        pending = self._pending.pop(sid, "")
+        if pending:
+            session.history.append(ChatTurn("user", pending))
         if session is self._cur:
             self._append_message("assistant", OFFLINE_REPLY)
         else:
@@ -584,25 +609,25 @@ class ChatBridge(QAbstractListModel):
             session.touch()
             self.sessionListChanged.emit()
         session.history.append(ChatTurn("assistant", OFFLINE_REPLY))
-        self._worker = None
+        self._clear_stream(sid)
         self._store.save()
         self.offlineRequested.emit()
 
-    @Slot(str)
-    def _on_failed(self, reply: str) -> None:
+    def _on_failed(self, sid: str, reply: str) -> None:
         # 降级回复也进发起会话 history（同 _on_offline 理由；批次D/F15
         # 补 user turn）
         from ..llm import ChatTurn
-        session = self._store.get(self._worker_sid)
+        if self._workers.pop(sid, None) is None:
+            return
+        session = self._store.get(sid)
         if session is None:
             # v0.17.5：发起会话已被删除——丢弃（同 _on_done）
-            self._pending_user = ""
-            self._set_streaming("")
-            self._worker = None
+            self._pending.pop(sid, None)
+            self._clear_stream(sid)
             return
-        if self._pending_user:
-            session.history.append(ChatTurn("user", self._pending_user))
-            self._pending_user = ""
+        pending = self._pending.pop(sid, "")
+        if pending:
+            session.history.append(ChatTurn("user", pending))
         if session is self._cur:
             self._append_message("assistant", reply)
         else:
@@ -613,8 +638,7 @@ class ChatBridge(QAbstractListModel):
             session.touch()
             self.sessionListChanged.emit()
         session.history.append(ChatTurn("assistant", reply))
-        self._set_streaming("")
-        self._worker = None
+        self._clear_stream(sid)
         self._store.save()
         # 降级轮也查摘要（历史持续增长；DS 恢复后下次触发补上）
         self._maybe_summarize(session)
@@ -641,9 +665,11 @@ class ChatBridge(QAbstractListModel):
         session.touch()
         self.sessionListChanged.emit()   # 标题/排序可能变化
 
-    def _set_streaming(self, text: str) -> None:
-        self._streaming = text
-        self.streamingChanged.emit()
+    def _clear_stream(self, sid: str) -> None:
+        """清发起会话的流式缓冲；该会话是 active 时刷 UI（落定消息接管
+        气泡）。非 active 不 emit——它本来就没在显示。"""
+        if self._stream_bufs.pop(sid, None) is not None and sid == self._cur.id:
+            self.streamingChanged.emit()
 
     @Slot()
     def reset_offline(self) -> None:

@@ -43,9 +43,13 @@
 # 会话自动切最近剩余会话、删最后一个自动新建空会话；在飞轮的发起会话被删
 # 后回复丢弃不串会话；右键时行数据捕获到 Menu 属性（Popup 处理器内
 # modelData 不可靠，离屏实测空 map——统一走 sessMenu.pendingSid/Title）。
+# v0.17.6：每会话独立在飞（旧全局单飞——切会话后立即发消息被拒）+ 流式按
+# 会话缓冲（切走隐藏/切回续显全量已流式段）；worker 信号经 partial(sid)
+# 分发不依赖 sender()，pending 补账 sid 化（双在飞不串账），cancel 多
+# worker 遍历收口、dying 列表化。
 # v0.18.0：本地 G7 线与 origin/main（v0.16.12–v0.16.23，含 FINAL 线）合并入档；
 # 新增三维化实验线 three_d/（wiki：方案 D01–D14 + 三份调研 + 设计 v0，render3d
 # config 默认关闭不影响 2D 主线）与逆向还原工具（正/侧图板合成 + 由 2D pivot
 # 推导 3D 骨架基准坐标，three_d/tools/）。0.17 段划给细节打磨（入库主线），
 # 3D 实验线版本号继续自 0.18.0 起（本地不入库）。
-__version__ = "0.17.5"
+__version__ = "0.17.6"
