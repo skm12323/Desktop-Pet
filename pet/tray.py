@@ -59,6 +59,10 @@ class TrayManager(QObject):
         if self._on_mem:
             self._on_mem()
 
+    def set_tooltip(self, text: str) -> None:
+        """v0.17.0：动态 tooltip（app 在热键注册成功后调，提示直达热键）。"""
+        self._tray.setToolTip(text)
+
     def set_autostart_state(self, enabled: bool) -> None:
         """v0.11：同步自启菜单勾选态（app 启动时调）。
 

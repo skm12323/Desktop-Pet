@@ -278,6 +278,8 @@ class PetApp:
         self.window.cleanRequested.connect(lambda: self._interact("clean"))
         self.window.pokeRequested.connect(lambda: self._interact("poke"))
         self.window.quitRequested.connect(self.shutdown)
+        # v0.17.0：宠物右键"聊天"直达面板（与热键同走 toggle：可见即隐藏）
+        self.window.chatRequested.connect(self._toggle_chat_panel)
         # v0.3 拖拽（拖动直接挪窗保跟手）+ 移动模式
         self.window.dragStarted.connect(self._on_drag_started)
         self.window.dragMoved.connect(self._on_drag_moved)
@@ -965,6 +967,8 @@ class PetApp:
             self.logger.warning("[热键] 全部注册失败")
         else:
             self.logger.info("[热键] 就绪（%s）", _hk_hint)
+            # v0.17.0：热键提示进托盘 tooltip（悬停可见，缓解热键太隐蔽）
+            self.tray.set_tooltip(f"桌宠 · {_hk_hint}")
 
     def _on_hotkey_fired(self, hid: int) -> None:
         """M7：热键信号主线程分发（hid=1 聊天 / hid=2 吐出）。"""

@@ -107,6 +107,7 @@ class WindowBase(QWidget):
     feedRequested = Signal()   # 双击：Qt 双击事件
     cleanRequested = Signal()  # 右键菜单"洗澡"
     pokeRequested = Signal()   # 右键菜单"戳一戳"
+    chatRequested = Signal()   # 右键菜单"聊天"（v0.17.0 直达聊天面板）
     settingsRequested = Signal()
     quitRequested = Signal()
     motionModeRequested = Signal(str)  # "follow" / "free" / "edge"
@@ -473,6 +474,9 @@ class WindowBase(QWidget):
     def contextMenuEvent(self, event):
         # 右键菜单：互动 + 三种互斥移动模式 + 设置/退出
         menu = QMenu(self)
+        # v0.17.0：聊天置顶直达（托盘两跳 → 右键一跳；热键 Cmd/Ctrl+Alt+P 零跳）
+        menu.addAction("聊天", self.chatRequested.emit)
+        menu.addSeparator()
         menu.addAction("喂食", self.feedRequested.emit)
         menu.addAction("洗澡", self.cleanRequested.emit)
         menu.addAction("戳一戳", self.pokeRequested.emit)

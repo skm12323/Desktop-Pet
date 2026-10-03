@@ -19,6 +19,8 @@ ApplicationWindow {
     readonly property color cPet: "#ffffff"       // pet 气泡白
     readonly property color cPetText: "#33302c"   // pet 文字暖黑
     readonly property color cAccent: "#e8915d"    // 强调橙（发送按钮/宠物头像底）
+    // v0.17.0 输入框封顶高度（约 5 行，超出后输入框内部滚动不再挤占消息区）
+    readonly property int inputMaxHeight: 110
 
     // 关闭不退出 app：Esc/窗口 X 仅隐藏
     onClosing: function(close) { root.hide(); close.accepted = false }
@@ -241,10 +243,11 @@ ApplicationWindow {
             }
         }
 
-        // ---- 输入区（悬浮条样式） ----
+        // ---- 输入区（悬浮条样式；v0.17.0 多行自适应） ----
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 64
+            // 高度随输入行数增长（微信式纵向换行），消息区被自然挤压
+            Layout.preferredHeight: inputBg.height + 20
             color: "#ffffff"
 
             Rectangle {
@@ -264,34 +267,66 @@ ApplicationWindow {
                 spacing: 8
 
                 Rectangle {
+                    id: inputBg
                     Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    // 单行时约 44（旧版观感），多行随内容增长，封顶后内滚
+                    Layout.preferredHeight: Math.min(input.implicitHeight + 16,
+                                                     root.inputMaxHeight)
                     radius: 18
                     color: input.activeFocus ? "#ffffff" : "#f0eeea"
                     border.width: 1
                     border.color: input.activeFocus ? root.cAccent : "#00000000"
 
-                    TextField {
-                        id: input
+                    ScrollView {
                         anchors.fill: parent
                         anchors.leftMargin: 14
-                        placeholderText: "说点什么…（Enter 发送 / Esc 隐藏）"
-                        font.pixelSize: 13
-                        color: root.cPetText
-                        placeholderTextColor: "#9a948c"
-                        verticalAlignment: TextInput.AlignVCenter
-                        background: null
-                        focus: true
-                        selectByMouse: true
-                        onAccepted: {
-                            if (input.text.trim().length > 0
-                                && Chat.send(input.text)) {
-                                input.text = ""
+                        anchors.rightMargin: 8
+
+                        TextArea {
+                            id: input
+                            wrapMode: TextArea.Wrap
+                            placeholderText: "说点什么…（Enter 发送 / Shift+Enter 换行）"
+                            font.pixelSize: 13
+                            color: root.cPetText
+                            placeholderTextColor: "#9a948c"
+                            verticalAlignment: TextEdit.AlignVCenter
+                            background: null
+                            focus: true
+                            selectByMouse: true
+                            topPadding: 0
+                            bottomPadding: 0
+                            leftPadding: 0
+                            rightPadding: 0
+
+                            // M4 沿用：send 被拒（在飞/离线/空文本）时保留输入
+                            function send() {
+                                if (text.trim().length > 0 && Chat.send(text))
+                                    text = ""
                             }
-                            // M4：send 被拒（在飞/离线/空文本）时保留输入，
-                            // 不再无声吞消息
+                            // v0.17.0：Enter=发送 / Shift+Enter=换行（微信习惯）；
+                            // IME 组字中的 Enter 是确认候选，放行不发送
+                            function _handleEnter(event) {
+                                if (input.inputMethodComposing) {
+                                    event.accepted = false
+                                    return
+                                }
+                                if ((event.modifiers & Qt.ShiftModifier) === 0) {
+                                    input.send()
+                                    event.accepted = true
+                                } else {
+                                    // Keys 处理器默认吞事件，须显式放行
+                                    // → TextArea 默认行为才会插入换行
+                                    event.accepted = false
+                                }
+                            }
+                            Keys.onReturnPressed: function(event) {
+                                input._handleEnter(event)
+                            }
+                            Keys.onEnterPressed: function(event) {
+                                input._handleEnter(event)
+                            }
+                            Keys.onEscapePressed: root.hide()
                         }
-                        Keys.onEscapePressed: root.hide()
                     }
                 }
 
