@@ -88,7 +88,9 @@
   },
   "chat_emotion": {
     "enabled": true,
-    "schedule": ["22:00"],
+    "schedule": [
+      "22:00"
+    ],
     "retention_hours": 48,
     "expression_minutes": 5,
     "confidence_threshold": 0.55,
@@ -111,5 +113,12 @@
     "fullness_weight": 0.4,
     "cleanliness_weight": 0.2,
     "healthy_threshold": 70
+  },
+  "render3d": {
+    "enabled": false,
+    "stage": "adult",
+    "light_level": 1,
+    "fps_cap": 30,
+    "safe_rss_mb": 500.0
   }
 }

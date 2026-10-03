@@ -88,6 +88,11 @@ _SAFE_DEFAULTS: dict = {
     "sun": {
         "enabled": False, "shadow_alpha": 0.4,
     },
+    # three_d 3D 渲染实验线（D05：默认关、云端推送恒 false；D16 安全上限制）
+    "render3d": {
+        "enabled": False, "stage": "adult", "light_level": 1,
+        "fps_cap": 30, "safe_rss_mb": 500.0,
+    },
 }
 
 # 需校验的数值子段 schema（其余键 v0.2 不强校验）
@@ -279,6 +284,18 @@ _SECTION_SCHEMAS: dict[str, dict] = {
             "timezone_offset": {"type": ["number", "null"],
                                 "minimum": -14.0, "maximum": 14.0},
             "shadow_alpha": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        },
+        "additionalProperties": False,
+    },
+    # three_d 3D 渲染实验线（three_d/wiki/设计-子模块与接口.md §4）
+    "render3d": {
+        "type": "object",
+        "properties": {
+            "enabled": {"type": "boolean"},
+            "stage": {"type": "string", "enum": ["young", "adult", "final"]},
+            "light_level": {"type": "integer", "minimum": 0, "maximum": 3},
+            "fps_cap": {"type": "integer", "minimum": 5, "maximum": 120},
+            "safe_rss_mb": {"type": "number", "minimum": 100, "maximum": 5000},
         },
         "additionalProperties": False,
     },
