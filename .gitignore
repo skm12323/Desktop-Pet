@@ -1,343 +1,87 @@
-# Created by https://www.toptal.com/developers/gitignore/api/python,c,visualstudiocode,c++
-# Edit at https://www.toptal.com/developers/gitignore?templates=python,c,visualstudiocode,c++
+# ============================================================
+# Desktop-Pet .gitignore（2026-10-03 整理重写）
+# 原则：只保留与本仓库相关的规则；生成产物一律不入库，
+# 历史提交中的旧产物可随时从 git 历史找回。
+# ============================================================
 
-### C ###
-# Prerequisites
-*.d
-
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
-
-# Linker output
-*.ilk
-*.map
-*.exp
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
-
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
-
-### C++ ###
-# Prerequisites
-
-# Compiled Object files
-*.slo
-
-# Precompiled Headers
-
-# Compiled Dynamic libraries
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-
-# Executables
-
-### Python ###
-# Byte-compiled / optimized / DLL files
+# ---- Python ----
 __pycache__/
 *.py[cod]
-*$py.class
-
-# C extensions
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .tox/
-.nox/
 .coverage
 .coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
+htmlcov/
 .hypothesis/
-.pytest_cache/
-cover/
 
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-.pybuilder/
-target/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
-
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
-
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
-
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
-
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
-#   in version control.
-#   https://pdm.fming.dev/#use-with-ide
-.pdm.toml
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
+# ---- 虚拟环境 / 本地环境 ----
 .venv/
-env.bak/
-venv.bak/
+venv/
+env/
+.env
 
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
-
-### Python Patch ###
-# Poetry local configuration file - https://python-poetry.org/docs/configuration/#local-configuration
-poetry.toml
-
-# ruff
-.ruff_cache/
-
-# LSP config files
-pyrightconfig.json
-
-### VisualStudioCode ###
-.vscode/*
-
-# Local History for Visual Studio Code
+# ---- 编辑器 / 工具私有目录 ----
+.vscode/
+.idea/
 .history/
-
-# Built Visual Studio Code Extensions
-*.vsix
-
-### VisualStudioCode Patch ###
-# Ignore all local history of files
-.history
-.ionide
-
-### Java ###
-# Compiled class file
-*.class
-
-# Log file
-*.log
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
-*.jar
-*.war
-*.nar
-*.ear
-*.zip
-*.tar.gz
-*.rar
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
-
-# End of https://www.toptal.com/developers/gitignore/api/python,c,visualstudiocode,c++
-
 .claude/*
 .mimosa/*
 .zcode/*
+.commandcode
 
-# 本地工作文档（不推送）——mac 端详细任务清单等个人 working notes
-mac任务清单.md
-v0.1.0测试样例.md
-v0.2.0测试样例.md
+# ---- macOS ----
+.DS_Store
 
-# 测试文件不推送（本地跑，不入库）
+# ---- 归档与日志（防误交；产物如需分发走 release，不入库）----
+*.zip
+*.tar.gz
+*.rar
+*.log
+
+# ---- 本地配置与数据 ----
+config.json
+data/
+
+# ---- 本地测试（本地跑，不入库）----
 tests/
 
-# macOS Finder 元数据
-.DS_Store
-data/
-v0.3.0测试样例.md
-v0.4.0测试样例.md
-v0.5.0测试样例.md
-v0.7.0测试样例.md
-v0.8.0测试样例.md
-v0.9.0测试样例.md
-v0.11.0测试样例.md
+# ---- 本地工作文档（个人 working notes，不推送）----
+mac任务清单.md
+v0.*测试样例.md
+llm-wiki.md
+CLAUDE.md
 
-# rig 部件资产(例外于上方打包模板的 parts/ 规则,防 v0.13.0 式静默漏交)
-!assets/rig/**/parts/
-!assets/rig/**/parts/**
+# ---- 生成产物（只留在本地，不入库）----
+# 运行/复查产出的带日期 GIF、帧序列与证据媒体
+output/
+spikes/_qa/
+.scratch/
 
-.commandcode
-config.json
-
-# 本地资源监控诊断产物（不推送）——CPU/内存采样 CSV、vmmap 快照、全内存分析脚本
-# 注：历史上已入库的 tools/monitor_pet_run.csv / monitor_pet_soak_30min*.csv
-# 不受本规则影响（已跟踪文件不理会 .gitignore）；如需一并移出版本控制用
-# `git rm --cached`（需另确认，未自动执行）。
+# 资源监控诊断产物（CPU/内存采样 CSV、vmmap 快照、全内存分析脚本）
 tools/monitor_pet_*.csv
 tools/monitor_pet_*.vmmap.txt
 tools/analyze_fullmem.py
 
-# ADULT 侧身行走（docs/ADULT转身视频过渡与侧身骨骼行走方案-2026-09-27.md）：
+# 生成候选（未签字产物，如 exp/pipeline-v2 的 VACE 候选等）
+assets/*/candidates/
+
+# ---- 大体积资产源 / 原始素材（见 docs/ADULT转身视频过渡与侧身骨骼行走方案-2026-09-27.md）----
 # 原始视频与生成候选体积大，不入库；只入库定稿帧、生成记录与门禁证据
 assets/rig_adult_walk_v1/**/raw/
 assets/rig_final_walk_v1/clips/raw/
 assets/rig_adult_walk_v1/**/*.mp4
 
-# 本地诊断/重放临时目录
-.scratch/
+# rig 部件资产目录是入库例外（防 v0.13.0 式静默漏交：
+# 若未来新增会命中 parts/ 的宽泛规则，此处白名单兜底）
+!assets/rig/**/parts/
+!assets/rig/**/parts/**
 
-# 生成候选（未签字产物，搁置分支 exp/pipeline-v2 的 VACE 候选等）
-assets/*/candidates/
-
-# ADULT 视觉复查的逐帧原始 PNG（约 2000 个，仅本地留存；汇总图/GIF 已入库）
-spikes/_qa/adult_visual_review_2026-09-30/frames/
-spikes/_qa/adult_visual_round2_2026-09-30/live/frames/
+# ---- three_d 实验线 ----
+# DCC 资产源（.blend/.ma/VRM/贴图 PSD/图板导出等大文件，本地开发用，
+# 不随仓库/安装包分发；three_d/wiki/ 照常入库。运行时代码在 pet/render3d/，另行入库）
+three_d/assets_src/
