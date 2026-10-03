@@ -60,6 +60,7 @@ Rectangle {
                 materials: toonMat
                 visible: root.meshUrl !== ""
             }
+            // 占位：TRELLIS 网格 y∈[0,1] 需下移贴地（Hunyuan 版 y∈[0,1.5] 时改回 -112.5）
 
             SequentialAnimation on eulerRotation.y {
                 running: root.spin
@@ -78,6 +79,10 @@ Rectangle {
             property vector3d uRim: Qt.vector3d(0.5, 0.55, 0.7)
             property real uWet: root.wetness
             property real uLightGain: root.lightIntensity
+            property real uHasTex: 1.0
+            property TextureInput uBaseTex: TextureInput {
+                texture: Texture { source: "maps/textureData.png"; generateMipmaps: true; mipFilter: Texture.Linear }
+            }
             fragmentShader: "toon_materials/toon.frag"
         }
     }
