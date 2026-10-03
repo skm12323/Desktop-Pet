@@ -693,6 +693,7 @@ class PetApp:
         # 先注册 fallback：即使 QML 载入失败，托盘聊天也有反馈
         self.tray.set_chat_callback(self._show_chat)
         from pet.ui.chat_bridge import ChatBridge, load_chat_panel
+        from pet.ui.session_store import SessionStore
 
         qml_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "pet", "ui", "main.qml"
@@ -700,6 +701,9 @@ class PetApp:
         self._chat_bridge = ChatBridge(
             self._chat_client, registry, self._make_tool_context,
             sum_client=getattr(self, "_sum_client", None),
+            # v0.17.1 多会话：JSON 持久化（原子写），重启恢复
+            store=SessionStore(os.path.join(
+                self._paths["data_dir"], "chat_sessions.json")),
         )
         self._chat_bridge.offlineRequested.connect(self._on_chat_offline)
         try:

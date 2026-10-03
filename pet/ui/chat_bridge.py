@@ -7,6 +7,11 @@ setContextProperty QML 见 null，QAbstractListModel 是唯一可靠方案）。
 
 ChatBridge **不 import requests/keyring/AppKit**——DS 经注入的 ``DeepSeekClient``+
 ``ChatWorker``，工具经 ``ToolRegistry``，key 经 ``app``。
+
+v0.17.1 多会话：``_messages``/``_history`` 单份字段移除，改走 ``SessionStore``
+会话（``_cur``）。在飞回复（含离线/失败轮）按发起时的 ``_worker_sid`` 落回
+原会话——用户切走不中断、不串会话；滚动摘要只压缩 session.history、
+UI messages 全量保留（摘要解耦）。
 """
 
 from __future__ import annotations
@@ -71,16 +76,17 @@ class _SummarizeWorker(QThread):
     空摘要按失败处理（保留原文），不当有效摘要写回。
     """
 
-    done = Signal(int, object, str)   # cut, old_first(ChatTurn), summary
+    done = Signal(str, int, object, str)  # sid, cut, old_first(ChatTurn), summary
     failed = Signal()
 
     def __init__(self, client, prompt: str, cut: int, old_first,
-                 owns_client: bool = False, parent=None) -> None:
+                 sid: str = "", owns_client: bool = False, parent=None) -> None:
         super().__init__(parent)
         self._client = client
         self._prompt = prompt
         self._cut = cut
         self._old_first = old_first
+        self._sid = sid   # v0.17.1 摘要归属会话（完成时落回，防跨会话错切）
         self._owns_client = owns_client
 
     def cancel(self) -> None:
@@ -110,7 +116,7 @@ class _SummarizeWorker(QThread):
         if not summary or summary == FALLBACK_REPLY:
             self.failed.emit()
             return
-        self.done.emit(self._cut, self._old_first, summary)
+        self.done.emit(self._sid, self._cut, self._old_first, summary)
 
 
 class ChatBridge(QAbstractListModel):
@@ -126,21 +132,26 @@ class ChatBridge(QAbstractListModel):
     petAvatarChanged = Signal()
 
     def __init__(self, client, registry, make_ctx, parent=None,
-                 sum_client=None) -> None:
+                 sum_client=None, store=None) -> None:
         super().__init__(parent)
         self._client = client
         self._registry = registry
         self._make_ctx = make_ctx
         # H4/M5 修：摘要专用客户端（app 注入独立实例；缺省回落共享实例）
         self._sum_client = sum_client
-        self._messages: list = []
-        self._history: list = []  # list[ChatTurn] 喂 DS（与 messages 同步）
+        # v0.17.1 多会话：store 缺省内存态（不落盘，测试/降级兼容）；
+        # 构造即保证 active 会话存在（空库自动 new）
+        from .session_store import SessionStore
+        self._store = store if store is not None else SessionStore()
+        if self._store.active is None:
+            self._store.new_session()
         self._streaming = ""
         self._worker = None
+        self._worker_sid: str | None = None   # 在飞轮发起时的会话（落回用）
         self._sum_worker = None   # 滚动摘要后台线程（同一时刻至多一个）
         # 批次D/F15：本轮 user 文本——失败/离线路径也要把 user turn 补进
-        # _history（旧版只有 _on_done 的 head 带 user，失败轮 DS 历史出现
-        # "无问之答"，摘要按 user 计数删 UI 行时错位）
+        # 发起会话 history（旧版只有 _on_done 的 head 带 user，失败轮 DS 历史
+        # 出现"无问之答"，摘要按 user 计数删 UI 行时错位）
         self._pending_user = ""
         # 批次D/F10：cancel() 等 2s 未退的 worker 保引用于此，finished 后清
         # ——旧版无条件 deleteLater = 销毁可能仍在运行的 QThread（原生崩溃）
@@ -148,6 +159,35 @@ class ChatBridge(QAbstractListModel):
         self.on_user_message = None  # v0.6 可选钩子：app 侧 follow-up 启发式
         self._offline = False
         self._pet_avatar = ""  # 对方头像 file:// URL；空=未注入（QML 回退 🐱）
+
+    # ---- v0.17.1 会话视图 ----
+    @property
+    def _cur(self):
+        """当前活跃会话（active 保证非 None：构造/新建兜底）。"""
+        session = self._store.active
+        if session is None:   # 防御：store 被外清空
+            session = self._store.new_session()
+        return session
+
+    @Slot(result=str)
+    def newSession(self) -> str:
+        """新建空会话并切换（在飞回复不中断，落回原会话）。返新会话 id。"""
+        s = self._store.new_session()
+        self.beginResetModel()
+        self.endResetModel()
+        self._set_streaming("")   # 流式气泡不跨会话（落定仍完整入原会话）
+        return s.id
+
+    @Slot(str, result=bool)
+    def switchSession(self, sid: str) -> bool:
+        """切换会话。未命中返 False 不动 active；在飞轮继续跑、
+        完成时写回发起会话（不串当前 UI）。"""
+        if self._store.switch(sid) is None:
+            return False
+        self.beginResetModel()
+        self.endResetModel()
+        self._set_streaming("")
+        return True
 
     # ---- QAbstractListModel ----
     def roleNames(self):
@@ -158,15 +198,16 @@ class ChatBridge(QAbstractListModel):
         }
 
     def rowCount(self, parent=QModelIndex()) -> int:
-        return len(self._messages)
+        return len(self._cur.messages)
 
     def data(self, index, role=Qt.DisplayRole):
         if not index.isValid() or role < Qt.UserRole:
             return None
         row = index.row()
-        if row < 0 or row >= len(self._messages):
+        messages = self._cur.messages
+        if row < 0 or row >= len(messages):
             return None
-        msg = self._messages[row]
+        msg = messages[row]
         if role == self._RoleRole:
             return msg["role"]
         if role == self._ContentRole:
@@ -215,6 +256,7 @@ class ChatBridge(QAbstractListModel):
 
         self._append_message("user", text)
         self._pending_user = text   # 批次D/F15：失败/离线路径补 user turn 用
+        self._worker_sid = self._cur.id   # v0.17.1：落回发起会话
         # v0.9 滚动摘要：不再在 send 前同步做（H4 修）——改在轮次完成后
         # （_on_done/_on_failed）后台异步触发，见 _maybe_summarize
         if self.on_user_message is not None:
@@ -227,7 +269,7 @@ class ChatBridge(QAbstractListModel):
         from ..llm import ChatWorker
 
         self._worker = ChatWorker(
-            self._client, self._history, text, self._make_ctx(), parent=self
+            self._client, self._cur.history, text, self._make_ctx(), parent=self
         )
         self._worker.delta.connect(self._on_delta)
         self._worker.done.connect(self._on_done)
@@ -242,9 +284,10 @@ class ChatBridge(QAbstractListModel):
     _SUMMARIZE_THRESHOLD = 20   # 超过触发
     _SUMMARIZE_BATCH = 10       # 压缩最老 N 轮
 
-    def _maybe_summarize(self) -> None:
-        """v0.9 滚屏摘要：history > 20 轮 → DS 压缩最老 10 轮为一段摘要。
+    def _maybe_summarize(self, session) -> None:
+        """v0.9 滚屏摘要：session.history > 20 轮 → DS 压缩最老 10 轮。
 
+        v0.17.1：按轮次完成的会话触发（参数化，不再假定 active）。
         v0.9.3(H4 修)：切片边界按**完整轮次**对齐——从 _SUMMARIZE_BATCH
         向后扫描，切点前若是 assistant(tool_calls) 或紧邻的 tool 结果则
         推迟一位（保证配对不切断；切断致 DS 收非法序列永久 400）。
@@ -253,25 +296,26 @@ class ChatBridge(QAbstractListModel):
         后"（_on_done/_on_failed）——避免与在飞 ChatWorker 并发共享客户端。
         失败/降级保留原文（下次再试），不阻塞任何路径。
         """
+        history = session.history
         if (self._client is None
-                or len(self._history) <= self._SUMMARIZE_THRESHOLD):
+                or len(history) <= self._SUMMARIZE_THRESHOLD):
             return
         if self._sum_worker is not None and self._sum_worker.isRunning():
             return  # 上一轮摘要还在飞
         # 安全切点：从 batch 开始，跳过 tool 配对边界
         cut = self._SUMMARIZE_BATCH
-        while cut < len(self._history):
-            t = self._history[cut - 1]
+        while cut < len(history):
+            t = history[cut - 1]
             if t.role == "assistant" and t.tool_calls:
                 cut += 1  # 切点前是带调用的 assistant → 推迟
                 continue
             if t.role == "tool" and cut >= 2:
-                prev = self._history[cut - 2]
+                prev = history[cut - 2]
                 if prev.role == "assistant" and prev.tool_calls:
                     cut += 1  # 切点前是配对尾部 → 推迟
                     continue
             break
-        old_turns = self._history[:cut]
+        old_turns = history[:cut]
         transcript = "\n".join(
             f"{t.role}: {t.content[:200]}" for t in old_turns
             if t.role in ("user", "assistant")
@@ -283,6 +327,7 @@ class ChatBridge(QAbstractListModel):
         client = self._sum_client if self._sum_client is not None else self._client
         self._sum_worker = _SummarizeWorker(
             client, prompt, cut, old_turns[0],
+            sid=session.id,
             owns_client=self._sum_client is not None,
             parent=self,
         )
@@ -294,35 +339,30 @@ class ChatBridge(QAbstractListModel):
         self._sum_worker.finished.connect(self._sum_worker.deleteLater)
         self._sum_worker.start()
 
-    @Slot(int, object, str)
-    def _on_summarized(self, cut: int, old_first, summary: str) -> None:
-        """摘要后台完成 → 主线程替换历史（前缀校验防陈旧应用）。"""
+    @Slot(str, int, object, str)
+    def _on_summarized(self, sid: str, cut: int, old_first, summary: str) -> None:
+        """摘要后台完成 → 替换发起会话 history（前缀校验防陈旧应用）。
+
+        v0.17.1 摘要解耦：只压缩 session.history（喂 DS 的上下文），
+        UI messages 全量保留——旧版 beginRemoveRows 删 UI 行与"回看
+        历史"冲突，废除。
+        """
         from ..llm import ChatTurn
 
-        # worker 在飞期间历史头若已变（不该发生——单飞+尾部追加，保险），
+        session = self._store.get(sid)
+        # worker 在飞期间会话头若已变（不该发生——单飞+尾部追加，保险），
         # 丢弃本次防错切
-        if not self._history or self._history[0] is not old_first:
+        if (session is None or not session.history
+                or session.history[0] is not old_first):
             return
-        # M3 修：UI messages 按轮数对齐删除——_history 的 tool 轮不进
-        # _messages（每轮固定 user+assistant 两条），旧版 cut*2 按"每轮
-        # 两条 history"假设切片，有工具调用的会话删多。头部若已是上一次
-        # 的摘要标记 turn（user 角色、无 UI 行），计数扣 1。
-        users = sum(1 for t in self._history[:cut] if t.role == "user")
-        if (self._history[0].role == "user"
-                and self._history[0].content.startswith("[此前对话摘要]")):
-            users -= 1
-        self._history = (
+        session.history = (
             [ChatTurn("user", f"[此前对话摘要]\n{summary}")]
-            + self._history[cut:]
+            + session.history[cut:]
         )
         self._sum_worker = None   # done 先于 finished 送达，此刻清理安全
-        pairs = max(0, min(users, len(self._messages) // 2))
-        if pairs:
-            self.beginRemoveRows(QModelIndex(), 0, pairs * 2 - 1)
-            self._messages = self._messages[pairs * 2:]
-            self.endRemoveRows()
-        log.info("[记忆] 滚屏摘要: cut=%d→摘要%.0f字（UI 删 %d 轮）",
-                 cut, len(summary), pairs)
+        self._store.save()
+        log.info("[记忆] 滚屏摘要(%s): cut=%d→摘要%.0f字（UI 全量保留）",
+                 sid[:6], cut, len(summary))
 
     @Slot()
     def _on_summarize_failed(self) -> None:
@@ -384,33 +424,50 @@ class ChatBridge(QAbstractListModel):
                 sw.wait(2000)
         self._sum_worker = None
         self._set_streaming("")
+        # v0.17.1：shutdown 收口把内存态会话落盘（轮次完成路径已即时
+        # save，此处兜底 send 后未完成即退出的 user 行）
+        self._store.save()
 
     # ---- worker 信号 ----
     @Slot(str)
     def _on_delta(self, chunk: str) -> None:
         # 真流式：累加 streaming 逐字显示（v0.4 Must "DS 回复流式打字机"）。
         # _on_done 时把 streaming 并入正式 assistant message 并清空。
-        if self._worker is None:
-            return  # cancel 已断信号，迟到的 delta 丢弃
+        # v0.17.1：用户已切会话时迟到的 delta 丢弃——流式气泡不进新会话
+        # UI（落定文本仍完整写回发起会话）。
+        if (self._worker is None
+                or self._worker_sid != self._cur.id):
+            return
         self._set_streaming(self._streaming + chunk)
 
     @Slot(object)
     def _on_done(self, appended: list) -> None:
         if self._worker is None:
             return  # cancel 后迟到的 done，丢弃（防幽灵回复）
+        session = self._store.get(self._worker_sid) or self._cur
         self._pending_user = ""   # head 已含 user，pending 清账
         final_text = ""
         for turn in appended:
-            self._history.append(turn)
+            session.history.append(turn)
             if turn.role == "assistant":
                 final_text = turn.content
         if not final_text:
             final_text = self._streaming
-        self._append_message("assistant", final_text)
+        if session is self._cur:
+            self._append_message("assistant", final_text)
+        else:
+            # v0.17.1：轮次发起后用户已切走——写回原会话（切回可见），
+            # 不动当前 UI（beginInsertRows 会与 active 会话错位）
+            session.messages.append(
+                {"role": "assistant", "content": final_text,
+                 "rich": _md_to_html(final_text)}
+            )
+            session.touch()
         self._set_streaming("")
         self._worker = None
+        self._store.save()
         # H4 修：轮次完成后异步触发滚屏摘要（旧版在 send 前 同步做）
-        self._maybe_summarize()
+        self._maybe_summarize(session)
 
     @Slot()
     def _on_dying_finished(self) -> None:
@@ -419,45 +476,73 @@ class ChatBridge(QAbstractListModel):
 
     @Slot()
     def _on_offline(self) -> None:
-        # 失败/离线路径也追加 _history（user 已在 send 追加 UI，这里补
+        # 失败/离线路径也追加发起会话（user 已在 send 追加 UI，这里补
         # user+assistant turn 进 DS history），否则下次 send 喂 DS 的
         # history 缺这轮，上下文脱节（批次D/F15：user turn 旧版永不入史）
         from ..llm import OFFLINE_REPLY, ChatTurn
+        session = self._store.get(self._worker_sid) or self._cur
         self._offline = True
         self._set_streaming("")
         if self._pending_user:
-            self._history.append(ChatTurn("user", self._pending_user))
+            session.history.append(ChatTurn("user", self._pending_user))
             self._pending_user = ""
-        self._append_message("assistant", OFFLINE_REPLY)
-        self._history.append(ChatTurn("assistant", OFFLINE_REPLY))
+        if session is self._cur:
+            self._append_message("assistant", OFFLINE_REPLY)
+        else:
+            session.messages.append(
+                {"role": "assistant", "content": OFFLINE_REPLY,
+                 "rich": _md_to_html(OFFLINE_REPLY)}
+            )
+            session.touch()
+        session.history.append(ChatTurn("assistant", OFFLINE_REPLY))
         self._worker = None
+        self._store.save()
         self.offlineRequested.emit()
 
     @Slot(str)
     def _on_failed(self, reply: str) -> None:
-        # 降级回复也进 _history（同 _on_offline 理由；批次D/F15 补 user turn）
+        # 降级回复也进发起会话 history（同 _on_offline 理由；批次D/F15
+        # 补 user turn）
         from ..llm import ChatTurn
+        session = self._store.get(self._worker_sid) or self._cur
         if self._pending_user:
-            self._history.append(ChatTurn("user", self._pending_user))
+            session.history.append(ChatTurn("user", self._pending_user))
             self._pending_user = ""
-        self._append_message("assistant", reply)
-        self._history.append(ChatTurn("assistant", reply))
+        if session is self._cur:
+            self._append_message("assistant", reply)
+        else:
+            session.messages.append(
+                {"role": "assistant", "content": reply,
+                 "rich": _md_to_html(reply)}
+            )
+            session.touch()
+        session.history.append(ChatTurn("assistant", reply))
         self._set_streaming("")
         self._worker = None
+        self._store.save()
         # 降级轮也查摘要（历史持续增长；DS 恢复后下次触发补上）
-        self._maybe_summarize()
+        self._maybe_summarize(session)
 
     # ---- 内部 ----
     def _append_message(self, role: str, content: str) -> None:
-        """QAbstractListModel insertRows——触发 QML ListView 刷新（可靠，
-        不靠 Property notify）。只管 UI messages；_history 由 _on_done 的
-        appended（ChatTurn）管，避免重复/类型混。"""
-        row = len(self._messages)
+        """UI 行进当前会话 messages——QAbstractListModel insertRows 触发
+        QML ListView 刷新（可靠，不靠 Property notify）。history 由
+        _on_done 的 appended（ChatTurn）管，避免重复/类型混。
+        v0.17.1：append 不重建 list（保 session.messages 引用一致）；
+        首条 user 消息落地时会话标题从"新对话"更新为消息摘要。"""
+        from .session_store import default_title
+
+        session = self._cur
+        row = len(session.messages)
         self.beginInsertRows(QModelIndex(), row, row)
-        self._messages = self._messages + [
+        session.messages.append(
             {"role": role, "content": content, "rich": _md_to_html(content)}
-        ]
+        )
         self.endInsertRows()
+        if (role == "user" and session.title == "新对话"
+                and content.strip()):
+            session.title = default_title(content)
+        session.touch()
 
     def _set_streaming(self, text: str) -> None:
         self._streaming = text

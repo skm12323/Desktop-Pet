@@ -24,6 +24,10 @@
 # v0.17.0：细节打磨段启用（原约定跳过 0.17，现按用户指示回填启用）：聊天输入框
 # 多行自适应（Enter 发送/Shift+Enter 换行、约 5 行封顶后内滚）、宠物右键菜单
 # 置顶「聊天」直达面板、托盘 tooltip 热键提示、README 沿革表补 v0.17 行。
+# v0.17.1：聊天多会话数据层——SessionStore（会话 id/标题/messages/history）
+# + JSON 原子写持久化（data_dir/chat_sessions.json，重启恢复）；ChatBridge
+# 多会话化（newSession/switchSession，在飞回复按发起会话落回不串 UI）；滚动
+# 摘要解耦（只压缩喂 DS 的 history，UI 消息全量保留不再删行）。
 # v0.18.0：本地 G7 线与 origin/main（v0.16.12–v0.16.23，含 FINAL 线）合并入档；
 # 新增三维化实验线 three_d/（wiki：方案 D01–D14 + 三份调研 + 设计 v0，render3d
 # config 默认关闭不影响 2D 主线）与逆向还原工具（正/侧图板合成 + 由 2D pivot
