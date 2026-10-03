@@ -24,7 +24,7 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")
 sys.path.insert(0, REPO)
 
 MESH = os.path.join(
-    REPO, "three_d", "spikes", "m1", "assets", "full_mesh.qml",
+    REPO, "three_d", "spikes", "m1", "assets", "trellis_mesh.qml",
     "meshes", "geometry_0_mesh.mesh",
 )
 SCENE = os.path.join(os.path.dirname(__file__), "spike_scene.qml")
