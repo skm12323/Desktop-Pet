@@ -83,24 +83,94 @@ python app.py --verbose
 | macOS | `~/.config/Desktop-Pet/config.json` | `~/Library/Application Support/Desktop-Pet` 与 `~/Library/Logs/Desktop-Pet` |
 | Windows | `%LOCALAPPDATA%\Desktop-Pet\config.json` | `%LOCALAPPDATA%\Desktop-Pet` |
 
-常用配置包括：
+配置内容会经过校验；不合法的配置段会回退到默认值并记录日志。`config_version` 供配置迁移使用，无需手动修改；未在下方列出的字段以 [`config.example.json`](config.example.json) 中的默认值为准。
 
-- `provider`：立绘来源，`emoji`（表情占位）或 `ai`（AI 立绘，缺图自动回退表情）。
+### 外观与立绘
+
+- `provider`：立绘来源，`emoji`（表情占位）、`ai`（AI 立绘，缺图自动回退表情）或 `commission`（约稿立绘，按与 `ai` 相同的命名约定读取 `assets/` 资产）。
+- `presentation`：展示后端，`frames`（默认帧动画）、`rig`（v0.13 分层绑骨：交叉淡化、呼吸律动与部件弹簧）或 `paperdoll`（v0.14 部件驱动步态：侧身前后腿 + 正面双腿 limb 摆动）；需 `assets/rig/{stage}/` 资产，缺件自动回退 frames。
 - `adult_locomotion`：ADULT 在 `presentation: "rig"` 下默认使用 `side_rig`（转身、侧身行走、依次收脚）；设为 `legacy` 可回退正面步态，侧身资产缺失时也会自动回退。
   侧身行走期间，各情绪暂用同一中性骨骼体态；neglected 保持灰暗配色，完整行走会话转回正面后恢复最新表情。拖拽、离地及动作帧会中断会话并恢复表情。
   当前侧身资产包含膝部曲线过渡、裙摆惯性与尾鳍刚性约束；普通转身轻微提速，反向转身使用更快的片段播放，仍先完成收脚。
 - `final_locomotion`：FINAL 默认使用 `side_rig`，接入正面归位、转身片段、长裙侧身行走、停步收脚和转回正面的完整流程。设为 `legacy` 可回退，独立于 ADULT 配置；旧配置缺少此项时自动采用默认值。
   行走期间十种情绪共用中性骨骼，neglected 使用去饱和配色；会话结束或拖拽、离地、动作帧中断后恢复最新表情。阶段切换会清理旧侧身会话并装配当前阶段资产。
-- `presentation`：展示后端，`frames`（默认帧动画）、`rig`（v0.13 分层绑骨：交叉淡化、呼吸律动与部件弹簧）或 `paperdoll`（v0.14 部件驱动步态：侧身前后腿 + 正面双腿 limb 摆动）；需 `assets/rig/{stage}/` 资产，缺件自动回退 frames。
-- `interaction_gain`：摸摸、喂食、洗澡和戳一戳的数值影响。
-- `behavior`：行走和跟随速度、游走间隔、边缘距离等桌面行为参数。
-  常规行走默认 `walk_speed: 80` px/s；FINAL 的长裙步态基础周期为1.6 Hz，速度提高时自适应增加步频。
-- `proactive`：安静时段、久坐阈值、视频应用白名单及“吃鼠标”持续时间。
-- `chat_emotion`：本地聊天情绪开关、每日兜底时段（默认 `22:00`）和短时表情时长（默认 5 分钟）。每次启动以 `neutral` 开始；每条用户消息仅在检测到高置信、非中性情绪时立即换表情，最多保留 5 分钟后恢复 `neutral`；22:00 没有明确情绪时显示困倦。仅在本机保留最近 48 小时的用户消息，可从托盘“聊天情绪设置”修改时段。
-- **本地数据说明**：AI 长期记忆与聊天情绪上下文都只存本机（明文 JSON）——`memory.json` 存模型归纳的事实，`chat_emotion.json` 存最近 48 小时的用户消息文本（随开关即时生效，档案可随时删除）。
-- `decay_per_hour`：心情、饱食度和清洁度的每小时衰减速度。
 
-配置内容会经过校验；不合法的配置段会回退到默认值并记录日志。
+### 生长与状态
+
+| 键 | 默认值 | 范围 | 说明 |
+| --- | --- | --- | --- |
+| `age_speed_multiplier` | `1` | 0 – 1000000 | 年龄流逝倍速，调大可快速观察进化。 |
+| `evolve_threshold_days.young` / `.adult` | `7` / `21` | 0 – 3650 | 幼年 → 成年、成年 → FINAL 的进化天数阈值。 |
+| `decay_per_hour.mood` / `.fullness` / `.cleanliness` | `2` / `3` / `1.5` | 0 – 100 | 心情、饱食度、清洁度的每小时自然衰减。 |
+| `interaction_gain.pet` / `.feed` / `.clean` / `.poke` | `5` / `20` / `15` / `-8` | −100 – 100 | 摸摸、喂食、洗澡、戳一戳的单次数值影响。 |
+| `score.mood_weight` / `.fullness_weight` / `.cleanliness_weight` | `0.4` / `0.4` / `0.2` | 0 – 1 | 养护分的加权系数。 |
+| `score.healthy_threshold` | `70` | 0 – 100 | 养护分低于该阈值走 neglected（疏于照料）分支。 |
+| `sleepy_idle_minutes` | `10` | 0 – 1440 | 空闲超过该分钟数显示睡姿；`0` 表示禁用。 |
+| `user_name` | `主人` | 1 – 32 字符 | 宠物与 AI 工具执行时对你的称呼。 |
+
+### 桌面行为（`behavior`）
+
+| 键 | 默认值 | 范围 | 说明 |
+| --- | --- | --- | --- |
+| `walk_speed` | `80` | 0 – 2000 | 行走速度（px/s）。FINAL 的长裙步态基础周期为 1.6 Hz，速度提高时自适应增加步频。 |
+| `follow_speed` | `600` | 0 – 5000 | 跟随鼠标模式下的移动速度（px/s）。 |
+| `wander_idle_min_s` / `wander_idle_max_s` | `5` / `15` | 0 – 600 / 0 – 3600 | 随机游走之间停歇时长的随机区间（秒）。 |
+| `first_idle_s` | `3` | 0 – 600 | 启动后首次游走前的等待时间（秒）。 |
+| `edge_margin_px` | `40` | 0 – 500 | 距屏幕边缘保持的最小距离（px）。 |
+| `climb_min_depth_px` | `30` | 0 – 200 | 判定为可攀爬平台所需的最小深度（px）。 |
+| `pet_height_px` | 无（示例已移除） | 1 – 500 | 已弃用：仅在启动瞬间、真实显示尺寸送达前作为初始高度兜底，随后即被实际立绘尺寸覆盖，配置它不会改变运行值。为兼容含此键的旧配置仍被校验接受，新配置无需设置。 |
+
+### 主动关怀与吃鼠标（`proactive`）
+
+| 键 | 默认值 | 范围 | 说明 |
+| --- | --- | --- | --- |
+| `quiet_hours` | `[23, 8]` | 两个 0–23 的整点 | 安静时段（起止小时，可跨午夜），期间不主动打扰。 |
+| `sedentary_min` | `45` | 0.01 – 480 | 久坐提醒阈值（分钟）。 |
+| `sedentary_cooldown_min` | `30` | 0.01 – 480 | 两次久坐提醒之间的最小间隔（分钟）。 |
+| `idle_threshold_min` | `5` | 0.01 – 480 | 吃鼠标的空闲门槛；空闲不足时只发气泡不吃。 |
+| `eat_mouse_duration_s` | `10` | 0.3 – 15 | 单次吃鼠标时长（秒，硬上限 15）。 |
+| `eat_mouse_gain.fullness` / `.mood` | `5` / `3` | −100 – 100 | 吃鼠标结束后的养成数值回补。 |
+| `eat_mouse_hotkey_label` | 无 | 字符串 | 自定义气泡中“强制吐出”热键的显示文案。 |
+| `dnd` | `false` | 布尔 | 手动勿扰开关；会话中途开启会立即吐出。 |
+| `video_apps` | 常见播放器与浏览器 | 字符串数组 | 检测到这些应用活跃播放时不吃鼠标。 |
+| `festivals` | 元旦等 6 个内置节日 | `{"MM-DD": "名称"}` | 在内置节日之外追加自定义节日祝福。 |
+
+### 聊天情绪（`chat_emotion`）
+
+本地聊天情绪开关、每日兜底时段（默认 `22:00`）和短时表情时长（默认 5 分钟）。每次启动以 `neutral` 开始；每条用户消息仅在检测到高置信、非中性情绪时立即换表情，最多保留 5 分钟后恢复 `neutral`；22:00 没有明确情绪时显示困倦。可从托盘“聊天情绪设置”修改时段。
+
+| 键 | 默认值 | 范围 | 说明 |
+| --- | --- | --- | --- |
+| `enabled` | `true` | 布尔 | 是否启用本地情绪分析。 |
+| `schedule` | `["22:00"]` | 1–8 个 `HH:MM` | 每日兜底结算时段。 |
+| `retention_hours` | `48` | 1 – 168 | 用户消息在本机保留的时长（小时）。 |
+| `expression_minutes` | `5` | 1 – 60 | 情绪表情的最长持续时间（分钟）。 |
+| `confidence_threshold` | `0.55` | 0 – 1 | 消息级情绪触发置信度。 |
+| `event_confidence_threshold` | `0.5` | 0 – 1 | 事件级情绪触发置信度。 |
+| `mood_delta.*` | happy `4` / neutral `0` / sad `-3` / sleepy `-1` / hungry `-2` | −20 – 20 | 检出对应情绪时对养成心情的修正。 |
+
+**本地数据说明**：AI 长期记忆与聊天情绪上下文都只存本机（明文 JSON）——`memory.json` 存模型归纳的事实，`chat_emotion.json` 存最近 48 小时的用户消息文本（随开关即时生效，档案可随时删除）。
+
+### 环境通道（`wind` / `sun`）
+
+| 键 | 默认值 | 范围 | 说明 |
+| --- | --- | --- | --- |
+| `wind.enabled` | `false` | 布尔 | 实时风力驱动立绘静止摆幅（Open-Meteo，免 key；失败时用兜底增益）。 |
+| `wind.latitude` / `wind.longitude` | `0.0` | ±90 / ±180 | 定位坐标。 |
+| `wind.poll_minutes` | `20` | 5 – 1440 | 风力数据轮询间隔（分钟）。 |
+| `wind.fallback_gain` | `1.0` | 0 – 4 | 取不到风数据时的兜底摆幅增益。 |
+| `sun.enabled` | `false` | 布尔 | 按实时太阳位置计算地面阴影（纯本地计算，无网络请求）。 |
+| `sun.latitude` / `sun.longitude` | `0.0` | ±90 / ±180 | 定位坐标。 |
+| `sun.timezone_offset` | `null` | −14 – 14 或 `null` | 时区偏移；`null` 自动取系统本地时区。 |
+| `sun.shadow_alpha` | `0.4` | 0 – 1 | 阴影不透明度。 |
+
+### 热键与日志
+
+| 键 | 默认值 | 范围 | 说明 |
+| --- | --- | --- | --- |
+| `hotkeys.chat` | `cmd+option+p` | 热键串 | 显示/隐藏聊天面板；Windows 上 `cmd`/`option` 自动解释为 `Ctrl`/`Alt`。 |
+| `hotkeys.spit` | `cmd+option+t` | 热键串 | 强制解除“吃鼠标”状态。 |
+| `log_level` | `INFO` | `DEBUG` / `INFO` / `WARNING` / `ERROR` | 日志级别；命令行 `--verbose` 等效于 `DEBUG`。 |
 
 ## 启用 AI 聊天（可选）
 
@@ -119,6 +189,8 @@ python app.py --verbose
   }
 }
 ```
+
+`llm` 段除 `providers` 外还有两个全局参数：`max_tokens`（默认 `4096`，范围 256–128000，单次请求的生成上限）和 `stream_total_s`（默认 `180`，范围 10–3600，单次流式回复的总时长上限，超限自动中断以防“慢滴流”）；在单个 provider 内配置 `max_tokens` 可覆盖全局值。`providers.<名称>` 内配置 `model`、`base_url` 与 `api_key_env`，任意 OpenAI 兼容端点均可接入；非 `deepseek` 的 provider 必须显式给出 `base_url`，否则启动时报错（不会把 key 误发到其他端点）。
 
 可在启动前设置环境变量：
 
