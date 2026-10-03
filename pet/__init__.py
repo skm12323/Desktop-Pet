@@ -28,9 +28,24 @@
 # + JSON 原子写持久化（data_dir/chat_sessions.json，重启恢复）；ChatBridge
 # 多会话化（newSession/switchSession，在飞回复按发起会话落回不串 UI）；滚动
 # 摘要解耦（只压缩喂 DS 的 history，UI 消息全量保留不再删行）。
+# v0.17.2：顶栏会话切换器（标题 + ▾ 弹会话列表：相对时间/当前会话高亮）
+# 与「＋」新建按钮；sessionList/sessionTitle/activeSid 三 Property 数据源；
+# 修 load 恢复消息缺 rich 字段的 KeyError（data() 懒计算缓存）、时间戳提
+# 微秒精度（同秒 touch 排序失效）。补注：0.17.1 轮漏改本行版本号（上轮
+# 提交仍写 0.17.0），本轮一并修正。
+# v0.17.3：会话重命名——弹层列表行 hover 出 ✎，点击行内编辑（Enter 确认/
+# 失焦取消/空名拒绝保持编辑态），renameSession Slot（strip、不截断、touch
+# 排序+落盘）；重命名输入框边框外包（mac 原生样式不支持 TextField 自绘
+# background，告警+不生效）。
+# v0.17.4：会话行右键菜单「重命名」（mac 习惯主入口，与 ✎ hover 按钮双
+# 入口共存；Menu/MenuItem 用原生样式渲染）。
+# v0.17.5：右键菜单加「删除会话…」（删除不可逆——居中确认弹层）；删活跃
+# 会话自动切最近剩余会话、删最后一个自动新建空会话；在飞轮的发起会话被删
+# 后回复丢弃不串会话；右键时行数据捕获到 Menu 属性（Popup 处理器内
+# modelData 不可靠，离屏实测空 map——统一走 sessMenu.pendingSid/Title）。
 # v0.18.0：本地 G7 线与 origin/main（v0.16.12–v0.16.23，含 FINAL 线）合并入档；
 # 新增三维化实验线 three_d/（wiki：方案 D01–D14 + 三份调研 + 设计 v0，render3d
 # config 默认关闭不影响 2D 主线）与逆向还原工具（正/侧图板合成 + 由 2D pivot
 # 推导 3D 骨架基准坐标，three_d/tools/）。0.17 段划给细节打磨（入库主线），
 # 3D 实验线版本号继续自 0.18.0 起（本地不入库）。
-__version__ = "0.17.0"
+__version__ = "0.17.5"

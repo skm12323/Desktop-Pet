@@ -130,6 +130,7 @@ class ChatBridge(QAbstractListModel):
     offlineRequested = Signal()
     failedReply = Signal(str)
     petAvatarChanged = Signal()
+    sessionListChanged = Signal()   # v0.17.2 会话列表/标题/active 变化
 
     def __init__(self, client, registry, make_ctx, parent=None,
                  sum_client=None, store=None) -> None:
@@ -176,6 +177,7 @@ class ChatBridge(QAbstractListModel):
         self.beginResetModel()
         self.endResetModel()
         self._set_streaming("")   # 流式气泡不跨会话（落定仍完整入原会话）
+        self.sessionListChanged.emit()
         return s.id
 
     @Slot(str, result=bool)
@@ -187,6 +189,49 @@ class ChatBridge(QAbstractListModel):
         self.beginResetModel()
         self.endResetModel()
         self._set_streaming("")
+        self.sessionListChanged.emit()
+        return True
+
+    @Slot(str, str, result=bool)
+    def renameSession(self, sid: str, title: str) -> bool:
+        """v0.17.3 手动重命名会话（弹层行内 ✎ 编辑）。
+
+        空标题/未知 sid 拒绝返 False（QML 保持编辑态）；标题不截断
+        （显示层 elide 兜底——与自动标题的 16 字截断区分：手动名是
+        用户意志）。改名会 touch（排序浮到最近）+ 落盘。
+        """
+        session = self._store.get(sid)
+        title = (title or "").strip()
+        if session is None or not title:
+            return False
+        if session.title == title:
+            return True   # 无变化：不触发列表刷新/落盘
+        session.title = title
+        session.touch()
+        self._store.save()
+        self.sessionListChanged.emit()
+        return True
+
+    @Slot(str, result=bool)
+    def deleteSession(self, sid: str) -> bool:
+        """v0.17.5 删除会话（右键菜单，QML 侧已确认）。
+
+        删活跃会话 → 自动切到剩余最近会话（空库新建空会话）；在飞轮
+        属于被删会话 → 不中断（worker 自跑完），完成回调发现会话已删
+        丢弃（见 _on_done 等的 None 分支），不串到其他会话。
+        """
+        if self._store.get(sid) is None:
+            return False
+        was_active = sid == self._cur.id
+        self._store.delete(sid)
+        if self._store.active is None:
+            self._store.new_session()
+        if was_active:
+            self.beginResetModel()
+            self.endResetModel()
+            self._set_streaming("")
+        self._store.save()
+        self.sessionListChanged.emit()
         return True
 
     # ---- QAbstractListModel ----
@@ -213,7 +258,12 @@ class ChatBridge(QAbstractListModel):
         if role == self._ContentRole:
             return msg["content"]
         if role == self._RichRole:
-            return msg["rich"]
+            # load 恢复的行不带 rich（只存 role/content）——首次访问现算
+            # 并缓存回会话，后续不再重算
+            rich = msg.get("rich")
+            if rich is None:
+                rich = msg["rich"] = _md_to_html(msg.get("content", ""))
+            return rich
         return None
 
     # ---- 流式占位 Property ----
@@ -235,6 +285,30 @@ class ChatBridge(QAbstractListModel):
             self.petAvatarChanged.emit()
 
     petAvatar = Property(str, fget=petAvatar, notify=petAvatarChanged)
+
+    # ---- v0.17.2 会话列表（顶栏下拉数据源；同一 notify 复用——三者
+    # 变化时机重合：新建/切换/标题更新/轮次落定） ----
+    def _session_list(self) -> list:
+        from .session_store import rel_time
+
+        return [
+            {"sid": s.id, "title": s.title, "rel": rel_time(s.updated_at)}
+            for s in self._store.list_sessions()
+        ]
+
+    sessionList = Property("QVariant", fget=_session_list,
+                           notify=sessionListChanged)
+
+    def _session_title(self) -> str:
+        return self._cur.title
+
+    sessionTitle = Property(str, fget=_session_title,
+                            notify=sessionListChanged)
+
+    def _active_sid(self) -> str:
+        return self._cur.id
+
+    activeSid = Property(str, fget=_active_sid, notify=sessionListChanged)
 
     # ---- 发送一轮 ----
     @Slot(str, result=bool)
@@ -444,7 +518,13 @@ class ChatBridge(QAbstractListModel):
     def _on_done(self, appended: list) -> None:
         if self._worker is None:
             return  # cancel 后迟到的 done，丢弃（防幽灵回复）
-        session = self._store.get(self._worker_sid) or self._cur
+        session = self._store.get(self._worker_sid)
+        if session is None:
+            # v0.17.5：发起会话已被删除——回复无处落，丢弃（不串当前）
+            self._pending_user = ""
+            self._set_streaming("")
+            self._worker = None
+            return
         self._pending_user = ""   # head 已含 user，pending 清账
         final_text = ""
         for turn in appended:
@@ -463,6 +543,7 @@ class ChatBridge(QAbstractListModel):
                  "rich": _md_to_html(final_text)}
             )
             session.touch()
+            self.sessionListChanged.emit()
         self._set_streaming("")
         self._worker = None
         self._store.save()
@@ -480,7 +561,14 @@ class ChatBridge(QAbstractListModel):
         # user+assistant turn 进 DS history），否则下次 send 喂 DS 的
         # history 缺这轮，上下文脱节（批次D/F15：user turn 旧版永不入史）
         from ..llm import OFFLINE_REPLY, ChatTurn
-        session = self._store.get(self._worker_sid) or self._cur
+        session = self._store.get(self._worker_sid)
+        if session is None:
+            # v0.17.5：发起会话已被删除——丢弃（同 _on_done）
+            self._pending_user = ""
+            self._set_streaming("")
+            self._worker = None
+            self.offlineRequested.emit()
+            return
         self._offline = True
         self._set_streaming("")
         if self._pending_user:
@@ -494,6 +582,7 @@ class ChatBridge(QAbstractListModel):
                  "rich": _md_to_html(OFFLINE_REPLY)}
             )
             session.touch()
+            self.sessionListChanged.emit()
         session.history.append(ChatTurn("assistant", OFFLINE_REPLY))
         self._worker = None
         self._store.save()
@@ -504,7 +593,13 @@ class ChatBridge(QAbstractListModel):
         # 降级回复也进发起会话 history（同 _on_offline 理由；批次D/F15
         # 补 user turn）
         from ..llm import ChatTurn
-        session = self._store.get(self._worker_sid) or self._cur
+        session = self._store.get(self._worker_sid)
+        if session is None:
+            # v0.17.5：发起会话已被删除——丢弃（同 _on_done）
+            self._pending_user = ""
+            self._set_streaming("")
+            self._worker = None
+            return
         if self._pending_user:
             session.history.append(ChatTurn("user", self._pending_user))
             self._pending_user = ""
@@ -516,6 +611,7 @@ class ChatBridge(QAbstractListModel):
                  "rich": _md_to_html(reply)}
             )
             session.touch()
+            self.sessionListChanged.emit()
         session.history.append(ChatTurn("assistant", reply))
         self._set_streaming("")
         self._worker = None
@@ -543,6 +639,7 @@ class ChatBridge(QAbstractListModel):
                 and content.strip()):
             session.title = default_title(content)
         session.touch()
+        self.sessionListChanged.emit()   # 标题/排序可能变化
 
     def _set_streaming(self, text: str) -> None:
         self._streaming = text

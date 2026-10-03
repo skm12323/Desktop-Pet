@@ -25,23 +25,349 @@ ApplicationWindow {
     // 关闭不退出 app：Esc/窗口 X 仅隐藏
     onClosing: function(close) { root.hide(); close.accepted = false }
 
+    // v0.17.5 删除会话确认（不可逆——消息无回收站；Popup 不支持
+    // anchors，坐标相对 contentItem 手工居中）
+    Popup {
+        id: deleteConfirm
+        x: (root.width - width) / 2
+        y: (root.height - height) / 2
+        modal: true
+        focus: true
+        width: 280
+        height: 150
+        padding: 0
+        property string pendingSid: ""
+        property string pendingTitle: ""
+
+        background: Rectangle {
+            radius: 14
+            color: "#ffffff"
+            border.color: "#14222222"
+            border.width: 1
+            Rectangle {  // 柔影
+                anchors.fill: parent; z: -1
+                radius: parent.radius; color: "#1c222222"
+            }
+        }
+        Column {
+            anchors.fill: parent
+            anchors.margins: 18
+            spacing: 10
+
+            Text {
+                width: parent.width
+                text: "删除会话「%1」？".arg(deleteConfirm.pendingTitle)
+                font.pixelSize: 14
+                font.bold: true
+                color: root.cPetText
+                wrapMode: Text.Wrap
+            }
+            Text {
+                width: parent.width
+                text: "该会话的全部消息将不可恢复"
+                font.pixelSize: 12
+                color: "#9a948c"
+                wrapMode: Text.Wrap
+            }
+            Row {
+                spacing: 10
+                layoutDirection: Qt.RightToLeft   // 主操作（删除）在右
+
+                Rectangle {
+                    width: 84; height: 32; radius: 16
+                    color: delMa.pressed ? "#d17a45" : root.cAccent
+                    Text {
+                        anchors.centerIn: parent
+                        text: "删除"
+                        font.pixelSize: 13
+                        color: "white"
+                    }
+                    MouseArea {
+                        id: delMa
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            Chat.deleteSession(deleteConfirm.pendingSid)
+                            deleteConfirm.close()
+                        }
+                    }
+                }
+                Rectangle {
+                    width: 84; height: 32; radius: 16
+                    color: cancelMa.pressed ? "#e8e4dd" : "#f0eeea"
+                    Text {
+                        anchors.centerIn: parent
+                        text: "取消"
+                        font.pixelSize: 13
+                        color: root.cPetText
+                    }
+                    MouseArea {
+                        id: cancelMa
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: deleteConfirm.close()
+                    }
+                }
+            }
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
-        // ---- 顶栏（柔和分隔，非硬线） ----
+        // ---- 顶栏（v0.17.2 会话切换器 + 新建；柔和分隔，非硬线） ----
         Rectangle {
             Layout.fillWidth: true
             Layout.preferredHeight: 44
             color: "#ffffff"
 
-            Text {
-                anchors.centerIn: parent
-                text: "桌宠 · 聊天"
-                font.pixelSize: 14
-                font.bold: true
-                color: root.cPetText
+            // 左：新建会话
+            Rectangle {
+                anchors.left: parent.left
+                anchors.leftMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+                width: 30; height: 30; radius: 15
+                color: plusMa.pressed ? "#f0e2d6"
+                     : plusMa.containsMouse ? "#f7ede3" : "#00000000"
+                Text {
+                    anchors.centerIn: parent
+                    text: "＋"
+                    font.pixelSize: 18
+                    color: root.cAccent
+                }
+                MouseArea {
+                    id: plusMa
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    hoverEnabled: true
+                    onClicked: Chat.newSession()
+                }
             }
+
+            // 中：会话切换器（标题 + ▾，点击弹列表）
+            Item {
+                id: sessionSwitcher
+                anchors.centerIn: parent
+                width: Math.min(parent.width - 150,
+                                titleTxt.implicitWidth
+                                + arrowTxt.implicitWidth + 30)
+                height: 30
+
+                Rectangle {  // 悬停/弹层打开时的高亮底
+                    anchors.fill: parent
+                    radius: 15
+                    color: switchMa.containsMouse || sessionPopup.visible
+                           ? "#f0eeea" : "#00000000"
+                }
+                Text {
+                    id: titleTxt
+                    anchors.left: parent.left
+                    anchors.leftMargin: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - arrowTxt.implicitWidth - 28
+                    text: Chat.sessionTitle
+                    font.pixelSize: 14
+                    font.bold: true
+                    color: root.cPetText
+                    elide: Text.ElideRight
+                }
+                Text {
+                    id: arrowTxt
+                    anchors.right: parent.right
+                    anchors.rightMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: sessionPopup.visible ? "▴" : "▾"
+                    font.pixelSize: 11
+                    color: "#9a948c"
+                }
+                MouseArea {
+                    id: switchMa
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    hoverEnabled: true
+                    onClicked: sessionPopup.visible
+                                ? sessionPopup.close()
+                                : sessionPopup.open()
+                }
+            }
+
+            // 会话列表弹层（顶栏层子项，居中垂下）
+            Popup {
+                id: sessionPopup
+                x: (parent.width - width) / 2
+                y: 46
+                width: 300
+                height: Math.min(sessionList.count * 46 + 8, 322)
+                padding: 4
+                background: Rectangle {
+                    radius: 12
+                    color: "#ffffff"
+                    border.color: "#14222222"
+                    border.width: 1
+                    Rectangle {  // 柔影
+                        anchors.fill: parent; z: -1
+                        radius: parent.radius; color: "#1c222222"
+                    }
+                }
+                contentItem: ListView {
+                    id: sessionList
+                    clip: true
+                    spacing: 2
+                    model: Chat.sessionList
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollIndicator.vertical: ScrollIndicator {}
+
+                    delegate: Rectangle {
+                        id: sessRow
+                        width: sessionList.width
+                        height: 44
+                        radius: 10
+                        property bool editing: false   // v0.17.3 行内重命名态
+                        color: rowMa.pressed ? "#f0eeea"
+                             : rowMa.containsMouse ? "#f7f5f2"
+                             : "#00000000"
+                        Row {
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left
+                            width: parent.width - 24
+                            anchors.leftMargin: 12
+                            spacing: 8
+                            // 当前会话小圆点（强调色）
+                            Rectangle {
+                                id: dot
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 6; height: 6; radius: 3
+                                visible: modelData.sid === Chat.activeSid
+                                color: root.cAccent
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width - relTxt.implicitWidth
+                                       - dot.width - 16
+                                text: modelData.title
+                                visible: !sessRow.editing
+                                font.pixelSize: 13
+                                color: modelData.sid === Chat.activeSid
+                                       ? root.cAccent : root.cPetText
+                                elide: Text.ElideRight
+                            }
+                            Text {
+                                id: relTxt
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.rel
+                                visible: !sessRow.editing
+                                font.pixelSize: 11
+                                color: "#9a948c"
+                            }
+                        }
+                        // 行内重命名输入框（Enter 确认 / 失焦取消——点别处
+                        // 或弹层关闭不误提交）。边框外包：mac 原生样式不
+                        // 支持 TextField 自绘 background（告警+不生效）
+                        Rectangle {
+                            visible: sessRow.editing
+                            anchors.fill: parent
+                            anchors.margins: 4
+                            radius: 8
+                            color: "#ffffff"
+                            border.color: root.cAccent
+                            border.width: 1
+                        }
+                        TextField {
+                            id: renameInput
+                            visible: sessRow.editing
+                            anchors.fill: parent
+                            anchors.margins: 6
+                            font.pixelSize: 13
+                            color: root.cPetText
+                            selectByMouse: true
+                            background: null
+                            onAccepted: {
+                                if (Chat.renameSession(modelData.sid, text))
+                                    sessRow.editing = false
+                                // 被拒（空名）保持编辑态
+                            }
+                            onActiveFocusChanged:
+                                if (!activeFocus && sessRow.editing)
+                                    sessRow.editing = false
+                        }
+                        // 行尾 ✎（hover 显示；点击进入编辑并全选）
+                        Rectangle {
+                            visible: rowMa.containsMouse && !sessRow.editing
+                            anchors.right: parent.right
+                            anchors.rightMargin: 6
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 26; height: 26; radius: 13
+                            color: renMa.pressed ? "#f0e2d6" : "#00000000"
+                            Text {
+                                anchors.centerIn: parent
+                                text: "✎"
+                                font.pixelSize: 13
+                                color: "#9a948c"
+                            }
+                            MouseArea {
+                                id: renMa
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: {
+                                    renameInput.text = modelData.title
+                                    sessRow.editing = true
+                                    renameInput.forceActiveFocus()
+                                    renameInput.selectAll()
+                                }
+                            }
+                        }
+                        MouseArea {
+                            id: rowMa
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            hoverEnabled: true
+                            // v0.17.4：右键弹菜单（mac 习惯主入口）；左键切换
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            onClicked: function(mouse) {
+                                if (mouse.button === Qt.RightButton) {
+                                    // 右键时捕获行数据到 Menu 属性——Popup
+                                    // 处理器里的 modelData 不可靠（离屏实测
+                                    // 空 map），Item 子树此处可靠
+                                    sessMenu.pendingSid = modelData.sid
+                                    sessMenu.pendingTitle = modelData.title
+                                    sessMenu.popup()
+                                    return
+                                }
+                                if (Chat.switchSession(modelData.sid))
+                                    sessionPopup.close()
+                            }
+                            Menu {
+                                id: sessMenu
+                                property string pendingSid: ""
+                                property string pendingTitle: ""
+                                MenuItem {
+                                    text: "重命名"
+                                    onTriggered: {
+                                        // 与 ✎ 同款：预填+全选+聚焦
+                                        renameInput.text = sessMenu.pendingTitle
+                                        sessRow.editing = true
+                                        renameInput.forceActiveFocus()
+                                        renameInput.selectAll()
+                                    }
+                                }
+                                MenuItem {
+                                    text: "删除会话…"
+                                    onTriggered: {
+                                        deleteConfirm.pendingSid =
+                                            sessMenu.pendingSid
+                                        deleteConfirm.pendingTitle =
+                                            sessMenu.pendingTitle
+                                        deleteConfirm.open()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             Rectangle {  // 底部渐隐分隔
                 anchors.bottom: parent.bottom
                 width: parent.width; height: 1

@@ -32,13 +32,33 @@ _TITLE_MAX = 16
 
 
 def _now() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    # 微秒精度：list_sessions 按 updated_at 排序，同秒内连续 touch
+    # （新建会话即发消息）也要能分出先后；rel_time 显示不受影响
+    return datetime.now().isoformat(timespec="microseconds")
 
 
 def default_title(text: str) -> str:
     """会话标题：首条 user 消息前 16 字符（压空白）；空 → 新对话。"""
     t = " ".join((text or "").split())
     return t[:_TITLE_MAX] or "新对话"
+
+
+def rel_time(iso: str) -> str:
+    """iso 时间 → 相对时间显示（顶栏下拉列表用；坏值返空串）。"""
+    try:
+        t = datetime.fromisoformat(iso)
+    except (ValueError, TypeError):
+        return ""
+    delta = (datetime.now() - t).total_seconds()
+    if delta < 60:
+        return "刚刚"
+    if delta < 3600:
+        return f"{int(delta // 60)} 分钟前"
+    if delta < 86400:
+        return f"{int(delta // 3600)} 小时前"
+    if delta < 172800:
+        return "昨天"
+    return t.strftime("%m-%d")
 
 
 def turns_to_dicts(turns: list) -> list[dict]:
@@ -117,6 +137,19 @@ class SessionStore:
 
     def get(self, sid: str) -> ChatSession | None:
         return self._sessions.get(sid)
+
+    def delete(self, sid: str) -> bool:
+        """v0.17.5 删除会话。删的是 active 时切到剩余最近更新的会话；
+        空库置 active=None（调用方兜底新建——bridge deleteSession 显式
+        new，不靠 _cur 的防御副作用）。"""
+        if sid not in self._sessions:
+            return False
+        del self._sessions[sid]
+        self._order.remove(sid)
+        if self._active_id == sid:
+            rest = self.list_sessions()
+            self._active_id = rest[0].id if rest else None
+        return True
 
     def list_sessions(self) -> list[ChatSession]:
         """最近更新在前（v0.17.2 顶栏下拉数据源）。"""
