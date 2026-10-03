@@ -39,14 +39,16 @@ Rectangle {
                 source: root.meshUrl
                 scale: Qt.vector3d(150, 150, 150)   // 米制 1.5m → 场景单位
                 position: Qt.vector3d(0, -75, 0)     // 脚底对齐视口下缘
-                materials: PrincipledMaterial {
-                    // 草模（减面+merge）绕向混乱，Qt 默认背面剔除会把反向三角剔除成
-                    // "雪花洞"（Blender 双面渲染故此前未见）；正式建模网格无此问题。
-                    // spike 用 NoCulling 保剪影完整；toon 材质是 S2.3 的事。
-                    lighting: PrincipledMaterial.NoLighting
-                    baseColor: "#9aa4c0"
-                    cullMode: PrincipledMaterial.NoCulling
-                    alphaMode: PrincipledMaterial.Opaque
+                materials: toonMat
+
+                CustomMaterial {
+                    id: toonMat
+                    shadingMode: CustomMaterial.Shaded
+                    property color uBase: "#7c86b8"
+                    property real uStep: 0.5
+                    property vector3d uAmbient: Qt.vector3d(0.30, 0.32, 0.40)
+                    property vector3d uRim: Qt.vector3d(0.55, 0.6, 0.75)
+                    fragmentShader: "toon.frag"
                 }
             }
 

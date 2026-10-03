@@ -24,7 +24,7 @@ REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")
 sys.path.insert(0, REPO)
 
 MESH = os.path.join(
-    REPO, "three_d", "spikes", "m1", "assets", "trellis_mesh.qml",
+    REPO, "three_d", "spikes", "m1", "assets", "full_mesh.qml",
     "meshes", "geometry_0_mesh.mesh",
 )
 SCENE = os.path.join(os.path.dirname(__file__), "spike_scene.qml")
@@ -139,13 +139,13 @@ def main() -> None:
     QTimer.singleShot(int(args.duration * 1000), finish)
     if args.screenshot:
         def grab() -> None:
-            # QWidget.grab() 对半透明窗会产出 alpha 噪声（不走系统合成）；
-            # 抓屏幕合成结果才等于用户肉眼所见。
+            # 进程内 QScreen.grabWindow（抓自身窗口不需要屏幕录制权限；
+            # 外部 screencapture 需要 TCC 授权，本环境没有——曾致静默失败看旧图）。
             scr = app.primaryScreen()
             img = scr.grabWindow(int(win.winId()))
             out = os.path.join(os.path.dirname(__file__), f"shot_{args.mode}.png")
             img.save(out)
-            print(f"SCREENSHOT {out}")
+            print(f"SCREENSHOT {out} (mtime={os.path.getmtime(out):.0f})")
         QTimer.singleShot(int(args.duration * 1000 * 0.6), grab)
     app.exec()
 
