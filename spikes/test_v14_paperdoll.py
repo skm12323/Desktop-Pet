@@ -311,7 +311,8 @@ def main() -> int:
                 stage=Stage.FINAL)),
             fsm=types.SimpleNamespace(motion_mode="free"),
             window=w, _anim_key=None, _part_walk=_pw,
-            _SMALL_ANIM_KEYS=app_mod.PetApp._SMALL_ANIM_KEYS)
+            _SMALL_ANIM_KEYS=app_mod.PetApp._SMALL_ANIM_KEYS,
+            _INTERACT_ANIM_KEYS=app_mod.PetApp._INTERACT_ANIM_KEYS)
         # SimpleNamespace 属性不自动绑定——显式绑 method 才能带 self 调用
         for name in ("_play_key", "_stop_anim", "_frame_tick"):
             setattr(ns, name, types.MethodType(

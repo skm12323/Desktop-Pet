@@ -217,10 +217,11 @@ def main() -> int:
         window.set_sprite(sb)
         window.set_sprite(sa)   # 命中 → 应移到尾部（最新）
         keys = list(window._pix_cache)
-        # v0.10.18b 缓存键加 mtime 成 5 元组 (path, facing, w, h, mtime)
+        # v0.10.18b 缓存键加 mtime 成 5 元组 (path, facing, w, h, mtime)；
+        # neglected 动作帧灰调再加 muted → 6 元组
         last_key = keys[-1] if keys else None
-        check("T6 LRU 命中重排（最热在尾，5 元组键）",
-              last_key is not None and len(last_key) == 5
+        check("T6 LRU 命中重排（最热在尾，6 元组键）",
+              last_key is not None and len(last_key) == 6
               and last_key[:4] == (sa.path, 1, 64, 64))
 
     # ---- T7 M1/L4 修（REVIEW-2026-08-27）：动画中 on_change 不闪静帧 ----

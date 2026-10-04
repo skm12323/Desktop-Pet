@@ -92,4 +92,8 @@
 # 不可见，_frame_tick 落帧路径把 feed_chew 换成循环旧 walk 帧（走完全程才停），
 # 同期侧身会话接不上载体、locoNeglected 不置位；交互覆盖期间不抢播 walk 帧，
 # 动作帧播放期间行走意图按 0 喂会话，帧收尾后下一拍接管载体与灰调。
-__version__ = "0.19.6"
+# v0.19.7：neglected 动作帧灰调——咀嚼/吃鼠标/伸懒腰/打滚/摔落/眨眼帧各阶段
+# 只有一套彩色版；rig 档新增场景属性 frameNeglected（与侧身行走共用
+# mirrorNode 灰调层同参），frames 档 WindowBase 按同参去饱和入 pix 缓存
+# （muted 入键，静态 neglected 立绘不二次压色）。
+__version__ = "0.19.7"

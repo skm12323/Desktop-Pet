@@ -724,6 +724,7 @@ class RigWindow(WindowBase):
         self._frames = list(frames)
         self._frame_idx = 0
         self._frame_loop = bool(loop)
+        self._sync_frame_palette()
         first = os.path.basename(self._frames[0].path)
         # 文件名形如 {stage}_walk_0.png —— 阶段前缀在前，须用子串判定
         # v0.14.3：stretch/roll/fall 也硬切——伸懒腰等动作的姿态幅度大
@@ -757,10 +758,23 @@ class RigWindow(WindowBase):
     def _restore_after_sequence(self) -> None:
         """序列收尾恢复：walking 覆盖期间回覆盖图（否则 mood 图在行进中
         闪现一拍，等下一个 walking 沿才被纠正）。"""
+        self._sync_frame_palette()
         if self._walk_showing and self._walk_sprite is not None:
             self._show_now(self._walk_sprite.path)
             return
         self.set_sprite(getattr(self, "_static_sprite", self._sprite))
+
+    def _sync_frame_palette(self) -> None:
+        """动作帧各阶段共用彩色版：neglected（按播放前的恢复目标判定）播放期间
+        开场景灰调层，序列收尾即关。与 locoNeglected 共用 mirrorNode 同一层。"""
+        if self._root is None:
+            return
+        on = False
+        if self._frames:
+            target = getattr(self, "_static_sprite", None) or self._sprite
+            key = figure_key_from_path(target.path) or ""
+            on = key.startswith("neglected_")
+        self._root.setProperty("frameNeglected", on)
 
     def _advance_frame(self) -> None:
         if not self.rig_active:
@@ -1079,6 +1093,7 @@ class RigWindow(WindowBase):
             state, mood_override=getattr(self, "_conversation_mood", None))
         if self._walk_showing or self._frames:
             self._static_sprite = sprite
+            self._sync_frame_palette()   # 帧期间分支变化（进化/重置）即时跟随
             return
         self.set_sprite(sprite)
 

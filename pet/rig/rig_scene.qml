@@ -37,6 +37,9 @@ Item {
     property int locoMode: 0
     property bool sideMeshEnabled: false
     property bool locoNeglected: false
+    // 动作帧（咀嚼/吃鼠标/伸懒腰/打滚/摔落/眨眼）各阶段只有一套彩色版，
+    // neglected 播放期间与侧身行走共用同一灰调层
+    property bool frameNeglected: false
     property string sideSpecFile: ""
     property string sideMeshDataFile: ""
     property string sideLayersDir: ""
@@ -143,9 +146,9 @@ Item {
     Item {
         id: mirrorNode
         anchors.fill: parent
-        // One palette for front rig, turn clip and side rig during a neglected session.
-        // The offscreen layer is allocated only for this branch, not normal idle/walk.
-        layer.enabled: root.locoNeglected
+        // One palette for front rig, turn clip, side rig and shared action frames while
+        // neglected. The offscreen layer is allocated only for this branch, not normal idle/walk.
+        layer.enabled: root.locoNeglected || root.frameNeglected
         layer.effect: MultiEffect {
             saturation: -0.65
             brightness: -0.025

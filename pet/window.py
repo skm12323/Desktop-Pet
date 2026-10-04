@@ -53,6 +53,45 @@ def _mtime_cached(path: str) -> float:
     return mt
 
 
+# neglected 动作帧灰调：与 rig_scene.qml mirrorNode 的 MultiEffect 同参
+# （saturation -0.65 = 保留 35% 色度；brightness -0.025）
+_MUTE_KEEP_CHROMA = 0.35
+_MUTE_BRIGHTNESS = -0.025
+
+
+def _is_neglected_sprite(sprite) -> bool:
+    """静态立绘 ``{stage}_neglected_{mood}.png`` → True（emoji/帧/None 为 False）。"""
+    import os
+
+    path = getattr(sprite, "path", "") or ""
+    return "_neglected_" in os.path.basename(path)
+
+
+def _mute_pixmap(pm):
+    """QPixmap 去饱和 + 微压暗（frames 档无场景层，按像素做一次后入缓存）。"""
+    import numpy as np
+    from PySide6.QtGui import QImage, QPixmap
+
+    img = pm.toImage().convertToFormat(QImage.Format_ARGB32_Premultiplied)
+    w, h = img.width(), img.height()
+    if w == 0 or h == 0:
+        return pm
+    bpl = img.bytesPerLine()
+    buf = np.frombuffer(img.constBits(), dtype=np.uint8, count=bpl * h)
+    px = buf.reshape(h, bpl)[:, : w * 4].reshape(h, w, 4).astype(np.float32)
+    b, g, r, a = px[..., 0], px[..., 1], px[..., 2], px[..., 3]
+    gray = 0.299 * r + 0.587 * g + 0.114 * b
+    out = np.empty_like(px)
+    for i, ch in enumerate((b, g, r)):
+        # 预乘空间线性混合；亮度偏移按 alpha 缩放保持预乘合法
+        v = gray + _MUTE_KEEP_CHROMA * (ch - gray) + _MUTE_BRIGHTNESS * a
+        out[..., i] = np.clip(v, 0.0, a)
+    out[..., 3] = a
+    data = np.ascontiguousarray(out.astype(np.uint8))
+    res = QImage(data.data, w, h, w * 4, QImage.Format_ARGB32_Premultiplied)
+    return QPixmap.fromImage(res.copy())
+
+
 class _GroundShadow(QWidget):
     """地面阴影（v0.15.1 接回：新引擎光影通道 → 原有引擎 frames 的加法层）。
 
@@ -206,8 +245,13 @@ class WindowBase(QWidget):
             # v0.10.18：key 含 mtime——帧文件被热替换时缓存自动失效
             # （批次E/L6：mtime 结果 5s 短缓存，动画帧 150ms/帧不再每次
             # isfile+getmtime 两次主线程磁盘 stat）
+            # 动作帧各阶段共用彩色版：neglected 播放期间按 rig 灰调层同参
+            # 去饱和（muted 入缓存键，同帧彩/灰两版互不污染）
+            # （__init__ 首次 set_sprite 早于 _frames 初始化，故 getattr）
+            muted = bool(getattr(self, "_frames", None)) and _is_neglected_sprite(
+                getattr(self, "_static_sprite", None))
             key = (sprite.path, self._facing, sprite.width, sprite.height,
-                   mt)
+                   mt, muted)
             pm = self._pix_cache.get(key)
             if pm is not None:
                 self._pix_cache.move_to_end(key)   # 真 LRU：命中刷新热度
@@ -223,6 +267,8 @@ class WindowBase(QWidget):
                         sprite.width, sprite.height,
                         Qt.KeepAspectRatio, Qt.SmoothTransformation,
                     )
+                    if muted:
+                        pm = _mute_pixmap(pm)
                     self._pix_cache[key] = pm
                     if len(self._pix_cache) > 64:
                         self._pix_cache.popitem(last=False)
