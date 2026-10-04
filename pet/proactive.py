@@ -175,6 +175,8 @@ class ProactiveScheduler:
         prompt_accessibility_fn=None,     # callable() -> None 深链系统设置
         fullscreen_fn=None,              # 批次C（REVIEW-2026-08-28 H2）：
         #   callable() -> bool 前台全屏/演示（win adapter.is_fullscreen_active）
+        festival_fn=None,                # v0.19.4 F16：callable() -> str|None
+        #   今天节日名（mac=EventKit 节假日日历源）；None/空/异常回落内置表
         state_path: str | None = None,   # 批次B/P2-6（REVIEW-2026-09-05）：
         #   问候/节日/follow-up/唤醒链持久化档案路径；None=不持久化（测试）
     ) -> None:
@@ -210,6 +212,10 @@ class ProactiveScheduler:
         self._need_cooldown = float(
             c.get("need_cooldown_min", _NEED_COOLDOWN))
         self._need_last_at: dict[str, float] = {}
+        # v0.19.4 F16：生日（"MM-DD"，config 录入）与日历节日源注入
+        self._birthday = str(c.get("birthday") or "")
+        self._birthday_greeted: date | None = None
+        self._festival_fn = festival_fn
 
         # v0.7 平台注入
         self._mouse_lock = mouse_lock
@@ -570,20 +576,26 @@ class ProactiveScheduler:
                 return True
         return False
 
-    def _check_needs(self, now: float) -> None:
+    def check_needs_now(self) -> bool:
+        """F13 聊天联动入口：立即查需求并表达，绕过 poll 的 quiet 静默
+        （用户正在聊天=在场），DND 仍在 _check_needs 内把守。返是否发了求助。"""
+        return self._check_needs(self._now())
+
+    def _check_needs(self, now: float) -> bool:
         """F8 需求求助：任一数值 < 阈值 → 求助气泡（每需求独立冷却）。
 
         DND/深夜静默由调用方（poll 的 quiet return）与本处 _dnd_active 把守；
         冷却只在真正发出时消耗——静默期不烧冷却，DND 结束后下一轮 poll 即补发。
         一轮 poll 只发一条（多需求按 fullness→cleanliness→mood 顺序轮流）。
+        返是否真的发了求助（F13 据此决定是否叠共情气泡）。
         """
         if not self._need_bubble or self._dnd_active():
-            return
+            return False
         try:
             state = self._store.get()
         except Exception:
             _log.warning("[主动] 需求求助读状态异常", exc_info=True)
-            return
+            return False
         for field in ("fullness", "cleanliness", "mood"):
             threshold = self._need_bubble.get(field)
             pool = _NEED_POOLS.get(field)
@@ -602,8 +614,8 @@ class ProactiveScheduler:
             self._need_last_at[field] = now
             _log.info("[主动] 需求求助(%s=%.0f<%.0f)", field, value,
                       float(threshold))
-            break
-
+            return True
+        return False
     # ---- 深夜判定 ----
 
     def _quiet_now(self, now: float) -> bool:
@@ -712,13 +724,38 @@ class ProactiveScheduler:
             self._emit_bubble("夜深了，早点休息哦～", now)
             _log.info("[主动] 晚安")
 
-        # 5) 节日（每天一次）
+        # 5) 节日/生日（每天一次；v0.19.4：生日优先，日历源→内置表，
+        #    附带心情小奖励）
         md = d.strftime("%m-%d")
-        if md in self._festivals and self._festivaled != today:
-            self._festivaled = today
-            self._persist()
-            self._emit_bubble(f"{self._festivals[md]}快乐！🎉", now)
-            _log.info("[主动] 节日: %s", self._festivals[md])
+        if self._birthday == md and self._birthday_greeted != today:
+            self._birthday_greeted = today
+            self._emit_bubble("生日快乐！🎂 今天你最大～", now)
+            self._reward_mood(10.0, "生日")
+            _log.info("[主动] 生日祝福")
+        else:
+            name = None
+            if self._festival_fn is not None:
+                try:
+                    name = (self._festival_fn() or "").strip() or None
+                except Exception:
+                    _log.warning("[主动] 日历节日源异常，回落内置表",
+                                 exc_info=True)
+            if name is None:
+                name = self._festivals.get(md)
+            if name and self._festivaled != today:
+                self._festivaled = today
+                self._persist()
+                self._emit_bubble(f"{name}快乐！🎉", now)
+                self._reward_mood(5.0, "节日")
+                _log.info("[主动] 节日: %s", name)
+
+    def _reward_mood(self, delta: float, reason: str) -> None:
+        """F16：节日/生日一次性心情小奖励（坏了只丢奖励不炸主循环）。"""
+        try:
+            self._store.update(mood=float(delta))
+            _log.info("[主动] %s心情奖励 +%.0f", reason, delta)
+        except Exception:
+            _log.warning("[主动] %s心情奖励异常", reason, exc_info=True)
 
     def _emit_bubble(self, msg: str, now: float) -> None:
         """发气泡，带连发间隔限速（v0.6.2：防单次 poll 连发多条后者覆盖前者）。"""

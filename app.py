@@ -71,7 +71,8 @@ from pet.behavior import ActionType, BehaviorFSM
 from pet.bubble import BubbleType, BubbleWidget
 from pet.config import load_config
 from pet.floating import FloatingTextWidget
-from pet.interaction import INTERACT_FIELD_LABEL, decide_interaction
+from pet.interaction import (INTERACT_FIELD_LABEL, decide_interaction,
+                             memory_fact, pet_status_line)
 from pet.logging_setup import setup_logging
 from pet.llm import create_client  # v0.4.15 工厂（不再硬编码 DeepSeekClient）
 from pet.pet_state import Mood, PetStateStore, Stage
@@ -367,6 +368,8 @@ class PetApp:
             # 批次C（REVIEW-2026-08-28 H2）：吃鼠标第五门禁——前台全屏
             # （演示/放映）不抑制；到达点复查同函数
             fullscreen_fn=self.adapter.is_fullscreen_active,
+            # v0.19.4 F16：mac 日历节日源（EventKit；拒绝/无绑定回落内置表）
+            festival_fn=self.adapter.get_festival_source(),
             # 批次B/P2-6（REVIEW-2026-09-05）：问候/节日/follow-up/唤醒链
             # 持久化——旧版全内存，重启重发早晚安/节日、回访静默丢失
             state_path=os.path.join(paths["data_dir"], "proactive_state.json"),
@@ -772,12 +775,18 @@ class PetApp:
     )
 
     def _on_user_message(self, text: str) -> None:
-        """发消息前钩子：v0.9 记忆注入 + v0.6 follow-up 启发式。"""
+        """发消息前钩子：v0.9 记忆注入 + v0.6 follow-up 启发式。
+
+        v0.19.3 F11：记忆段后追加宠物实时状态一行——LLM 可自然地说
+        "我都饿了"，聊天与养成从单向（消息→数值）变双向。"""
         # 记忆注入：recall 按当前消息 → 刷 system prompt 记忆段
         try:
             from pet.memory_tools import memory_context
 
             seg = memory_context(self.memory, text)
+            status = pet_status_line(self.store.get())
+            if status:
+                seg = f"{seg}\n\n{status}" if seg else status
             self._chat_client.set_memory_context(seg)
         except Exception:
             self.logger.warning("记忆注入异常", exc_info=True)
@@ -934,6 +943,16 @@ class PetApp:
         if delta and confidence >= float(self._chat_emotion_cfg.get("confidence_threshold", .55)):
             self.store.update(mood=delta)
         import random
+        # v0.19.3 F13：用户说饿了 → 宠物同步表达自己的需求（确实饿了才开口，
+        # 不饿不打扰）；发了求助就不再叠共情气泡（同气泡位会互相覆盖）
+        if label == "hungry":
+            fired = False
+            try:
+                fired = self._proactive.check_needs_now()
+            except Exception:
+                self.logger.warning("hungry 联动需求表达异常", exc_info=True)
+            if fired:
+                return
         self._auto_bubble(random.choice(_CHAT_EMOTION_BUBBLES[label]))
 
     def _maybe_followup(self, text: str) -> None:
@@ -1350,6 +1369,27 @@ class PetApp:
             self.bubble.show(out.message, anchor=self._pet_anchor())
         if out.chew:
             self._play_feed_chew()
+        self._remember_interaction(out)
+
+    def _remember_interaction(self, out) -> None:
+        """F12：交互/拒绝/疲劳事件写 episodic 记忆。
+
+        日期戳前缀 + memorize 同文去重 = 同类事件当日合并为一条；重要度
+        0.2–0.35，靠 forget_expired 的按天衰减自然淘汰（低价值不占库）。
+        写入永不外抛（记忆坏了不能断交互）。"""
+        mem = getattr(self, "memory", None)
+        if mem is None:
+            return
+        try:
+            pair = memory_fact(out.kind, out)
+            if pair is None:
+                return
+            from datetime import date
+
+            fact, importance = pair
+            mem.memorize(f"{date.today().isoformat()} {fact}", importance)
+        except Exception:
+            self.logger.warning("交互记忆写入异常", exc_info=True)
 
     def _play_feed_chew(self) -> None:
         """F2 手动喂食咀嚼覆盖：复用吃鼠标 chew 帧源，播 ~1.5s。

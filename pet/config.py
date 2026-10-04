@@ -72,6 +72,8 @@ _SAFE_DEFAULTS: dict = {
         # v0.19.2 F8：需求求助触发线（数值低于阈值宠物主动开口；空对象关闭）
         "need_bubble": {"fullness": 30, "cleanliness": 25, "mood": 20},
         "need_cooldown_min": 120,
+        # v0.19.4 F16：用户生日 "MM-DD"（空=不启用；当日一次祝福+心情奖励）
+        "birthday": "",
     },
     # 批次J/L14（F23）：以下段补 schema 校验，safe defaults 同步补齐
     "provider": "emoji",
@@ -266,6 +268,9 @@ _SECTION_SCHEMAS: dict[str, dict] = {
             },
             "need_cooldown_min": {"type": "number", "minimum": 0.01,
                                   "maximum": 1440},
+            # v0.19.4 F16：用户生日（MM-DD；空串=不启用）
+            "birthday": {"type": "string", "pattern": "^(|(0[1-9]|1[0-2])-"
+                                                   "(0[1-9]|[12][0-9]|3[01]))$"},
         },
         "additionalProperties": False,
     },

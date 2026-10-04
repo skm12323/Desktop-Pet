@@ -75,6 +75,40 @@ REJECT_MSGS = {
 # F7 疲劳文案（各交互通用）
 FATIGUE_MSGS = ("歇一会儿再陪我玩嘛…", "有点累啦，缓缓～", "玩累了，等下继续～")
 
+# F12 交互事件记忆模板（v0.19.3）：调用方加日期戳前缀后 memorize——
+# 同文自动去重合并 = 同类事件当日一条，低重要度由 forget_expired 自然衰减
+MEM_FACTS = {
+    "pet": {"ok": "主人摸了摸我的头", "tired": "主人一直摸我陪我玩"},
+    "feed": {"ok": "主人喂我吃了东西", "tired": "主人一直喂我吃东西",
+             "full": "我吃饱了主人还想喂我"},
+    "clean": {"ok": "主人帮我梳了毛", "tired": "主人一直帮我梳毛"},
+    "poke": {"ok": "主人陪我玩了逗一逗", "tired": "主人陪我玩了好久"},
+}
+
+
+def memory_fact(kind: str, outcome: InteractionOutcome) -> tuple[str, float] | None:
+    """F12：交互 → (记忆事实, 重要度)；None 不写。宠物视角描述主人。
+
+    拒绝仅 feed 会出现——其它 kind 的 rejected（实际不可达）落回 ok 模板。"""
+    tpl = MEM_FACTS.get(kind) or {}
+    if outcome.rejected and tpl.get("full"):
+        return tpl["full"], 0.25
+    if outcome.fatigued and tpl.get("tired"):
+        return tpl["tired"], 0.2
+    fact = tpl.get("ok")
+    return (fact, 0.35) if fact else None
+
+
+def pet_status_line(state) -> str:
+    """F11：PetState → 聊天 system prompt 一行摘要（LLM 可自然提及状态）。"""
+    try:
+        return (f"宠物当前状态：{state.stage.value}期·{state.branch.value}，"
+                f"饱食{state.fullness:.0f}/心情{state.mood:.0f}/"
+                f"清洁{state.cleanliness:.0f}。"
+                "可以像自己的感受一样自然融入回复，不要罗列数字。")
+    except (AttributeError, TypeError, ValueError):
+        return ""
+
 
 @dataclass
 class InteractionOutcome:

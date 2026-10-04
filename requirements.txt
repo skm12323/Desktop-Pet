@@ -6,3 +6,4 @@ numpy>=1.26,<3
 onnxruntime>=1.18,<2
 tokenizers>=0.19,<1
 pyobjc>=10,<12; sys_platform == "darwin"
+pyobjc-framework-EventKit>=10,<12; sys_platform == "darwin"

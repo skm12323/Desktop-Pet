@@ -104,6 +104,12 @@ class PlatformAdapter:
         """平台鼠标抑制对象（mac=MouseLockMac）。基类返 None（不抑制）。"""
         return None
 
+    # ---- v0.19.4 节日源注入（mac=EventKit 节假日日历；基类 None 走内置表） ----
+    def get_festival_source(self):
+        """返 callable() -> str|None（今天节日名）。基类 None（proactive
+        回落内置固定日期表；win 暂无系统节假日 API）。"""
+        return None
+
     def start_mouse_lock(self, duration_s: float) -> bool:
         return False
 
@@ -339,6 +345,22 @@ if sys.platform == "darwin":
 
                 self._mouse_lock = mouse_lock_mac.MouseLockMac()
             return self._mouse_lock
+
+        # ---- v0.19.4 F16 节日源（EventKit；用户开「中国节假日」订阅日历
+        # 即含农历节日正确日期。授权拒绝/无绑定静默回落内置表） ----
+        def get_festival_source(self):
+            if getattr(self, "_festival_source", None) is None:
+                try:
+                    from .calendar_mac import MacFestivalSource
+
+                    self._festival_source = MacFestivalSource().today_name
+                except Exception:
+                    import logging
+
+                    logging.getLogger("pet").info(
+                        "节日日历源不可用，回落内置表", exc_info=True)
+                    self._festival_source = None
+            return self._festival_source
 
         def start_mouse_lock(self, duration_s: float) -> bool:
             return self.get_mouse_lock().start(duration_s)

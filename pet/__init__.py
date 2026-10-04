@@ -71,4 +71,16 @@
 # 冷却只在真正发出时消耗）；托盘 tooltip 基础行+状态行合成（饱食28⚠ 心情65…
 # ，与热键提示互不覆盖）+ 任何触线图标角落红点；右键菜单交互项触线加 ⚠ 后缀
 # （位置固定不重排，阈值与 proactive.need_bubble 同源经 app 注入 window）。
-__version__ = "0.19.2"
+# v0.19.3：聊天双向联动——发消息时 system prompt 追加宠物实时状态一行
+# （pet_status_line，LLM 可自然说"我都饿了"，聊天↔养成从单向变双向）；
+# 交互/拒绝/疲劳事件写 episodic 记忆（memory_fact + 日期戳前缀，memorize
+# 同文去重=当日合并一条，重要度 0.2–0.35 靠按天衰减自然淘汰）；聊天情绪
+# 判定 hungry 时宠物同步表达自己的需求（proactive.check_needs_now 绕过
+# quiet 但守 DND，真饿了才开口、发了求助不叠共情气泡）。
+# v0.19.4：节日与纪念日响应——mac 接入系统日历（pet/calendar_mac.py +
+# adapter.get_festival_source：EventKit 读「中国节假日」订阅日历，农历节日
+# 拿正确公历日期；TCC 授权一次，拒绝/未开订阅/缺绑定全程静默回落内置表，
+# win 走内置表）；节日源优先→内置 MM-DD 表兜底，节日祝福附带心情 +5；
+# 用户生日 config 录入（proactive.birthday "MM-DD"）当日一次专属祝福 +
+# 心情 +10（生日优先于节日）。新依赖 pyobjc-framework-EventKit（requirements）。
+__version__ = "0.19.4"

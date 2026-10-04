@@ -100,7 +100,8 @@
       "cleanliness": 25,
       "mood": 20
     },
-    "need_cooldown_min": 120
+    "need_cooldown_min": 120,
+    "birthday": ""
   },
   "chat_emotion": {
     "enabled": true,
