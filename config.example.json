@@ -39,7 +39,17 @@
     "pet": 5,
     "feed": 20,
     "clean": 15,
-    "poke": -8
+    "poke": 4
+  },
+  "interaction": {
+    "messages": {},
+    "reject_fullness": 92,
+    "fatigue_times": 5,
+    "fatigue_window_min": 10
+  },
+  "sound": {
+    "enabled": false,
+    "volume": 0.6
   },
   "behavior": {
     "walk_speed": 80,
@@ -84,7 +94,13 @@
     "eat_mouse_gain": {
       "fullness": 5,
       "mood": 3
-    }
+    },
+    "need_bubble": {
+      "fullness": 30,
+      "cleanliness": 25,
+      "mood": 20
+    },
+    "need_cooldown_min": 120
   },
   "chat_emotion": {
     "enabled": true,

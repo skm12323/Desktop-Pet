@@ -26,6 +26,10 @@ class TrayManager(QObject):
         self._on_autostart = None  # v0.11 自启切换回调（L14 修：注释原误标"强制吐出"）
         self._tray = QSystemTrayIcon(self._make_icon(), parent)
         self._tray.setToolTip("桌宠")
+        # v0.19.2 F9：tooltip = 基础行（热键提示）+ 状态行（养成数值）合成；
+        # 触线警示时图标角落加红点（_make_icon(alert=True)）
+        self._base_tooltip = "桌宠"
+        self._status_line: str | None = None
 
         menu = QMenu()
         act_chat = menu.addAction("聊天")
@@ -60,8 +64,31 @@ class TrayManager(QObject):
             self._on_mem()
 
     def set_tooltip(self, text: str) -> None:
-        """v0.17.0：动态 tooltip（app 在热键注册成功后调，提示直达热键）。"""
-        self._tray.setToolTip(text)
+        """v0.17.0：动态 tooltip（app 在热键注册成功后调，提示直达热键）。
+
+        v0.19.2 F9 改为存基础行：与 set_status 的状态行合成，互不覆盖。"""
+        self._base_tooltip = text
+        self._apply_tooltip()
+
+    def set_status(self, status: str | None) -> None:
+        """v0.19.2 F9：状态行（app 状态变化时调，如 `饱食28⚠ 心情65`）。
+
+        None/空串清除状态行；不清基础行。"""
+        self._status_line = status or None
+        self._apply_tooltip()
+
+    def set_alert(self, on: bool) -> None:
+        """v0.19.2 F9：任何需求触线时图标加红点（app 状态变化时调）。"""
+        if bool(on) == getattr(self, "_alert", False):
+            return
+        self._alert = bool(on)
+        self._tray.setIcon(self._make_icon(alert=self._alert))
+
+    def _apply_tooltip(self) -> None:
+        parts = [self._base_tooltip]
+        if self._status_line:
+            parts.append(self._status_line)
+        self._tray.setToolTip("\n".join(parts))
 
     def set_autostart_state(self, enabled: bool) -> None:
         """v0.11：同步自启菜单勾选态（app 启动时调）。
@@ -131,7 +158,8 @@ class TrayManager(QObject):
             self._on_spit()
 
     @staticmethod
-    def _make_icon() -> QIcon:
+    def _make_icon(alert: bool = False) -> QIcon:
+        """爪印托盘图标；alert=True 时右上角加红点（v0.19.2 F9 需求警示）。"""
         pix = QPixmap(32, 32)
         pix.fill(QColor(0, 0, 0, 0))
         p = QPainter(pix)
@@ -144,6 +172,12 @@ class TrayManager(QObject):
         font.setPointSize(16)
         p.setFont(font)
         p.drawText(pix.rect(), Qt.AlignmentFlag.AlignCenter, "🐾")
+        if alert:
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor("#FF3B30"))
+            p.drawEllipse(20, 0, 12, 12)
+            p.setBrush(QColor("white"))
+            p.drawEllipse(22, 2, 3, 3)
         p.end()
         return QIcon(pix)
 

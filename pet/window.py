@@ -105,8 +105,8 @@ class WindowBase(QWidget):
     # v0.2 交互入口（§2.3 手势消解）：单击摸头 / 双击喂食 / 右键菜单
     patRequested = Signal()    # 单击：位移<5px 且时长<300ms（双击延迟消歧）
     feedRequested = Signal()   # 双击：Qt 双击事件
-    cleanRequested = Signal()  # 右键菜单"洗澡"
-    pokeRequested = Signal()   # 右键菜单"戳一戳"
+    cleanRequested = Signal()  # 右键菜单"梳梳毛"
+    pokeRequested = Signal()   # 右键菜单"逗一逗"
     chatRequested = Signal()   # 右键菜单"聊天"（v0.17.0 直达聊天面板）
     settingsRequested = Signal()
     quitRequested = Signal()
@@ -117,6 +117,10 @@ class WindowBase(QWidget):
     fileDropped = Signal(str)      # v0.9 拖拽文件/文件夹（快捷启动器）
     dragMoved = Signal(float, float)
     dragReleased = Signal(float, float)
+
+    # v0.19.2 F10：交互 → 需求字段映射（菜单 ⚠ 标记用；阈值可由 app 注入）
+    _KIND_NEED_FIELD = {"feed": "fullness", "clean": "cleanliness",
+                        "pet": "mood", "poke": "mood"}
 
     def __init__(self, sprite: SpriteRef, parent=None):
         super().__init__(parent)
@@ -174,6 +178,17 @@ class WindowBase(QWidget):
         self._frame_timer = QTimer(self)
         self._frame_timer.setInterval(150)
         self._frame_timer.timeout.connect(self._advance_frame)
+        # v0.19.2 F10：需求触线阈值（右键菜单 ⚠ 标记；app 用 config 覆盖）
+        self._need_thresholds = {"fullness": 30.0, "cleanliness": 25.0,
+                                 "mood": 20.0}
+
+    def set_need_thresholds(self, thresholds: dict) -> None:
+        """v0.19.2 F10：注入需求触线阈值（app 从 proactive.need_bubble 取）。"""
+        if isinstance(thresholds, dict):
+            self._need_thresholds = {
+                k: float(v) for k, v in thresholds.items()
+                if k in ("fullness", "cleanliness", "mood")
+            } or {"fullness": 30.0, "cleanliness": 25.0, "mood": 20.0}
 
     # ---- 渲染 ----
     def set_sprite(self, sprite: SpriteRef) -> None:
@@ -471,15 +486,39 @@ class WindowBase(QWidget):
             self.fileDropped.emit(urls[0].toLocalFile())
             event.acceptProposedAction()
 
+    def _need_marker(self, kind: str) -> str:
+        """v0.19.2 F10：交互项需求标记——对应数值触线加 ⚠。
+
+        位置固定不重排（肌肉记忆 + 防误触，清单 §4.0 保守派）；state 由
+        on_state_change 缓存（_last_state）。"""
+        st = getattr(self, "_last_state", None)
+        if st is None:
+            return ""
+        field = self._KIND_NEED_FIELD.get(kind)
+        if field is None:
+            return ""
+        try:
+            low = float(getattr(st, field, 100.0)) < float(
+                self._need_thresholds.get(field, 0.0))
+        except (TypeError, ValueError):
+            return ""
+        return " ⚠" if low else ""
+
     def contextMenuEvent(self, event):
         # 右键菜单：互动 + 三种互斥移动模式 + 设置/退出
         menu = QMenu(self)
         # v0.17.0：聊天置顶直达（托盘两跳 → 右键一跳；热键 Cmd/Ctrl+Alt+P 零跳）
+        # v0.19.1 动词换代：菜单文字统一取自 pet.interaction.VERBS
+        # （喂食→喂点吃的、洗澡→梳梳毛、戳一戳→逗一逗；信号键不动）
+        from pet.interaction import VERBS
         menu.addAction("聊天", self.chatRequested.emit)
         menu.addSeparator()
-        menu.addAction("喂食", self.feedRequested.emit)
-        menu.addAction("洗澡", self.cleanRequested.emit)
-        menu.addAction("戳一戳", self.pokeRequested.emit)
+        menu.addAction(VERBS["feed"] + self._need_marker("feed"),
+                       self.feedRequested.emit)
+        menu.addAction(VERBS["clean"] + self._need_marker("clean"),
+                       self.cleanRequested.emit)
+        menu.addAction(VERBS["poke"] + self._need_marker("poke"),
+                       self.pokeRequested.emit)
         modes = menu.addMenu("移动状态")
         group = QActionGroup(modes)
         group.setExclusive(True)

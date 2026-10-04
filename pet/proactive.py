@@ -54,6 +54,18 @@ _EAT_DURATION = 10.0        # 单次锁定时长（s）——≤15s 铁律由 mo
 _EAT_IDLE_MIN = 5.0         # 铁律5 idle gate：idle<此值只气泡不吃
 _EAT_GAIN = {"fullness": 5.0, "mood": 3.0}     # 养成回血（§七 +饱食/+心情）
 
+# ---- v0.19.2 F8 需求求助参数（config.proactive 覆盖） ----
+_NEED_COOLDOWN = 120.0      # 同一需求两次求助的最小间隔（min，防骚扰）
+_NEED_DEFAULTS = {"fullness": 30.0, "cleanliness": 25.0, "mood": 20.0}
+_NEED_POOLS = {
+    "fullness": ("肚子有点饿了…有吃的吗？", "咕噜咕噜…想吃点东西～",
+                 "饿得没力气了，喂喂我嘛～"),
+    "cleanliness": ("毛有点乱了…帮我梳梳好不好？", "身上痒痒的，想梳毛啦～",
+                    "毛都打结了…梳梳我吧～"),
+    "mood": ("有点低落…陪我玩一会儿好不好？", "心情不太好…摸摸我吧",
+             "想你了，跟我说说话嘛～"),
+}
+
 _FESTIVALS = {  # MM-DD → 名称（config festivals 可扩展）
     "01-01": "元旦", "02-14": "情人节", "05-01": "劳动节",
     "06-01": "儿童节", "10-01": "国庆节", "12-25": "圣诞节",
@@ -191,6 +203,13 @@ class ProactiveScheduler:
         self._dnd_manual = bool(c.get("dnd", False))
         gain = c.get("eat_mouse_gain")
         self._eat_gain = dict(gain) if isinstance(gain, dict) else dict(_EAT_GAIN)
+        # v0.19.2 F8：需求求助（数值触线宠物主动开口）；need_bubble={} 可整体关
+        need = c.get("need_bubble")
+        self._need_bubble = (dict(need) if isinstance(need, dict)
+                             else dict(_NEED_DEFAULTS))
+        self._need_cooldown = float(
+            c.get("need_cooldown_min", _NEED_COOLDOWN))
+        self._need_last_at: dict[str, float] = {}
 
         # v0.7 平台注入
         self._mouse_lock = mouse_lock
@@ -551,6 +570,40 @@ class ProactiveScheduler:
                 return True
         return False
 
+    def _check_needs(self, now: float) -> None:
+        """F8 需求求助：任一数值 < 阈值 → 求助气泡（每需求独立冷却）。
+
+        DND/深夜静默由调用方（poll 的 quiet return）与本处 _dnd_active 把守；
+        冷却只在真正发出时消耗——静默期不烧冷却，DND 结束后下一轮 poll 即补发。
+        一轮 poll 只发一条（多需求按 fullness→cleanliness→mood 顺序轮流）。
+        """
+        if not self._need_bubble or self._dnd_active():
+            return
+        try:
+            state = self._store.get()
+        except Exception:
+            _log.warning("[主动] 需求求助读状态异常", exc_info=True)
+            return
+        for field in ("fullness", "cleanliness", "mood"):
+            threshold = self._need_bubble.get(field)
+            pool = _NEED_POOLS.get(field)
+            if threshold is None or not pool:
+                continue
+            try:
+                value = float(getattr(state, field, 100.0))
+            except (TypeError, ValueError):
+                continue
+            if value >= float(threshold):
+                continue
+            last = self._need_last_at.get(field)
+            if last is not None and now - last < self._need_cooldown * 60.0:
+                continue
+            self._emit_bubble(random.choice(pool), now)
+            self._need_last_at[field] = now
+            _log.info("[主动] 需求求助(%s=%.0f<%.0f)", field, value,
+                      float(threshold))
+            break
+
     # ---- 深夜判定 ----
 
     def _quiet_now(self, now: float) -> bool:
@@ -599,6 +652,12 @@ class ProactiveScheduler:
 
         if quiet:
             return  # 深夜其余全静默
+
+        # 2.5) 需求求助（v0.19.2 F8）：数值触线主动表达——宠物先开口
+        try:
+            self._check_needs(now)
+        except Exception:
+            _log.warning("[主动] 需求求助检查异常", exc_info=True)
 
         # 3) 久坐提醒（空闲 ≥ 阈值）
         try:

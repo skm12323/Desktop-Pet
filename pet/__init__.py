@@ -47,9 +47,28 @@
 # 会话缓冲（切走隐藏/切回续显全量已流式段）；worker 信号经 partial(sid)
 # 分发不依赖 sender()，pending 补账 sid 化（双在飞不串账），cancel 多
 # worker 遍历收口、dying 列表化。
-# v0.18.0：本地 G7 线与 origin/main（v0.16.12–v0.16.23，含 FINAL 线）合并入档；
+# 0.17.6 末：本地 G7 线与 origin/main（v0.16.12–v0.16.23，含 FINAL 线）合并入档；
 # 新增三维化实验线 three_d/（wiki：方案 D01–D14 + 三份调研 + 设计 v0，render3d
 # config 默认关闭不影响 2D 主线）与逆向还原工具（正/侧图板合成 + 由 2D pivot
-# 推导 3D 骨架基准坐标，three_d/tools/）。0.17 段划给细节打磨（入库主线），
-# 3D 实验线版本号继续自 0.18.0 起（本地不入库）。
-__version__ = "0.17.6"
+# 推导 3D 骨架基准坐标，three_d/tools/）——three_d/ 最终随 0.17.6 段入库。
+# 号段约定（用户指示）：0.18 保留给 three_d 实验线（旧注"自 0.18.0 起"继续
+# 有效，未在 git 提号）；交互升级线自 0.19.0 起。
+# v0.19.0：交互表现层（清单 docs/planning/交互升级-修改清单与版本规划.md）——
+# 数值飘字 HUD（pet/floating.py：正增量上飘、负增量红字下沉，宠物头顶右侧、
+# 点击穿透）；手动喂食咀嚼覆盖动画（复用 chew 帧源，临时态不进 FSM，
+# _frame_tick 豁免 feed_chew）；气泡文案模板池（交互 × mood 分桶随机，
+# config interaction.messages 平铺覆盖整池）；音效管线（pet/sound.py + sound
+# 段默认关，缺 QtMultimedia/资产全程静默降级，资产 assets/sounds/ 后补）。
+# v0.19.1：动词换代 + 活物感最小集——交互语义收拢 pet/interaction.py
+# （InteractionOutcome 三态决策：正常/饱和拒绝/疲劳，呈现无关、3D 可沿用）；
+# 右键菜单与文案池换代（喂食→喂点吃的、洗澡→梳梳毛、戳一戳→逗一逗，
+# VERBS 单源；poke 增益 -8→+4，config_version v2 自动迁移旧默认）；喂食
+# 饱腹 ≥reject_fullness（默认 92）拒绝进食、10 分钟内同类交互 ≥5 次增益
+# 归零（interaction.reject_fullness / fatigue_times / fatigue_window_min）；
+# 飘字新增 flat 中性态（拒绝/疲劳白字原地淡出）。
+# v0.19.2：需求主动表达 + 状态可见化——proactive 新增数值触发源（fullness<
+# 30/cleanliness<25/mood<20 求助气泡，每需求独立冷却默认 2h，quiet/DND 静默、
+# 冷却只在真正发出时消耗）；托盘 tooltip 基础行+状态行合成（饱食28⚠ 心情65…
+# ，与热键提示互不覆盖）+ 任何触线图标角落红点；右键菜单交互项触线加 ⚠ 后缀
+# （位置固定不重排，阈值与 proactive.need_bubble 同源经 app 注入 window）。
+__version__ = "0.19.2"

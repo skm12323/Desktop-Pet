@@ -26,14 +26,21 @@ _DEFAULTS_PATH = os.path.normpath(
 )
 
 # config schema 版本（迁移链入口，对齐 pet_state SCHEMA_VERSION 体系）
-CONFIG_VERSION = 1
+# v2（0.19.1）：interaction_gain.poke 旧默认 -8 → 4（动词换代"逗一逗"取正语义）
+CONFIG_VERSION = 2
 
 # 回退到默认仍非法时的硬编码安全默认（防 example.json 本身被改坏）
 # 批次J/L14（REVIEW-2026-08-31 F21）：safe defaults 必须过同名 schema
 # 终检（spikes/test_v11_hotkey_parse_win.py 锁定）；新增段须同步补此表
 _SAFE_DEFAULTS: dict = {
     "decay_per_hour": {"mood": 2.0, "fullness": 3.0, "cleanliness": 1.5},
-    "interaction_gain": {"pet": 5, "feed": 20, "clean": 15, "poke": -8},
+    "interaction_gain": {"pet": 5, "feed": 20, "clean": 15, "poke": 4},
+    # v0.19.0 F3：交互文案池覆盖（interaction.messages 平铺覆盖该交互全池）；
+    # v0.19.1 F6/F7：饱和拒绝阈值 + 疲劳窗口（次数/分钟）
+    "interaction": {"messages": {}, "reject_fullness": 92,
+                    "fatigue_times": 5, "fatigue_window_min": 10},
+    # v0.19.0 F4：交互音效管线（默认关；资产 assets/sounds/ 后补不阻塞）
+    "sound": {"enabled": False, "volume": 0.6},
     "score": {
         "mood_weight": 0.4,
         "fullness_weight": 0.4,
@@ -62,6 +69,9 @@ _SAFE_DEFAULTS: dict = {
         "dnd": False,
         "video_apps": [],
         "eat_mouse_gain": {"fullness": 5, "mood": 3},
+        # v0.19.2 F8：需求求助触发线（数值低于阈值宠物主动开口；空对象关闭）
+        "need_bubble": {"fullness": 30, "cleanliness": 25, "mood": 20},
+        "need_cooldown_min": 120,
     },
     # 批次J/L14（F23）：以下段补 schema 校验，safe defaults 同步补齐
     "provider": "emoji",
@@ -116,6 +126,44 @@ _SECTION_SCHEMAS: dict[str, dict] = {
             "poke": {"type": "number", "minimum": -100, "maximum": 100},
         },
         "required": ["pet", "feed", "clean", "poke"],
+        "additionalProperties": False,
+    },
+    # v0.19.0 F3：文案池覆盖——平铺 list 覆盖该交互全池（不分 mood 桶）；
+    # v0.19.1 F6/F7：拒绝阈值与疲劳窗口
+    "interaction": {
+        "type": "object",
+        "properties": {
+            "messages": {
+                "type": "object",
+                "properties": {
+                    "pet": {"type": "array", "minItems": 1,
+                            "items": {"type": "string", "minLength": 1}},
+                    "feed": {"type": "array", "minItems": 1,
+                             "items": {"type": "string", "minLength": 1}},
+                    "clean": {"type": "array", "minItems": 1,
+                              "items": {"type": "string", "minLength": 1}},
+                    "poke": {"type": "array", "minItems": 1,
+                             "items": {"type": "string", "minLength": 1}},
+                },
+                "additionalProperties": False,
+            },
+            "reject_fullness": {"type": "number", "minimum": 0,
+                                "maximum": 100},
+            "fatigue_times": {"type": "integer", "minimum": 2, "maximum": 100},
+            "fatigue_window_min": {"type": "number", "minimum": 0.01,
+                                   "maximum": 1440},
+        },
+        "required": ["messages"],
+        "additionalProperties": False,
+    },
+    # v0.19.0 F4：音效段（资产缺失不影响校验，仅开关与音量）
+    "sound": {
+        "type": "object",
+        "properties": {
+            "enabled": {"type": "boolean"},
+            "volume": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+        },
+        "required": ["enabled", "volume"],
         "additionalProperties": False,
     },
     "score": {
@@ -203,6 +251,21 @@ _SECTION_SCHEMAS: dict[str, dict] = {
                 },
                 "additionalProperties": False,
             },
+            # v0.19.2 F8：需求求助触发线与冷却
+            "need_bubble": {
+                "type": "object",
+                "properties": {
+                    "fullness": {"type": "number", "minimum": 0,
+                                 "maximum": 100},
+                    "cleanliness": {"type": "number", "minimum": 0,
+                                    "maximum": 100},
+                    "mood": {"type": "number", "minimum": 0,
+                             "maximum": 100},
+                },
+                "additionalProperties": False,
+            },
+            "need_cooldown_min": {"type": "number", "minimum": 0.01,
+                                  "maximum": 1440},
         },
         "additionalProperties": False,
     },
@@ -321,12 +384,17 @@ def _deep_merge(base: dict, overlay: dict) -> dict:
 def _migrate(cfg: dict, defaults: dict) -> dict:
     """config_version 迁移钩子（对齐 pet_state SCHEMA_VERSION 体系）。
 
-    当前 CONFIG_VERSION=1，无历史版本需迁移。未来 schema 变更在此追加
-    ``if cfg.get("config_version", 0) < N: ...`` 分支，逐版本升级。
+    v2（0.19.1）：interaction_gain.poke 旧默认 -8 → 4。后续 schema 变更
+    在此追加 ``if cfg.get("config_version", 0) < N: ...`` 分支，逐版本升级。
     """
     ver = cfg.get("config_version", 0)
+    if ver < 2:
+        # 0.19.1 动词换代"逗一逗"取正增益；旧默认 -8 自动迁移（想保留负 poke
+        # 可手改——负反馈语义如今由拒绝/疲劳通道承担，不再靠"戳"）
+        gain = cfg.get("interaction_gain")
+        if isinstance(gain, dict) and gain.get("poke") == -8:
+            gain["poke"] = 4
     if ver < CONFIG_VERSION:
-        # 占位：未来按版本号差值链式迁移字段
         cfg["config_version"] = CONFIG_VERSION
     return cfg
 

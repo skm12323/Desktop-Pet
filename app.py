@@ -70,10 +70,13 @@ from pet.asset_provider import AIArtProvider, EmojiProvider, _mood_from_state
 from pet.behavior import ActionType, BehaviorFSM
 from pet.bubble import BubbleType, BubbleWidget
 from pet.config import load_config
+from pet.floating import FloatingTextWidget
+from pet.interaction import INTERACT_FIELD_LABEL, decide_interaction
 from pet.logging_setup import setup_logging
 from pet.llm import create_client  # v0.4.15 工厂（不再硬编码 DeepSeekClient）
 from pet.pet_state import Mood, PetStateStore, Stage
 from pet.platform import get_platform_adapter
+from pet.sound import SoundFX
 from pet.tools_schema import ToolContext, ToolRegistry
 from pet.tray import TrayManager
 # 新引擎有效部分经中间层 EngineBridge 接入（原有引擎 frames 恒为兜底）。
@@ -98,19 +101,8 @@ _DECAY_INTERVAL_MS = 1000     # 衰减 1s 一次（wall-clock delta）
 _GC_FREEZE_DELAY_MS = 30_000
 _GC_THRESHOLD = (10_000, 50, 50)
 
-# 交互：kind → (数值字段, 气泡文案)
-_INTERACT_FIELD = {
-    "pet": "mood",
-    "feed": "fullness",
-    "clean": "cleanliness",
-    "poke": "mood",
-}
-_INTERACT_MSG = {
-    "pet": "摸摸头～",
-    "feed": "吃饱啦！",
-    "clean": "洗得香香的～",
-    "poke": "别戳啦…",
-}
+# 交互语义（字段/动词/文案池/三态决策）收拢在 pet/interaction.py——
+# 呈现无关，2D/3D 双实现共用（3D 契约 §6）。
 
 _CHAT_EMOTION_BUBBLES = {
     "happy": ("太好了，替你开心～", "听起来真棒！", "今天有好消息呀～"),
@@ -186,6 +178,26 @@ class PetApp:
         # 养成 store：启动 load（无存档→default）；重启数值一致靠此
         self.store = PetStateStore.load(self._state_path)
         self._gains = dict(self.cfg.get("interaction_gain", {}))
+        # v0.19.0 F3：交互文案覆盖（interaction.messages，平铺 list 覆盖该交互全池）
+        self._interact_msg_overrides = dict(
+            (self.cfg.get("interaction") or {}).get("messages") or {})
+        # v0.19.1 F6/F7：饱和拒绝与疲劳窗口参数 + 各 kind 生效时间戳
+        icfg = self.cfg.get("interaction") or {}
+        self._interaction_cfg = {
+            "reject_fullness": float(icfg.get("reject_fullness", 92)),
+            "fatigue_times": int(icfg.get("fatigue_times", 5)),
+            "fatigue_window_min": float(icfg.get("fatigue_window_min", 10)),
+        }
+        self._interact_log: dict[str, list[float]] = {}
+        # v0.19.2 F9/F10：需求触线阈值（托盘状态行 ⚠ 与右键菜单 ⚠ 共用；
+        # 与 proactive.need_bubble 同源）
+        need = (self.cfg.get("proactive") or {}).get("need_bubble")
+        need = need if isinstance(need, dict) else {}
+        self._need_thresholds = {
+            "fullness": float(need.get("fullness", 30.0)),
+            "cleanliness": float(need.get("cleanliness", 25.0)),
+            "mood": float(need.get("mood", 20.0)),
+        }
         # v0.15.1 接回：新引擎有效部分（motion + wind/sun）经中间层 EngineBridge
         # 叠加到原有引擎 frames；任一环失败 → 恒等（原有引擎兜底，不阻断启动）。
         self._bridge = self._build_engine_bridge()
@@ -220,6 +232,8 @@ class PetApp:
         # =宠物画面冻结直到首个小动作（15-35s）后才动
         self._anim_key = None
         self.window.set_sprite_provider(self.provider)
+        # v0.19.2 F10：菜单 ⚠ 标记阈值与 proactive.need_bubble 同源
+        self.window.set_need_thresholds(self._need_thresholds)
         # 批次A/H1（REVIEW-2026-08-31）：进化换档重载 rig spec——三阶段
         # manifest 共用 figure 键，spec 终生绑启动阶段会把新阶段 neutral
         # 映射回旧阶段派生核心图（宠物在 rig/paperdoll 档"长不大"直到重启）。
@@ -302,10 +316,18 @@ class PetApp:
         self.window.petMoved.connect(self._on_pet_moved)
 
         self.bubble = BubbleWidget()
+        # v0.19.0 F1 数值飘字 HUD：与气泡同通道跟随，点击穿透
+        self.floating = FloatingTextWidget()
+        # v0.19.0 F4 音效管线：默认关；缺 QtMultimedia/资产全程静默
+        self.sfx = SoundFX(self.cfg.get("sound", {}))
         # 图层探针排除自身（宠物站窗顶时探针点被自己身体覆盖 → 误否决支撑）
-        self.adapter.register_own_windows(self.window, self.bubble)
+        self.adapter.register_own_windows(self.window, self.bubble, self.floating)
         self.tray = TrayManager(on_quit=self.shutdown, parent=self.app)
         self.tray.set_reset_callback(self._on_reset_requested)
+        # v0.19.2 F9：状态进托盘（tooltip 状态行 + 图标红点）——数值变化
+        # （交互/衰减/进化）即刷新；衰减按小时 tick，开销可忽略
+        self.store.on_change(self._on_state_for_tray)
+        self._on_state_for_tray(self.store.get())
 
         # v0.4 聊天：key 引导 + DS 客户端 + 工具注册表 + QML 面板
         self._chat_engine = None
@@ -508,6 +530,22 @@ class PetApp:
         self.bubble.show(text, kind=kind, duration_ms=duration_ms,
                          anchor=anchor if anchor is not None
                          else self._pet_anchor())
+
+    def _on_state_for_tray(self, state) -> None:
+        """F9：PetState → 托盘状态行 + 触线红点（永不外抛，坏了只丢状态行）。"""
+        try:
+            thr = self._need_thresholds
+            parts, alert = [], False
+            for field in ("fullness", "mood", "cleanliness"):
+                v = float(getattr(state, field, 0.0))
+                low = v < thr.get(field, 0.0)
+                alert = alert or low
+                parts.append(f"{INTERACT_FIELD_LABEL[field]}{v:.0f}"
+                             + ("⚠" if low else ""))
+            self.tray.set_status("  ".join(parts))
+            self.tray.set_alert(alert)
+        except Exception:
+            self.logger.warning("托盘状态行更新异常", exc_info=True)
 
     # ---- v0.4 聊天 ----
     def _setup_chat(self) -> None:
@@ -1266,21 +1304,77 @@ class PetApp:
 
     def _on_pet_moved(self, x: float, y: float, h: int) -> None:
         self.bubble.follow((x, y, h))
+        self.floating.follow((x, y, h))
 
     def _interact(self, kind: str) -> None:
-        """v0.2 养成交互：window signal 触发 → store.update + 气泡。
+        """v0.2 养成交互入口：window signal 触发 → 决策 → 四通道反馈。
 
-        emoji 切换由 on_change 订阅（window.on_state_change）自动处理，不需
-        主动 _refresh_sprite。衰减导致的 mood 变化也经 on_change 切 emoji。
+        v0.19.0 起反馈四通道：数值飘字（F1）+ 音效（F4）+ 文案池气泡（F3）
+        + 喂食咀嚼覆盖（F2，临时态不进 FSM）。v0.19.1 起三态决策
+        （pet.interaction.decide_interaction）：正常生效 / 饱和拒绝 /
+        互动疲劳——拒绝与疲劳不加数值但反馈照走（拒绝也是反馈）。
+        emoji 切换仍由 on_change 订阅自动处理。
         """
-        field = _INTERACT_FIELD.get(kind)
-        if field is None:
+        import time
+
+        now = time.monotonic()
+        cfg = self._interaction_cfg
+        state = self.store.get()
+        out = decide_interaction(
+            kind,
+            gain=float(self._gains.get(kind, 0)),
+            mood=state.mood,
+            fullness=state.fullness,
+            reject_fullness=cfg["reject_fullness"],
+            fatigue_times=cfg["fatigue_times"],
+            fatigue_window_s=cfg["fatigue_window_min"] * 60,
+            recent=self._interact_log.get(kind, ()),
+            now=now,
+            msg_overrides=self._interact_msg_overrides,
+        )
+        if out.field is None:
             return
-        delta = float(self._gains.get(kind, 0))
-        self.store.update(**{field: delta})
-        msg = _INTERACT_MSG.get(kind)
-        if msg:
-            self.bubble.show(msg, anchor=self._pet_anchor())
+        if out.delta:
+            self.store.update(**{out.field: out.delta})
+            # 仅生效的交互计数；窗口外时间戳顺手清理（防列表无界增长）
+            window_s = cfg["fatigue_window_min"] * 60
+            log = [t for t in self._interact_log.get(kind, ()) if now - t <= window_s]
+            log.append(now)
+            self._interact_log[kind] = log
+        if out.floating_text:
+            self.floating.pop(out.floating_text, tone=out.floating_tone,
+                              anchor=self._pet_anchor())
+        if out.sound:
+            self.sfx.play(out.sound)
+        if out.message:
+            self.bubble.show(out.message, anchor=self._pet_anchor())
+        if out.chew:
+            self._play_feed_chew()
+
+    def _play_feed_chew(self) -> None:
+        """F2 手动喂食咀嚼覆盖：复用吃鼠标 chew 帧源，播 ~1.5s。
+
+        临时态不进 FSM（避免搅动吃鼠标会话逻辑）；终止走 _play_animate 同款
+        到期 singleShot + key 比对（被后续动画覆盖则不动）。_frame_tick 的
+        兜底停豁免 _INTERACT_ANIM_KEYS（同 _SMALL_ANIM_KEYS 机制）。
+        """
+        provider = self.provider
+        if not isinstance(provider, AIArtProvider):
+            return
+        seq = provider.frames_for(self.store.get().stage.value, "chew")
+        if not seq:
+            return
+        interval = provider.frame_interval("chew")
+        one_pass_ms = max(1, len(seq) * interval)
+        cycles = max(1, round(1500 / one_pass_ms))
+        key = "feed_chew"
+        self._play_key(key, seq, loop=True, interval=interval)
+
+        def _end_anim() -> None:
+            if getattr(self, "_anim_key", None) == key:
+                self._stop_anim()
+
+        QTimer.singleShot(cycles * one_pass_ms + 120, _end_anim)
 
     # ---- 衰减 / 持久化 ----
     def _apply_decay(self) -> None:
@@ -1589,6 +1683,8 @@ class PetApp:
     # 豁免这组（旧版 ANIMATE 刚启动就在同一 tick 被兜底停掉，永远不可见），
     # 终止改由 _play_animate 排的到期 singleShot 负责。
     _SMALL_ANIM_KEYS = ("stretch", "blink", "roll")
+    # v0.19.0 F2：交互触发的临时动画 key 集——同上豁免（到期 singleShot 终止）
+    _INTERACT_ANIM_KEYS = ("feed_chew",)
 
     def _play_animate(self, name: str) -> None:
         """随机小动作（v0.10.15 帧动画）：stretch/blink 播帧序列，
@@ -1712,7 +1808,8 @@ class PetApp:
         # H1 修：兜底停豁免小动作（stretch/blink/roll 由 _play_animate 的
         # 到期 singleShot 终止）——旧版这里把刚启动的小动作同 tick 停掉
         if (getattr(self, "_anim_key", None) not in (None, "land")
-                and self._anim_key not in self._SMALL_ANIM_KEYS):
+                and self._anim_key not in self._SMALL_ANIM_KEYS
+                and self._anim_key not in self._INTERACT_ANIM_KEYS):
             self._stop_anim()
 
     def shutdown(self) -> None:
