@@ -96,4 +96,7 @@
 # 只有一套彩色版；rig 档新增场景属性 frameNeglected（与侧身行走共用
 # mirrorNode 灰调层同参），frames 档 WindowBase 按同参去饱和入 pix 缓存
 # （muted 入键，静态 neglected 立绘不二次压色）。
-__version__ = "0.19.7"
+# v0.19.8：合并 fork 线 feat/live2d（原编号 v0.15.0，撞号顺延）——presentation=live2d
+# 走 live2d-py + QOpenGLWidget（缺库/缺模型/GL 失败回退 frames），默认展示档仍为 rig；
+# 口型改接 v0.17.6 按会话流式缓冲，Live2DWindow.set_motion_params 补风通道参数。
+__version__ = "0.19.8"

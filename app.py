@@ -213,7 +213,13 @@ class PetApp:
         # 侧身行走开箱即用）| frames（帧动画，低配回退项）| paperdoll（部件步态）。
         sprite0 = self.provider.get_static(self.store.get())
         presentation = self.cfg.get("presentation", "rig")
-        if presentation in ("rig", "paperdoll"):
+        if presentation == "live2d":
+            from pet.live2d.presenter import build_live2d_window
+
+            self.window = build_live2d_window(
+                adapter.create_pet_window, sprite0,
+                self.cfg.get("live2d") or {})
+        elif presentation in ("rig", "paperdoll"):
             from pet.rig.presenter import build_rig_window
             base_window = adapter.create_pet_window(sprite0)
             base_cls = base_window.__class__
@@ -747,6 +753,14 @@ class PetApp:
                 self._paths["data_dir"], "chat_sessions.json")),
         )
         self._chat_bridge.offlineRequested.connect(self._on_chat_offline)
+        lip = getattr(self.window, "set_lip_open", None)
+        if callable(lip):
+            def _on_lip(openness: float) -> None:
+                try:
+                    lip(openness)
+                except Exception:
+                    pass
+            self._chat_bridge.on_lip_sync = _on_lip
         try:
             self._chat_engine = load_chat_panel(self._chat_bridge, qml_path)
             if self._chat_engine and self._chat_engine.rootObjects():
@@ -1367,6 +1381,12 @@ class PetApp:
             self.sfx.play(out.sound)
         if out.message:
             self.bubble.show(out.message, anchor=self._pet_anchor())
+        play = getattr(self.window, "play_interaction", None)
+        if callable(play):
+            try:
+                play(kind)
+            except Exception:
+                self.logger.warning("live2d 交互动作失败", exc_info=True)
         if out.chew:
             self._play_feed_chew()
         self._remember_interaction(out)
@@ -1739,7 +1759,8 @@ class PetApp:
             if name == "blink" and (
                     getattr(self.window, "skinned_motion_active", lambda: False)()
                     or (getattr(self, "_part_walk", False)
-                        and self.window.part_walk_active())):
+                        and self.window.part_walk_active())
+                    or getattr(self.window, "live2d_active", False)):
                 return
             frames = self.provider.frames_for(self.store.get().stage.value, key)
             if frames:
@@ -1835,7 +1856,8 @@ class PetApp:
             # 无 limb figure（mood 姿态/未铺量阶段）走下方帧路径自动回退。
             if (getattr(self.window, "skinned_motion_active", lambda: False)()
                     or (getattr(self, "_part_walk", False)
-                        and self.window.part_walk_active())):
+                        and self.window.part_walk_active())
+                    or getattr(self.window, "live2d_active", False)):
                 # 批次L/N3：裸读改 getattr——与本函数其他 _anim_key 读取一致
                 if getattr(self, "_anim_key", None) == "walk":
                     self._stop_anim()
@@ -1939,9 +1961,16 @@ class PetApp:
                     pass
         self._mem_engine = None
         self._perm_engine = None
-        # ⑥ 移除托盘
+        # ⑥ 释放 Live2D GL（须在窗口销毁前、OpenGL 上下文仍活着时）
+        dispose = getattr(self.window, "dispose_presentation", None)
+        if callable(dispose):
+            try:
+                dispose()
+            except Exception:
+                self.logger.warning("live2d 释放失败", exc_info=True)
+        # ⑦ 移除托盘
         self.tray.remove()
-        # ⑦ QApplication.quit()
+        # ⑧ QApplication.quit()
         self.app.quit()
 
     def run(self) -> int:

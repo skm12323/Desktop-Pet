@@ -163,6 +163,7 @@ class ChatBridge(QAbstractListModel):
         # v0.17.6 多 worker：列表化
         self._dying: list = []
         self.on_user_message = None  # v0.6 可选钩子：app 侧 follow-up 启发式
+        self.on_lip_sync = None      # v0.15 Live2D 流式口型（0..1）
         self._offline = False
         self._pet_avatar = ""  # 对方头像 file:// URL；空=未注入（QML 回退 🐱）
 
@@ -526,6 +527,7 @@ class ChatBridge(QAbstractListModel):
         self._sum_worker = None
         self._stream_bufs.clear()
         self.streamingChanged.emit()
+        self._lip_sync(False)
         # v0.17.1：shutdown 收口把内存态会话落盘（轮次完成路径已即时
         # save，此处兜底 send 后未完成即退出的 user 行）
         self._store.save()
@@ -540,6 +542,7 @@ class ChatBridge(QAbstractListModel):
         self._stream_bufs[sid] = self._stream_bufs.get(sid, "") + chunk
         if sid == self._cur.id:
             self.streamingChanged.emit()
+            self._lip_sync(True)
 
     def _on_done(self, sid: str, appended: list) -> None:
         if self._workers.pop(sid, None) is None:
@@ -670,6 +673,23 @@ class ChatBridge(QAbstractListModel):
         气泡）。非 active 不 emit——它本来就没在显示。"""
         if self._stream_bufs.pop(sid, None) is not None and sid == self._cur.id:
             self.streamingChanged.emit()
+            self._lip_sync(False)
+
+    def _lip_sync(self, speaking: bool) -> None:
+        """v0.15 Live2D 流式口型（0..1）：active 会话流式中按时间正弦开合，
+        落定/清空闭嘴。回调异常不外抛（呈现层故障不影响聊天）。"""
+        cb = getattr(self, "on_lip_sync", None)
+        if cb is None:
+            return
+        try:
+            if not speaking:
+                cb(0.0)
+            else:
+                import math
+                import time as _t
+                cb(0.3 + 0.5 * abs(math.sin(_t.monotonic() * 14.0)))
+        except Exception:
+            pass
 
     @Slot()
     def reset_offline(self) -> None:

@@ -88,7 +88,7 @@ python app.py --verbose
 ### 外观与立绘
 
 - `provider`：立绘来源，`emoji`（表情占位）、`ai`（AI 立绘，缺图自动回退表情）或 `commission`（约稿立绘，按与 `ai` 相同的命名约定读取 `assets/` 资产）。
-- `presentation`：展示后端，`rig`（默认，v0.13 分层绑骨：交叉淡化、呼吸律动与部件弹簧；侧身行走开箱即用）、`frames`（帧动画；低配机器或在意内存占用时的回退项）或 `paperdoll`（v0.14 部件驱动步态：侧身前后腿 + 正面双腿 limb 摆动）。rig/paperdoll 需 `assets/rig/{stage}/` 资产，缺件自动回退 frames。
+- `presentation`：展示后端，`rig`（默认，v0.13 分层绑骨：交叉淡化、呼吸律动与部件弹簧；侧身行走开箱即用）、`frames`（帧动画；低配机器或在意内存占用时的回退项）、`paperdoll`（v0.14 部件驱动步态：侧身前后腿 + 正面双腿 limb 摆动）或 `live2d`（v0.15 Cubism Native：表情/动作/物理/视线/口型）。rig/paperdoll 需 `assets/rig/{stage}/` 资产，缺件自动回退 frames；`live2d` 需安装 `live2d-py` 并提供 `.model3.json`（默认官方 Haru 样例，见 [`assets/live2d/`](assets/live2d/)，配置段 `live2d`），缺运行时或缺模型自动回退 frames。
 - `adult_locomotion`：ADULT 在 `presentation: "rig"` 下默认使用 `side_rig`（转身、侧身行走、依次收脚）；设为 `legacy` 可回退正面步态，侧身资产缺失时也会自动回退。
   侧身行走期间，各情绪暂用同一中性骨骼体态；neglected 保持灰暗配色，完整行走会话转回正面后恢复最新表情。拖拽、离地及动作帧会中断会话并恢复表情。
   当前侧身资产包含膝部曲线过渡、裙摆惯性与尾鳍刚性约束；普通转身轻微提速，反向转身使用更快的片段播放，仍先完成收脚。

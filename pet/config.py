@@ -81,6 +81,17 @@ _SAFE_DEFAULTS: dict = {
     # G6：ADULT 行走——legacy = 正面原地步态（旧行为）；side_rig = 转身片段 + 侧身骨骼行走
     "adult_locomotion": "side_rig",
     "final_locomotion": "side_rig",
+    "live2d": {
+        "model": "",
+        "mapping": "",
+        "scale": 1.0,
+        "offset": [0.0, -0.15],
+        "gaze": True,
+        "lip_sync": True,
+        "auto_blink": True,
+        "auto_breath": True,
+        "idle": True,
+    },
     "log_level": "INFO",
     "sleepy_idle_minutes": 10,
     "hotkeys": {},
@@ -277,9 +288,29 @@ _SECTION_SCHEMAS: dict[str, dict] = {
     # 批次J/L14（REVIEW-2026-08-31 F23）：此前这些段无 schema——
     # 非法值（如 presentation 拼错）静默漏过，行为与预期脱节无告警
     "provider": {"enum": ["emoji", "ai", "commission"]},
-    "presentation": {"enum": ["frames", "rig", "paperdoll"]},
+    "presentation": {"enum": ["frames", "rig", "paperdoll", "live2d"]},
     "adult_locomotion": {"enum": ["legacy", "side_rig"]},
     "final_locomotion": {"enum": ["legacy", "side_rig"]},
+    "live2d": {
+        "type": "object",
+        "properties": {
+            "model": {"type": "string"},
+            "mapping": {"type": "string"},
+            "scale": {"type": "number", "minimum": 0.1, "maximum": 5},
+            "offset": {
+                "type": "array",
+                "items": {"type": "number"},
+                "minItems": 2,
+                "maxItems": 2,
+            },
+            "gaze": {"type": "boolean"},
+            "lip_sync": {"type": "boolean"},
+            "auto_blink": {"type": "boolean"},
+            "auto_breath": {"type": "boolean"},
+            "idle": {"type": "boolean"},
+        },
+        "additionalProperties": False,
+    },
     "log_level": {"enum": ["DEBUG", "INFO", "WARNING", "ERROR"]},
     # 批次C/P3-10（REVIEW-2026-09-05）：user_name 入 schema——此前只被
     # app 读取（ToolContext.user_name）却无处可配（示例/校验双缺，改值
