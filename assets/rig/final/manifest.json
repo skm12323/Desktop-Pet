@@ -1,8 +1,7 @@
 {
   "figures": {
     "neglected_neutral": "figs/neglected_neutral.png",
-    "healthy_neutral": "figs/healthy_neutral.png",
-    "healthy_side": "figs/healthy_side.png"
+    "healthy_neutral": "figs/healthy_neutral.png"
   },
   "parts": [
     {
@@ -135,52 +134,6 @@
         "amp_deg": 7.0,
         "period_ms": 2600.0,
         "phase_ms": 1300.0
-      }
-    },
-    {
-      "id": "leg_back_healthy_side",
-      "file": "parts/leg_back_healthy_side.png",
-      "source_figure": "healthy_side",
-      "px_rect": [
-        498,
-        872,
-        742,
-        1246
-      ],
-      "pivot": [
-        703,
-        882
-      ],
-      "z": "under_core",
-      "kind": "limb",
-      "base_deg": 0.0,
-      "sway": {
-        "amp_deg": 14.0,
-        "period_ms": 2600.0,
-        "phase_ms": 1300.0
-      }
-    },
-    {
-      "id": "leg_front_healthy_side",
-      "file": "parts/leg_front_healthy_side.png",
-      "source_figure": "healthy_side",
-      "px_rect": [
-        822,
-        892,
-        1060,
-        1278
-      ],
-      "pivot": [
-        857,
-        902
-      ],
-      "z": "under_core",
-      "kind": "limb",
-      "base_deg": 0.0,
-      "sway": {
-        "amp_deg": 14.0,
-        "period_ms": 2600.0,
-        "phase_ms": 0.0
       }
     },
     {

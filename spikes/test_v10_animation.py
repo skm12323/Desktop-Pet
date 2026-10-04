@@ -111,8 +111,8 @@ def main() -> int:
     QTest.qWait(700)          # 越过 520ms 到期点
     check("L3b land 到期自停（旧版定格 5-35s）", stub._anim_key is None)
 
-    # ---- L21（REVIEW-2026-09-04）：paperdoll 档跳过帧版 blink ----
-    class _FakePaperWin:
+    # ---- L21（REVIEW-2026-09-04）：蒙皮网格可见时跳过帧版 blink ----
+    class _FakeSkinnedWin:
         def __init__(self):
             self.played = []
 
@@ -122,7 +122,7 @@ def main() -> int:
         def height(self):
             return 192
 
-        def part_walk_active(self):
+        def skinned_motion_active(self):
             return True
 
         def is_playing(self):
@@ -138,10 +138,9 @@ def main() -> int:
     stub2._SMALL_ANIM_KEYS = PetApp._SMALL_ANIM_KEYS
     for name in ("_play_animate", "_play_key", "_stop_anim", "_frame_tick"):
         setattr(stub2, name, types.MethodType(getattr(PetApp, name), stub2))
-    stub2._part_walk = True
-    stub2.window = _FakePaperWin()
+    stub2.window = _FakeSkinnedWin()
     stub2._play_animate("blink")
-    check("L21 paperdoll 档跳过帧版 blink（引擎贴片已在场景内）",
+    check("L21 蒙皮可见跳过帧版 blink（网格自带眨眼）",
           stub2._anim_key is None and not stub2.window.played)
     stub2._play_animate("stretch")
     check("L21a stretch 不受影响照常播帧",

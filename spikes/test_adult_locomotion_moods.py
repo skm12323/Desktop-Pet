@@ -45,7 +45,7 @@ def main(stage="adult", size=256):
     provider = AIArtProvider()
     w.set_sprite_provider(provider)
     app = PetApp.__new__(PetApp)
-    app.window, app.provider, app._part_walk = w, provider, False
+    app.window, app.provider = w, provider
     app.fsm, app._anim_key = SimpleNamespace(motion_mode="free"), None
     OUT.mkdir(parents=True, exist_ok=True)
     results, images = [], []
@@ -118,13 +118,10 @@ def main(stage="adult", size=256):
     w.on_state_change(state)
     for _ in range(250):
         tick(120)
-    w.set_walk_figure(provider.side_walk_static(state))
-    app._part_walk = True
     tick(120)
     app._frame_tick(None, "walk", "walk")
-    check("paperdoll carrier cannot replace active side rig", w._root.property("skinnedMeshVisible")
+    check("walk frame tick cannot replace active side rig", w._root.property("skinnedMeshVisible")
           and not w._frames)
-    app._part_walk = False
     w.set_conversation_mood(Mood.SAD)
     check("mood change during walking retains rig", w._root.property("skinnedMeshVisible"))
     w.locomotion_interrupt()

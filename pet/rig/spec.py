@@ -215,8 +215,7 @@ def load_rig_spec(rig_dir: str, stage: str) -> RigSpec | None:
             continue
         # 批次F/rM3（REVIEW-2026-08-28）：几何与 limb 驱动参数校验——
         # px_rect 负宽高（x1<=x0）的部件渲染行为未定义；limb 缺
-        # sway/amp=0 时"part_walk_active()=True 却摆角恒 0"→ 冻结腿 +
-        # 压制帧回退 = 平移滑行，静默劣化不如显式弃件降级
+        # sway/amp=0 时摆角恒 0 → 冻结腿 = 平移滑行，静默劣化不如显式弃件降级
         x0, y0, x1, y1 = (float(v) for v in item["px_rect"])
         if x1 <= x0 or y1 <= y0:
             log.warning("rig part %s px_rect 非法（%s），弃件",

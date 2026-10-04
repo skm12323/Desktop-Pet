@@ -114,40 +114,6 @@ class VisualRepair(unittest.TestCase):
         self.assertIsNone(first)
         self.assertFalse(left)
 
-    def test_edge_polish_preserves_alpha(self):
-        from polish_turn_frames import polish_rgba
-        a = np.zeros((64, 64, 4), np.uint8)
-        a[12:52, 12:52] = [90, 130, 210, 255]
-        a[12:52, 12:14, :3] = [0, 160, 190]
-        b, stats = polish_rgba(a, 512)
-        self.assertTrue(np.array_equal(a[..., 3], b[..., 3]))
-        self.assertTrue(np.array_equal(a[a[..., 3] == 0], b[a[..., 3] == 0]))
-        self.assertGreater(stats["repaired_px"], 0)
-        self.assertLess(stats["cyan_edge_after_px"], stats["cyan_edge_before_px"])
-
-    def test_material_holes_distinguish_negative_space(self):
-        from qa_side_rig import enclosed_holes, classify_material_holes
-        rgba = np.full((64, 64, 4), 255, np.uint8)
-        rgba[24:40, 24:40, 3] = 0
-        verts = np.array([[0, 0, 1], [64, 0, 1], [0, 64, 1], [64, 64, 1]], float)
-        uv = verts[:, :2]/64
-        tri = np.array([0, 1, 2, 2, 1, 3])
-        def layer(name, a):
-            path = OUT / ("fixture_"+name+".png")
-            Image.fromarray(a).save(path)
-            return SimpleNamespace(layer_id=name, rest=verts, uv=uv, triangles=tri, texture_path=str(path))
-        solid = SimpleNamespace(layers=[layer("torso", rgba)], deform=lambda l, p: p)
-        regions = classify_material_holes(solid, rgba[..., 3], enclosed_holes(rgba[..., 3]))
-        self.assertTrue(regions[0]["material_defect"])
-        dress, arm = rgba.copy(), rgba.copy()
-        dress[:, :32, 3] = 0
-        arm[:, 32:, 3] = 0
-        gap = SimpleNamespace(layers=[layer("skirt", dress), layer("arm_l", arm)], deform=lambda l, p: p)
-        regions = classify_material_holes(gap, rgba[..., 3], enclosed_holes(rgba[..., 3]))
-        self.assertFalse(regions[0]["material_defect"])
-        curl = SimpleNamespace(layers=[layer("hair_back", rgba)], deform=lambda l, p: p)
-        self.assertFalse(classify_material_holes(curl, rgba[..., 3], enclosed_holes(rgba[..., 3]))[0]["material_defect"])
-
 
 if __name__ == "__main__":
     unittest.main()

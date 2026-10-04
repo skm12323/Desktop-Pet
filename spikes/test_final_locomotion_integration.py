@@ -37,19 +37,14 @@ class FinalIntegration(unittest.TestCase):
         self.app.cfg={}
         self.app.logger=logging.getLogger('pet.tests')
 
-    def test_older_config_gets_final_default_and_independent_legacy(self):
-        self.app.cfg={'adult_locomotion':'legacy'}
+    def test_stale_locomotion_keys_are_ignored(self):
+        # v0.20.0：*_locomotion 配置已移除，侧身行走按阶段资产自动启用；旧配置残留键不生效
+        self.app.cfg={'adult_locomotion':'legacy','final_locomotion':'legacy'}
         self.app._setup_side_locomotion()
         self.assertTrue(self.win.locomotion_available())
         self.assertEqual(Path(self.win._loco_pkg).name,'rig_final_walk_v1')
         self.assertAlmostEqual(self.win._loco.scale,320/1824)
         self.assertTrue(self.win._loco.clip_out.frames[0].path.endswith('000.png'))
-        self.app.cfg['final_locomotion']='legacy'
-        self.app._setup_side_locomotion()
-        self.assertFalse(self.win.locomotion_available())
-        self.assertEqual(self.win._root.property('locoMode'),0)
-        side=self.win._root.findChild(type(self.win._skinned_item),'sideMesh')
-        self.assertIsNone(side._rt)
 
     def test_final_canvas_rejects_adult_bundle(self):
         self.assertFalse(self.win.enable_side_locomotion(str(ROOT/'assets/rig_adult_walk_v1')))
@@ -104,14 +99,16 @@ class FinalIntegration(unittest.TestCase):
         self.assertFalse(self.win._loco_carrying)
         self.assertEqual(self.win._root.property('activeFigure'),'healthy_sad')
 
-    def test_final_config_validation(self):
+    def test_removed_presentation_keys_not_in_defaults(self):
         from pet.config import load_config
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'config.json'
-            path.write_text(json.dumps({'final_locomotion':'legacy','adult_locomotion':'side_rig'}))
-            self.assertEqual(load_config(str(path))['final_locomotion'],'legacy')
-            path.write_text(json.dumps({'final_locomotion':'invalid'}))
-            self.assertEqual(load_config(str(path))['final_locomotion'],'side_rig')
+            path.write_text(json.dumps({}))
+            cfg=load_config(str(path))
+            for key in ('presentation','adult_locomotion','final_locomotion','live2d','render3d'):
+                self.assertNotIn(key,cfg)
+            path.write_text(json.dumps({'presentation':'frames','final_locomotion':'invalid'}))
+            self.assertEqual(load_config(str(path))['provider'],'ai')   # 残留键不影响加载
 
     def test_stage_change_cancels_deferred_package_request(self):
         from PySide6.QtCore import Qt

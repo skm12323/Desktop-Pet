@@ -643,17 +643,3 @@ class WindowBase(QWidget):
                          getattr(enrichment, "shadow_scale_y", 0.08))
         except Exception:  # noqa: BLE001
             pass
-
-    def part_walk_active(self) -> bool:
-        """当前展示 figure 是否可部件驱动步态（v0.14 paperdoll 路由查询）。
-
-        frames 后端恒 False —— app 路由据此回退帧动画，无需判后端类型。
-        """
-        return False
-
-    def set_walk_figure(self, sprite) -> None:
-        """行走覆盖图（v0.14.4）：walking 期间改显该 figure（部件步态载体）。
-
-        frames 后端无此需求（行走播帧序列），基类 no-op 缺省。
-        """
-        return None

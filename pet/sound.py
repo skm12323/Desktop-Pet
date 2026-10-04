@@ -2,7 +2,7 @@
 
 config ``sound`` 段：``{"enabled": false, "volume": 0.6}``。资产约定
 ``assets/sounds/<name>.wav``（pet/feed/clean/poke，0.19.1 起加 reject）；
-缺 QtMultimedia 模块、缺资产文件均静默跳过，永不外抛（与 render3d 同
+缺 QtMultimedia 模块、缺资产文件均静默跳过，永不外抛（与 wind/sun 通道同
 哲学）。QSoundEffect 实例按名缓存（需保活引用，播完自动停）。
 """
 

@@ -70,22 +70,22 @@ def main() -> int:
     import tempfile
     bad_cfg = os.path.join(tempfile.gettempdir(), "dp_test_v11_cfg.json")
     with open(bad_cfg, "w", encoding="utf-8") as f:
-        json.dump({"presentation": "paperdolll",   # 拼错
+        json.dump({"provider": "aii",              # 拼错
                    "log_level": "CHATTY",            # 非法枚举
                    "hotkeys": {"chat": 42}}, f)      # 类型错
     got = load_config(bad_cfg)
-    check("T13a 非法 presentation 回退默认 rig",
-          got["presentation"] == "rig")
+    check("T13a 非法 provider 回退默认（example 值 ai）",
+          got["provider"] == "ai")
     check("T13b 非法 log_level 回退默认 INFO", got["log_level"] == "INFO")
     check("T13c 非法 hotkeys 段回退默认（example 值）",
           isinstance(got["hotkeys"], dict)
           and isinstance(got["hotkeys"].get("chat"), str))
     # 合法值原样通过
     with open(bad_cfg, "w", encoding="utf-8") as f:
-        json.dump({"presentation": "paperdoll", "log_level": "DEBUG"}, f)
+        json.dump({"provider": "commission", "log_level": "DEBUG"}, f)
     got2 = load_config(bad_cfg)
     check("T13d 合法新段原样通过",
-          got2["presentation"] == "paperdoll"
+          got2["provider"] == "commission"
           and got2["log_level"] == "DEBUG")
     os.remove(bad_cfg)
     # safe defaults 过同名 schema 终检（F21）

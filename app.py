@@ -80,11 +80,8 @@ from pet.platform import get_platform_adapter
 from pet.sound import SoundFX
 from pet.tools_schema import ToolContext, ToolRegistry
 from pet.tray import TrayManager
-# 新引擎有效部分经中间层 EngineBridge 接入（原有引擎 frames 恒为兜底）。
-# v0.15.1 接回：motion/wind/sun 以「可选叠加」注入，任一环失败即降级恒等。
-from pet.engine_bridge import (
-    ChannelEnricher, EngineBridge, MotionEnricher, NullEnricher,
-)
+# 实时环境通道（wind/sun）经中间层 EngineBridge 以「可选叠加」注入，任一环失败即降级静态。
+from pet.engine_bridge import ChannelEnricher, EngineBridge, NullEnricher
 
 # 版本单一源 = pet/__init__.__version__（L2 治理：旧版三处硬编码漂移到
 # v0.7.4+win / 0.9.3 / 幻影 v0.12.1 注释）。发版只改 pet/__init__.py。
@@ -147,8 +144,8 @@ class PetApp:
         paths = adapter.get_paths()
         self._paths = paths   # v0.9.2(H1 修)：_setup_chat 等方法可引用
         self.cfg = load_config(paths["config_path"])
-        # v0.15.1 接回：风/光影 + 运动引擎统一经中间层 EngineBridge 装配
-        # （见 _build_engine_bridge，在 store 就绪后调用；任一环失败恒等）。
+        # 风/光影通道经中间层 EngineBridge 装配（见 _build_engine_bridge，
+        # 在 store 就绪后调用；任一环失败降级静态）。
         # config log_level 校准 logger 级别（main 里 setup_logging 用默认 INFO）
         if not verbose and self.cfg.get("log_level"):
             lvl_map = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40}
@@ -199,8 +196,7 @@ class PetApp:
             "cleanliness": float(need.get("cleanliness", 25.0)),
             "mood": float(need.get("mood", 20.0)),
         }
-        # v0.15.1 接回：新引擎有效部分（motion + wind/sun）经中间层 EngineBridge
-        # 叠加到原有引擎 frames；任一环失败 → 恒等（原有引擎兜底，不阻断启动）。
+        # 风/光影通道经中间层 EngineBridge 叠加；任一环失败 → 静态（不阻断启动）。
         self._bridge = self._build_engine_bridge()
 
         self.sensors = adapter.get_sensors()  # 注入式，不直 import sensor_mac
@@ -209,30 +205,20 @@ class PetApp:
         wa = self.sensors.work_area
         self.fsm = BehaviorFSM(dict(wa), self.cfg.get("behavior", {}))
 
-        # v0.13/v0.18 展示后端选择：presentation=rig（v0.17.8 起默认，
-        # 侧身行走开箱即用）| frames（帧动画，低配回退项）| paperdoll（部件步态）。
+        # 展示后端：v0.20.0 起只保留 rig（分层绑骨 + 蒙皮 + 侧身行走）。
+        # build_rig_window 在 Qt Quick/manifest/场景任一缺失时返回平台基类窗
+        # （静态立绘 + 动作帧），作为唯一的内建降级。
         sprite0 = self.provider.get_static(self.store.get())
-        presentation = self.cfg.get("presentation", "rig")
-        if presentation == "live2d":
-            from pet.live2d.presenter import build_live2d_window
-
-            self.window = build_live2d_window(
-                adapter.create_pet_window, sprite0,
-                self.cfg.get("live2d") or {})
-        elif presentation in ("rig", "paperdoll"):
-            from pet.rig.presenter import build_rig_window
-            base_window = adapter.create_pet_window(sprite0)
-            base_cls = base_window.__class__
-            base_window.deleteLater()
-            self.window = build_rig_window(
-                base_cls,
-                sprite0,
-                self.store.get().stage.value,
-                defer_quick=True,
-            )
-        else:
-            self.window = adapter.create_pet_window(sprite0)
-        self._part_walk = (presentation == "paperdoll")
+        from pet.rig.presenter import build_rig_window
+        base_window = adapter.create_pet_window(sprite0)
+        base_cls = base_window.__class__
+        base_window.deleteLater()
+        self.window = build_rig_window(
+            base_cls,
+            sprite0,
+            self.store.get().stage.value,
+            defer_quick=True,
+        )
         # 批次L/N3（实机审查 2026-08-31）：_anim_key 初始化——旧版首赋值在
         # _play_key，行走先于首个随机小动作时 _frame_tick 裸读
         # self._anim_key 每拍 AttributeError：FSM 照走、窗口位置同步被跳过
@@ -243,7 +229,7 @@ class PetApp:
         self.window.set_need_thresholds(self._need_thresholds)
         # 批次A/H1（REVIEW-2026-08-31）：进化换档重载 rig spec——三阶段
         # manifest 共用 figure 键，spec 终生绑启动阶段会把新阶段 neutral
-        # 映射回旧阶段派生核心图（宠物在 rig/paperdoll 档"长不大"直到重启）。
+        # 映射回旧阶段派生核心图（宠物在 rig 档"长不大"直到重启）。
         # 订阅须先于 window.on_state_change（后者换图即按新 spec 解析）
         self._rig_stage = self.store.get().stage.value
 
@@ -264,21 +250,6 @@ class PetApp:
         # Apply the startup expression immediately; an unchanged decay tick
         # need not emit a state update, and set_conversation_mood has no state yet.
         self.window.on_state_change(self.store.get())
-        # v0.14.4 行走覆盖：行走期间改显部件步态载体 figure，停步还原
-        # mood 立绘——否则行走静默回退 GPT 帧环，帧间烤死的手臂摆动/
-        # 尾巴位移/色调差即实机报告的观感问题。
-        # v0.14.6 载体优先级：侧身部件立绘（walk_0 像素拷贝+前后腿拆件，
-        # 程序化侧身步态）→ 正面 neutral（正面踏步）→ None（帧行走回退）。
-        def _walk_refresh(s) -> None:
-            fig = None
-            if self._part_walk:
-                prov = self.provider
-                if hasattr(prov, "side_walk_static"):
-                    fig = prov.side_walk_static(s) \
-                        or prov.neutral_static(s)
-            self.window.set_walk_figure(fig)
-        _walk_refresh(self.store.get())
-        self.store.on_change(_walk_refresh)
         # v0.3.12 真实身位高喂 FSM（净空钻行判定；阶段进化变尺寸时更新）
         self.fsm.set_pet_height(self.window.height())
         # G7 边缘修复：横向可达范围按真实窗口宽喂入（与 move_bottom_center
@@ -488,31 +459,11 @@ class PetApp:
             self.logger.warning("GC 治理失败（忽略，不影响运行）", exc_info=True)
 
     def _build_engine_bridge(self) -> EngineBridge:
-        """装配中间层（原有引擎 frames ← EngineBridge ← 新引擎有效部分）。
-
-        motion（呼吸/眨眼/squash/倾斜）+ wind/sun 两条通道各自独立兜底：
-        任一环抛错 → 该环降级为恒等/静态，返回的 EngineBridge 永不抛错。
-        spec 为 None（无 manifest）时 motion 仍可出整身增量（呼吸/眨眼/
-        squash），只是无部件角 —— 不因此回退。
-
-        CPU 优化：rig/paperdoll 后端下**不装配 MotionEnricher**。
-        RigWindow 自持 MotionEngine（presenter._motion_timer 30Hz step），
-        中间层这份 motion 的 body_angle/scale/part_angles/blink 在
-        RigWindow.apply_enrichment 里只取 shadow、其余算完即弃（纯浪费
-        20Hz 全量 FK/LBS）。rig 后端下 enricher 恒 NullEnricher，RigWindow
-        ._engine 是唯一 step 者；frames 后端仍要 body_y（呼吸）故保留 motion。
+        """装配中间层：rig 后端自持 MotionEngine（presenter._motion_timer
+        30Hz step），中间层只输送 wind/sun 通道（enricher 恒 NullEnricher）。
+        通道装配失败 → 降级静态，返回的 EngineBridge 永不抛错。
         """
-        presentation = self.cfg.get("presentation", "rig")
         enricher = NullEnricher()
-        if presentation not in ("rig", "paperdoll"):
-            try:
-                from pet.rig.spec import load_rig_spec
-                rig_root = os.path.join(os.path.dirname(__file__), "assets", "rig")
-                stage = self.store.get().stage.value
-                spec = load_rig_spec(os.path.join(rig_root, stage), stage)
-                enricher = MotionEnricher(spec)
-            except Exception:
-                self.logger.warning("新引擎运动增强装配失败，回退恒等", exc_info=True)
         try:
             channels = ChannelEnricher(self.cfg)
         except Exception:
@@ -753,14 +704,6 @@ class PetApp:
                 self._paths["data_dir"], "chat_sessions.json")),
         )
         self._chat_bridge.offlineRequested.connect(self._on_chat_offline)
-        lip = getattr(self.window, "set_lip_open", None)
-        if callable(lip):
-            def _on_lip(openness: float) -> None:
-                try:
-                    lip(openness)
-                except Exception:
-                    pass
-            self._chat_bridge.on_lip_sync = _on_lip
         try:
             self._chat_engine = load_chat_panel(self._chat_bridge, qml_path)
             if self._chat_engine and self._chat_engine.rootObjects():
@@ -1162,7 +1105,7 @@ class PetApp:
             try:
                 rows.append({"type": "section", "name": "呈现"})
                 rows.append({"type": "field", "name": "立绘来源", "value": self.cfg.get("provider", "emoji"), "level": "ok"})
-                rows.append({"type": "field", "name": "展示后端", "value": self.cfg.get("presentation", "rig"), "level": "ok"})
+                rows.append({"type": "field", "name": "展示后端", "value": "rig" if getattr(self.window, "rig_active", False) else "降级（静态立绘）", "level": "ok"})
                 w = self.window
                 rows.append({"type": "field", "name": "窗口", "value": f"{w.width()}×{w.height()} @ ({w.x()},{w.y()})", "level": "ok"})
             except Exception as exc:
@@ -1381,12 +1324,6 @@ class PetApp:
             self.sfx.play(out.sound)
         if out.message:
             self.bubble.show(out.message, anchor=self._pet_anchor())
-        play = getattr(self.window, "play_interaction", None)
-        if callable(play):
-            try:
-                play(kind)
-            except Exception:
-                self.logger.warning("live2d 交互动作失败", exc_info=True)
         if out.chew:
             self._play_feed_chew()
         self._remember_interaction(out)
@@ -1649,10 +1586,10 @@ class PetApp:
         stage = getattr(stage, "value", stage)
         if not callable(enable):
             return
-        if stage in ("adult", "final") and self.cfg.get(f"{stage}_locomotion", "side_rig") == "side_rig":
+        if stage in ("adult", "final"):
             pkg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", f"rig_{stage}_walk_v1")
             if not enable(pkg):
-                self.logger.warning("%s_locomotion=side_rig 但侧身行走资产不可用，回退旧路径", stage)
+                self.logger.warning("%s 侧身行走资产不可用，回退正面步态", stage)
         elif callable(disable):
             disable()
 
@@ -1696,9 +1633,8 @@ class PetApp:
         mode = self.fsm.mode
         if mode == "eat_mouse" and getattr(self, "_fsm_last_mode", "") != "eat_mouse":
             self._proactive.eat_mouse_arrived()
-        # v0.15.1 接回：新引擎有效部分（motion + wind/sun）经中间层 EngineBridge
-        # 逐帧叠加到原有引擎 frames。风/光影逐拍刷新（内部节流）；落地沿
-        # squash 由 MotionEnricher 在 set_motion 的下降沿自触发。整块永不抛错。
+        # wind/sun 通道经中间层 EngineBridge 逐拍刷新（内部节流）；运动姿态由
+        # rig 后端 MotionEngine 自持（落地沿 squash 在 set_motion_params 内触发）。
         self._bridge.refresh_channels()
         vx, _vy = self.fsm.velocity
         tilt = max(-9.0, min(9.0, vx / 140.0))
@@ -1753,14 +1689,10 @@ class PetApp:
         if key is None:
             return
         if isinstance(self.provider, AIArtProvider):
-            # L21（REVIEW-2026-09-04）：paperdoll 档已有引擎级 blinkOn 贴片
-            # （场景每 4.7s 自脉冲），帧版 blink 会切到烤死全帧渲染，6 sway
-            # 件+腿件微动骤停 ~1.3s——重复且劣化，跳过（stretch/roll 保留）
-            if name == "blink" and (
-                    getattr(self.window, "skinned_motion_active", lambda: False)()
-                    or (getattr(self, "_part_walk", False)
-                        and self.window.part_walk_active())
-                    or getattr(self.window, "live2d_active", False)):
+            # L21（REVIEW-2026-09-04）：蒙皮网格自带眨眼，帧版 blink 会切到烤死
+            # 全帧渲染、骨骼微动骤停 ~1.3s——重复且劣化，跳过（stretch/roll 保留）
+            if name == "blink" and getattr(
+                    self.window, "skinned_motion_active", lambda: False)():
                 return
             frames = self.provider.frames_for(self.store.get().stage.value, key)
             if frames:
@@ -1806,7 +1738,7 @@ class PetApp:
         if not isinstance(provider, AIArtProvider):
             # L4（REVIEW-2026-09-04）：emoji 档行走 2 帧交替恢复——v0.10.15
             # 收帧驱动后 get_frames(MOVE_TO) 全仓零调用，行走中 emoji 宠物
-            # 是静止贴图（v0.3 行为回归）。paperdoll/降级实例不受影响。
+            # 是静止贴图（v0.3 行为回归）。
             if mode == "walk" and isinstance(provider, EmojiProvider):
                 frames = provider.get_frames(
                     self.store.get(), ActionType.MOVE_TO)
@@ -1851,13 +1783,9 @@ class PetApp:
         # getattr(self,"_follow") 读 PetApp 不存在的属性恒 False——死分支）
         if (mode == "walk"
                 or (mode == "idle" and self.fsm.motion_mode == "follow")):
-            # v0.14 部件驱动步态优先（paperdoll）：当前 figure 挂 limb 部件
-            # → 不播 walk 帧，正面原地步态由场景 limb 驱动器程序化合成；
-            # 无 limb figure（mood 姿态/未铺量阶段）走下方帧路径自动回退。
-            if (getattr(self.window, "skinned_motion_active", lambda: False)()
-                    or (getattr(self, "_part_walk", False)
-                        and self.window.part_walk_active())
-                    or getattr(self.window, "live2d_active", False)):
+            # 蒙皮网格可见 → 步态由骨骼驱动（正面步态 / 侧身会话），不播 walk 帧；
+            # 非蒙皮 figure（neglected / mood 立绘）走下方帧路径回退。
+            if getattr(self.window, "skinned_motion_active", lambda: False)():
                 # 批次L/N3：裸读改 getattr——与本函数其他 _anim_key 读取一致
                 if getattr(self, "_anim_key", None) == "walk":
                     self._stop_anim()
@@ -1961,16 +1889,9 @@ class PetApp:
                     pass
         self._mem_engine = None
         self._perm_engine = None
-        # ⑥ 释放 Live2D GL（须在窗口销毁前、OpenGL 上下文仍活着时）
-        dispose = getattr(self.window, "dispose_presentation", None)
-        if callable(dispose):
-            try:
-                dispose()
-            except Exception:
-                self.logger.warning("live2d 释放失败", exc_info=True)
-        # ⑦ 移除托盘
+        # ⑥ 移除托盘
         self.tray.remove()
-        # ⑧ QApplication.quit()
+        # ⑦ QApplication.quit()
         self.app.quit()
 
     def run(self) -> int:

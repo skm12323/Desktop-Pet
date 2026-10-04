@@ -10,9 +10,6 @@
     }
   },
   "provider": "ai",
-  "presentation": "rig",
-  "adult_locomotion": "side_rig",
-  "final_locomotion": "side_rig",
   "wind": {
     "enabled": false,
     "latitude": 0.0,
@@ -26,17 +23,6 @@
     "longitude": 0.0,
     "timezone_offset": null,
     "shadow_alpha": 0.4
-  },
-  "live2d": {
-    "model": "assets/live2d/haru/Haru.model3.json",
-    "mapping": "",
-    "scale": 1.0,
-    "offset": [0.0, -0.15],
-    "gaze": true,
-    "lip_sync": true,
-    "auto_blink": true,
-    "auto_breath": true,
-    "idle": true
   },
   "user_name": "主人",
   "sleepy_idle_minutes": 10,
@@ -141,12 +127,5 @@
     "fullness_weight": 0.4,
     "cleanliness_weight": 0.2,
     "healthy_threshold": 70
-  },
-  "render3d": {
-    "enabled": false,
-    "stage": "adult",
-    "light_level": 1,
-    "fps_cap": 30,
-    "safe_rss_mb": 500.0
   }
 }

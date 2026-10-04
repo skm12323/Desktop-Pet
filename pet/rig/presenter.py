@@ -153,8 +153,6 @@ class RigWindow(WindowBase):
         self._src_bounds_cache: dict[str, tuple[int, int, int, int]] = {}
         self._air_prev = False            # 空中标志边沿检测（落地压扁）
         self._contact = 1.0               # P3 接触阴影：离地→收缩系数 lerp
-        self._walk_sprite = None          # v0.14.4 行走覆盖图（neutral 核心）
-        self._walk_showing = False
         self._engine = MotionEngine(spec) if spec is not None else None
         self._motion_inputs = MotionInputs()
         self._motion_timer: QTimer | None = None
@@ -162,7 +160,7 @@ class RigWindow(WindowBase):
         self._gait: GaitSolver | None = None
         self._gait_desired_vx = 0.0
         self._last_tick_s: float | None = None      # perf_counter 单调时钟
-        # ---- G6 ADULT 侧身行走（side_locomotion）：缺省关闭，app 按配置启用 ----
+        # ---- ADULT/FINAL 侧身行走（side_locomotion）：缺省关闭，app 按阶段资产启用 ----
         self._loco: SideLocomotion | None = None
         self._loco_pkg = ""
         self._loco_vx = 0.0
@@ -421,9 +419,6 @@ class RigWindow(WindowBase):
         """
         if not self.rig_active or self._spec is None or self._spec.stage not in ("adult", "final"):
             return
-        if self._walk_showing:
-            self._walk_showing = False
-            self._sprite = getattr(self, "_static_sprite", self._sprite)
         key = self._display_figure_key(self._sprite.path)
         carrier = self._spec.figures.get("healthy_neutral", "")
         if not key.startswith(("healthy_", "neglected_")) or not os.path.isfile(carrier):
@@ -628,7 +623,7 @@ class RigWindow(WindowBase):
 
         三阶段 manifest 共用 figure 键（healthy_neutral 等）——不换档则
         ``_resolve_display`` 把新阶段立绘映射回启动阶段的派生核心图，
-        宠物在 rig/paperdoll 档视觉上"长不大"直到重启。新阶段清单缺失/
+        宠物在 rig 档视觉上"长不大"直到重启。新阶段清单缺失/
         非法 → 保持旧 spec（降级铁律：展示层永不因换档崩）。"""
         if self._spec is not None and stage == self._spec.stage:
             return
@@ -652,9 +647,7 @@ class RigWindow(WindowBase):
         self._root.setProperty("partsModel", self._parts_model(spec))
         self._setup_skinned_mesh()
         # 当前画面按新 spec 重解析（帧序列播放中不动——收尾路径自然重解）
-        if self._walk_showing and self._walk_sprite is not None:
-            self._show_now(self._walk_sprite.path)
-        elif not self._frames and os.path.isfile(self._sprite.path):
+        if not self._frames and os.path.isfile(self._sprite.path):
             self._show_now(self._sprite.path)
 
     # ---------------- 渲染主路径（基类语义的场景版） ----------------
@@ -756,12 +749,8 @@ class RigWindow(WindowBase):
             self._restore_after_sequence()
 
     def _restore_after_sequence(self) -> None:
-        """序列收尾恢复：walking 覆盖期间回覆盖图（否则 mood 图在行进中
-        闪现一拍，等下一个 walking 沿才被纠正）。"""
+        """序列收尾恢复：回到播放前的静态立绘（并复位动作帧灰调）。"""
         self._sync_frame_palette()
-        if self._walk_showing and self._walk_sprite is not None:
-            self._show_now(self._walk_sprite.path)
-            return
         self.set_sprite(getattr(self, "_static_sprite", self._sprite))
 
     def _sync_frame_palette(self) -> None:
@@ -795,18 +784,16 @@ class RigWindow(WindowBase):
     def set_facing(self, d: int) -> None:
         """镜像语义与基类相同；朝向同步写场景属性（即时翻转对齐旧行为）。
 
-        批次F/H4（REVIEW-2026-08-28）：行走覆盖/帧序列播放中不换图——
-        基类 set_facing 会 set_sprite(self._sprite)（mood 立绘）→
-        activeFigure 变为无 limb 的 figure → part_walk_active()=False →
-        隐藏的第三类帧回退（v0.14.4"只剩两类回退"承诺被破坏），且夹一拍
-        mood 图闪现。与 on_state_change 同款守卫：只落 _facing + 场景
-        facing 属性即时镜像，画面恢复交给既有收尾路径。
+        批次F/H4（REVIEW-2026-08-28）：帧序列播放中不换图——基类 set_facing
+        会 set_sprite(self._sprite)（mood 立绘）夹一拍闪现。与 on_state_change
+        同款守卫：只落 _facing + 场景 facing 属性即时镜像，画面恢复交给既有
+        收尾路径。
         """
         if d not in (-1, 1) or d == getattr(self, "_facing", 1):
             return
         if self._motion_inputs is not None:
             self._motion_inputs.facing = int(d)
-        if self.rig_active and (self._walk_showing or self._frames):
+        if self.rig_active and self._frames:
             self._facing = d
             self._set_prop("facing", int(d))
             return
@@ -840,7 +827,6 @@ class RigWindow(WindowBase):
         self._set_prop("bodyTilt", float(tilt_deg))
         self._set_prop("walking", bool(walking))
         self._set_prop("walkHz", float(walk_hz))
-        self._walk_edge(bool(walking))
         if (not airborne) and self._air_prev:
             if self._engine is not None:
                 self._engine.trigger_squash()
@@ -1045,42 +1031,8 @@ class RigWindow(WindowBase):
             item.setBlink(frame.blink_progress)
             item.setLookAt(frame.look_at[0], frame.look_at[1])
 
-    def set_walk_figure(self, sprite) -> None:
-        """行走覆盖图（v0.14.4）：walking 期间改显该 figure。
-
-        paperdoll 的部件步态载体是 neutral 核心（唯一有 limb 腿部件）；
-        mood 图（happy 跳姿/hungry 等）无腿部件，不覆盖则行走静默回退
-        GPT 帧环——帧间烤死的手臂摆动/尾巴位移/色调差即实机报告的
-        "手臂未遮挡 + 尾巴形态颜色微变"。walking 上升沿改显、下降沿还原。
-        """
-        self._walk_sprite = sprite
-        if self._walk_showing and self.rig_active and sprite is not None:
-            self._show_now(sprite.path)   # 覆盖图热替换（阶段进化换档）
-        elif sprite is None and self._walk_showing:
-            # L5（REVIEW-2026-09-04）：行走中覆盖图变 None（新档缺 side/
-            # neutral 静态图）——旧版 _walk_edge 从此永早退，_walk_showing
-            # 卡 True，on_state_change 只更新恢复目标不刷画面=冻结在旧图
-            self._walk_showing = False    # 恢复目标切回静态图
-            if not self._frames:
-                self.set_sprite(getattr(self, "_static_sprite", self._sprite))
-
-    def _walk_edge(self, walking: bool) -> None:
-        if self._loco is not None:
-            return                   # full side session owns its carrier, including stop/turn-back
-        if not self.rig_active or self._walk_sprite is None:
-            return
-        if walking and not self._walk_showing:
-            self._walk_showing = True
-            self._show_now(self._walk_sprite.path)
-        elif not walking and self._walk_showing:
-            self._walk_showing = False
-            # 序列播放中（如 blink 尾巴）只落标志，恢复交给既有收尾路径
-            if not self._frames:
-                self.set_sprite(getattr(self, "_static_sprite", self._sprite))
-
     def on_state_change(self, state) -> None:
-        """行走覆盖期间只更新恢复目标、不动当前画面——否则衰减 tick 每 1s
-        把 neutral 覆盖图翻回 mood 图，与下一拍 _walk_edge 打架=闪烁。"""
+        """动作帧播放期间只更新恢复目标、不动当前画面（收尾路径恢复）。"""
         if self._provider is None:
             return
         # 并行线（v0.15.x 聊天情绪）的 set_conversation_mood 会在
@@ -1091,7 +1043,7 @@ class RigWindow(WindowBase):
         self._last_state = state
         sprite = self._provider.get_static(
             state, mood_override=getattr(self, "_conversation_mood", None))
-        if self._walk_showing or self._frames:
+        if self._frames:
             self._static_sprite = sprite
             self._sync_frame_palette()   # 帧期间分支变化（进化/重置）即时跟随
             return
@@ -1100,20 +1052,6 @@ class RigWindow(WindowBase):
     def skinned_motion_active(self) -> bool:
         """Whether the visible mesh already provides walking and blinking."""
         return bool(self.rig_active and self._root.property("skinnedMeshVisible"))
-
-    def part_walk_active(self) -> bool:
-        """当前展示 figure 是否挂有 limb 部件（部件驱动步态可用，v0.14）。
-
-        动作帧播放期间 activeFigure 为帧名反推（多为 None）→ False，
-        天然与"帧序列展示期间部件隐藏"的既有机制一致。
-        """
-        if not (self.rig_active and self._spec is not None):
-            return False
-        if self._root.property("skinnedMeshVisible"):
-            return True
-        key = self._root.property("activeFigure") or ""
-        return any(p.kind == "limb" and p.source_figure == key
-                   for p in self._spec.parts)
 
     # ---------------- 场景私有工具 ----------------
     def _set_prop(self, name: str, value) -> None:

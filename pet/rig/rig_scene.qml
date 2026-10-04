@@ -100,7 +100,7 @@ Item {
     property real srcW: 1024
     property real srcH: 1536
     // FINAL keeps its mood poses; size and floor are based on visible artwork,
-    // including its paperdoll parts, rather than each sprite's different padding.
+    // including its sway parts, rather than each sprite's different padding.
     property bool staticAlignEnabled: false
     property var staticBounds: [0, 0, 1024, 1536]
     property real staticTargetHeightRatio: 1746.0 / 1824.0

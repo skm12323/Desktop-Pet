@@ -1,20 +1,19 @@
 """中间层（接口接入）—— 原有引擎 ← 本模块 ← 新引擎的有效部分。
 
-命名约定（v0.15.1 起）：
-* **原有引擎** = frames 帧动画后端（成熟、防御性编程成熟，永不失败）。
-* **新引擎**   = 正在开发的 motion / wind / sun / rig 那套。
-* **有效部分** = 新引擎里已经过单测回归锁的部分（motion 32 / wind 18 / sun 27），
-  未达标部分（paperdoll 部件步态、2 帧走路）**不**纳入本接口。
+命名约定（v0.15.1 起；v0.20.0 精简后只剩 rig 后端）：
+* **消费者**   = rig 后端（自持 MotionEngine）或其降级基类窗（静态立绘）。
+* **有效部分** = wind / sun 两条实时环境通道（单测回归锁 wind 18 / sun 27）。
+  运动数学由 rig 后端的 MotionEngine 直接驱动，不经本中间层。
 
 三层结构
 --------
 ::
 
-    原有引擎(frames) + app        （消费 ``Enrichment``，恒等=零侵入）
+    rig 后端 / 降级窗 + app       （消费 ``Enrichment``，恒等=零侵入）
         ▲  中间层接口：set_motion(...) / tick(dt) → Enrichment
     中间层 EngineBridge           （防御性门面，任一环失败即降级）
         ▲  try/except 包裹的调用
-    新引擎有效部分                 （motion.MotionEngine / wind / sun）
+    新引擎有效部分                 （wind / sun）
 
 铁律
 ----
@@ -30,8 +29,6 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from .rig.motion import MotionEngine, MotionFrame, MotionInputs
-from .rig.spec import RigSpec
 
 logger = logging.getLogger(__name__)
 
@@ -88,42 +85,6 @@ class NullEnricher(Enricher):
 
     def tick(self, dt_ms: float) -> Enrichment:
         return Enrichment()
-
-
-# --------------------------------------------------------------------------- #
-# 新引擎有效部分①：运动引擎（呼吸/眨眼/倾斜/squash/部件角）
-# --------------------------------------------------------------------------- #
-class MotionEnricher(Enricher):
-    """把 ``motion.MotionEngine`` 包装成接口实现。"""
-
-    def __init__(self, spec: RigSpec | None):
-        self._engine = MotionEngine(spec)
-        self._inputs = MotionInputs()
-        self._air_prev = False
-
-    def set_motion(self, tilt_deg: float = 0.0, walking: bool = False,
-                   walk_hz: float = 0.0, airborne: bool = False,
-                   wind_gain: float = 1.0,
-                   wind_bias_deg: float = 0.0) -> None:
-        self._inputs.tilt_deg = float(tilt_deg)
-        self._inputs.walking = bool(walking)
-        self._inputs.walk_hz = float(walk_hz)
-        self._inputs.wind_gain = float(wind_gain)
-        self._inputs.wind_bias_deg = float(wind_bias_deg)
-        if (not airborne) and self._air_prev:
-            self._engine.trigger_squash()      # 落地下降沿 → squash 冲量
-        self._air_prev = bool(airborne)
-
-    def tick(self, dt_ms: float) -> Enrichment:
-        f: MotionFrame = self._engine.step(self._inputs, dt_ms)
-        return Enrichment(
-            body_angle=f.body_angle,
-            body_y=f.body_y,
-            scale_x=f.body_scale_x,
-            scale_y=f.body_scale_y,
-            blink_on=f.blink_on,
-            part_angles=dict(f.part_angles),
-        )
 
 
 # --------------------------------------------------------------------------- #

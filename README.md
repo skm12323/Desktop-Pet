@@ -88,11 +88,11 @@ python app.py --verbose
 ### 外观与立绘
 
 - `provider`：立绘来源，`emoji`（表情占位）、`ai`（AI 立绘，缺图自动回退表情）或 `commission`（约稿立绘，按与 `ai` 相同的命名约定读取 `assets/` 资产）。
-- `presentation`：展示后端，`rig`（默认，v0.13 分层绑骨：交叉淡化、呼吸律动与部件弹簧；侧身行走开箱即用）、`frames`（帧动画；低配机器或在意内存占用时的回退项）、`paperdoll`（v0.14 部件驱动步态：侧身前后腿 + 正面双腿 limb 摆动）或 `live2d`（v0.15 Cubism Native：表情/动作/物理/视线/口型）。rig/paperdoll 需 `assets/rig/{stage}/` 资产，缺件自动回退 frames；`live2d` 需安装 `live2d-py` 并提供 `.model3.json`（默认官方 Haru 样例，见 [`assets/live2d/`](assets/live2d/)，配置段 `live2d`），缺运行时或缺模型自动回退 frames。
-- `adult_locomotion`：ADULT 在 `presentation: "rig"` 下默认使用 `side_rig`（转身、侧身行走、依次收脚）；设为 `legacy` 可回退正面步态，侧身资产缺失时也会自动回退。
+- 展示后端固定为 `rig`（v0.20.0 起唯一后端）：正面 2D 骨骼蒙皮（`assets/rig_{stage}/`）+ mood 立绘交叉淡化与部件弹簧（`assets/rig/{stage}/`）+ 动作帧（`assets/frames/`）。Qt Quick 或资产缺失时自动降级为静态立绘 + 动作帧。旧配置中的 `presentation` / `adult_locomotion` / `final_locomotion` 键会被忽略。
+- ADULT 行走：转身片段 + 侧身骨骼行走 + 依次收脚（`assets/rig_adult_walk_v1/`）；侧身资产缺失时自动回退正面步态。YOUNG 使用正面蒙皮步态。
   侧身行走期间，各情绪暂用同一中性骨骼体态；neglected 保持灰暗配色，完整行走会话转回正面后恢复最新表情。拖拽、离地及动作帧会中断会话并恢复表情。
   当前侧身资产包含膝部曲线过渡、裙摆惯性与尾鳍刚性约束；普通转身轻微提速，反向转身使用更快的片段播放，仍先完成收脚。
-- `final_locomotion`：FINAL 默认使用 `side_rig`，接入正面归位、转身片段、长裙侧身行走、停步收脚和转回正面的完整流程。设为 `legacy` 可回退，独立于 ADULT 配置；旧配置缺少此项时自动采用默认值。
+- FINAL 行走：正面归位、转身片段、长裙侧身行走、停步收脚和转回正面的完整流程（`assets/rig_final_walk_v1/`）。
   行走期间十种情绪共用中性骨骼，neglected 使用去饱和配色；会话结束或拖拽、离地、动作帧中断后恢复最新表情。阶段切换会清理旧侧身会话并装配当前阶段资产。
 
 ### 生长与状态
@@ -210,7 +210,7 @@ python app.py
 
 ## 开发与验证
 
-项目将核心逻辑与平台实现分离：共享代码位于 `pet/`，平台差异集中在 `*_mac.py`、`*_win.py` 和 `platform.py`。`spikes/` 下保留了各阶段的验证脚本。
+项目将核心逻辑与平台实现分离：共享代码位于 `pet/`，平台差异集中在 `*_mac.py`、`*_win.py` 和 `platform.py`。`spikes/` 下为回归测试脚本。
 
 运行基础语法检查：
 
@@ -223,22 +223,26 @@ python -m compileall app.py pet
 ```
 ├── app.py            # 入口：装配配置、托盘与平台适配层
 ├── pet/              # 运行时包：行为、骨骼、聊天、平台适配
-├── assets/           # 立绘与骨骼资产（frames / rig_* 各代 / ai / reference）
-├── tools/            # 产线脚本：图层拆分、生成、训练、修复与渲染
-├── spikes/           # 各阶段验证脚本（spikes/_qa/ 为本地证据产物，不入库）
+├── assets/
+│   ├── ai/           # mood 静态立绘（三阶段 × 双分支 × 五情绪）
+│   ├── frames/       # 动作帧（咀嚼/吃鼠标/伸懒腰/打滚/摔落/眨眼/行走回退）
+│   ├── rig/          # rig 清单：mood 核心图 + 摆动/眨眼部件（manifest.json）
+│   ├── rig_{young,adult,final}/          # 正面蒙皮骨骼：spec + mesh + layers
+│   ├── rig_{adult,final}_walk_v1/        # 侧身骨骼 + 转身片段（256/512 高两档）
+│   └── sounds/       # 交互音效（可选）
+├── tools/            # 聊天情绪训练、通用生成客户端（Qwen/SAM/BiRefNet/Wan）、网格生成、离线渲染与合成门禁、资源监控
+├── spikes/           # 回归测试 test_*.py（spikes/_qa/ 为本地证据产物，不入库）
 ├── docs/             # 工作文档
-│   ├── reviews/      # 阶段评审 REVIEW-*、浸泡测试与内存对比报告
-│   ├── research/     # 动效/LoRA 产线等调研资料
+│   ├── reviews/      # 代码中引用的阶段评审 REVIEW-*
 │   └── planning/     # 设计思路、版本规划、工作表与平台分工
-├── wiki/             # 项目 wiki：概念、设计、实验与资料索引（见 wiki/index.md）
-└── output/           # 运行/复查产出的带日期 GIF 与帧（仅本地，不入库）
+└── output/           # 运行/复查产出（仅本地，不入库）
 ```
 
 更多设计、版本规划和平台适配说明请参阅：[设计思路.md](docs/planning/设计思路.md)、[版本规划.md](docs/planning/版本规划.md) 与 [平台适配与分工.md](docs/planning/平台适配与分工.md)。
 
 ## 版本沿革
 
-各次要版本（0.x）的主题与主要改动速览；逐版任务台账与留痕教训见 [wiki/资料-版本实现台账.md](wiki/资料-版本实现台账.md)，各版验收标准见 [版本规划.md](docs/planning/版本规划.md)。
+各次要版本（0.x）的主题与主要改动速览；各版验收标准见 [版本规划.md](docs/planning/版本规划.md)。v0.20.0 之前的完整历史（含 frames/paperdoll/Live2D 展示档、三维实验线、资源产线中间件）保留在标签 `v0.19.8-full`。
 
 | 版本 | 主题与主要改动 |
 | --- | --- |
@@ -261,6 +265,7 @@ python -m compileall app.py pet
 | v0.16 | 骨骼蒙皮与成年行走主线：v0.16.0–0.16.7 幼年体 skinned_mesh 全栈（47 骨/20 层/LBS、QSG 硬件加速）+ 渲染三档降频与 GC 治理；v0.16.8–0.16.23 成年 ADULT 侧身步态与视觉多轮修复、Wan 3.0 转身片段，FINAL 线 F1–F7（正面/侧身蒙皮骨骼、长裙四片裙骨 GaitSolver 步态、运行时集成）。 |
 | v0.17 | 细节打磨：集中处理体验细节问题（首轮：聊天输入框多行自适应、宠物右键/热键直达聊天入口、多会话与历史持久化）。v0.17.7 全量配置文档入 README；v0.17.8 起默认展示后端切 `rig`，侧身行走主线开箱即用（低配可显式配 `frames` 回退）。 |
 | v0.19 | 交互升级（0.18 号段保留给三维实验线）：反馈四通道与"宠物有意见"。v0.19.0 表现层——交互数值飘字 HUD、手动喂食咀嚼动画、气泡文案模板池（心情分桶）、音效管线（默认关、资产后补）；v0.19.1 动词换代（喂食→喂点吃的、洗澡→梳梳毛、戳一戳→逗一逗，poke 增益 -8→+4 含 config v2 迁移）+ 饱和拒绝（饱腹 ≥92 不再进食）+ 互动疲劳（10 分钟内同类交互 ≥5 次增益归零）；交互语义收拢 `pet/interaction.py`（InteractionOutcome 三态决策，呈现无关）。v0.19.2 需求主动表达与状态可见化：数值触线宠物主动开口求助（proactive 数值触发源，独立冷却）、托盘 tooltip 状态行 + 触线红点、右键菜单交互项 ⚠ 标记（位置固定）。清单见 [docs/planning/交互升级-修改清单与版本规划.md](docs/planning/交互升级-修改清单与版本规划.md)。v0.19.3 聊天双向联动：system prompt 注入宠物实时状态（LLM 可自然提及"我都饿了"）、交互/拒绝/疲劳事件写入长期记忆（当日合并）、聊天判 hungry 时宠物同步表达自身需求。v0.19.4 节日响应：mac 接 EventKit 系统日历（「中国节假日」订阅日历，农历节日正确日期，拒绝授权静默回落内置表）+ 用户生日 config 录入（当日一次祝福 + 心情奖励）。v0.19.5 修复节日/生日祝福：节日气泡此前因持久化序列化异常从未发出、生日每次重启重发并重复奖励；生日当天不再补发节日。v0.19.6 修复 FINAL neglected 行走中喂食后侧身行走变回彩色（旧行走帧抢播咀嚼动画）。v0.19.7 neglected 状态下动作帧（咀嚼/吃鼠标/伸懒腰/打滚/摔落/眨眼）统一灰调，rig 与 frames 两档一致。 |
+| v0.20 | 精简版（fork）：只保留 rig 展示后端（正面蒙皮 + 侧身行走 + 转身片段 + mood 立绘/部件 + 动作帧）与最新交互功能；移除 frames/paperdoll/Live2D 展示档、三维实验线、旧转身资产包、资源产线中间产物与一次性脚本、过程性文档。 |
 
 ## 参与贡献
 

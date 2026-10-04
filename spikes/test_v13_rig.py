@@ -321,9 +321,9 @@ def main() -> int:
     parts_final = win2._root.property("partsModel") or []
     _limbs = sum(1 for p in parts_final if p.get("kind") == "limb")
     _sways = sum(1 for p in parts_final if p.get("kind") == "sway")
-    check("T11b final 部件模型按 kind 计数（limb 6：4 正腿+2 侧腿；"
+    check("T11b final 部件模型按 kind 计数（limb 4：正面双腿×2 分支；"
           "sway 10：2 尾+4 发+4 裙）",
-          _limbs == 6 and _sways == 10)
+          _limbs == 4 and _sways == 10)
     win2.set_stage("young")
     young_neutral = os.path.join(
         REPO, "assets", "ai", "young_healthy_neutral.png")

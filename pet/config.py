@@ -77,21 +77,6 @@ _SAFE_DEFAULTS: dict = {
     },
     # 批次J/L14（F23）：以下段补 schema 校验，safe defaults 同步补齐
     "provider": "emoji",
-    "presentation": "rig",
-    # G6：ADULT 行走——legacy = 正面原地步态（旧行为）；side_rig = 转身片段 + 侧身骨骼行走
-    "adult_locomotion": "side_rig",
-    "final_locomotion": "side_rig",
-    "live2d": {
-        "model": "",
-        "mapping": "",
-        "scale": 1.0,
-        "offset": [0.0, -0.15],
-        "gaze": True,
-        "lip_sync": True,
-        "auto_blink": True,
-        "auto_breath": True,
-        "idle": True,
-    },
     "log_level": "INFO",
     "sleepy_idle_minutes": 10,
     "hotkeys": {},
@@ -110,11 +95,6 @@ _SAFE_DEFAULTS: dict = {
     # v0.17 光影通道：实时太阳位置 → 地面阴影（纯本地计算，无网络）
     "sun": {
         "enabled": False, "shadow_alpha": 0.4,
-    },
-    # three_d 3D 渲染实验线（D05：默认关、云端推送恒 false；D16 安全上限制）
-    "render3d": {
-        "enabled": False, "stage": "adult", "light_level": 1,
-        "fps_cap": 30, "safe_rss_mb": 500.0,
     },
 }
 
@@ -286,31 +266,8 @@ _SECTION_SCHEMAS: dict[str, dict] = {
         "additionalProperties": False,
     },
     # 批次J/L14（REVIEW-2026-08-31 F23）：此前这些段无 schema——
-    # 非法值（如 presentation 拼错）静默漏过，行为与预期脱节无告警
+    # 非法值（如 provider 拼错）静默漏过，行为与预期脱节无告警
     "provider": {"enum": ["emoji", "ai", "commission"]},
-    "presentation": {"enum": ["frames", "rig", "paperdoll", "live2d"]},
-    "adult_locomotion": {"enum": ["legacy", "side_rig"]},
-    "final_locomotion": {"enum": ["legacy", "side_rig"]},
-    "live2d": {
-        "type": "object",
-        "properties": {
-            "model": {"type": "string"},
-            "mapping": {"type": "string"},
-            "scale": {"type": "number", "minimum": 0.1, "maximum": 5},
-            "offset": {
-                "type": "array",
-                "items": {"type": "number"},
-                "minItems": 2,
-                "maxItems": 2,
-            },
-            "gaze": {"type": "boolean"},
-            "lip_sync": {"type": "boolean"},
-            "auto_blink": {"type": "boolean"},
-            "auto_breath": {"type": "boolean"},
-            "idle": {"type": "boolean"},
-        },
-        "additionalProperties": False,
-    },
     "log_level": {"enum": ["DEBUG", "INFO", "WARNING", "ERROR"]},
     # 批次C/P3-10（REVIEW-2026-09-05）：user_name 入 schema——此前只被
     # app 读取（ToolContext.user_name）却无处可配（示例/校验双缺，改值
@@ -383,18 +340,6 @@ _SECTION_SCHEMAS: dict[str, dict] = {
             "timezone_offset": {"type": ["number", "null"],
                                 "minimum": -14.0, "maximum": 14.0},
             "shadow_alpha": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-        },
-        "additionalProperties": False,
-    },
-    # three_d 3D 渲染实验线（three_d/wiki/设计-子模块与接口.md §4）
-    "render3d": {
-        "type": "object",
-        "properties": {
-            "enabled": {"type": "boolean"},
-            "stage": {"type": "string", "enum": ["young", "adult", "final"]},
-            "light_level": {"type": "integer", "minimum": 0, "maximum": 3},
-            "fps_cap": {"type": "integer", "minimum": 5, "maximum": 120},
-            "safe_rss_mb": {"type": "number", "minimum": 100, "maximum": 5000},
         },
         "additionalProperties": False,
     },

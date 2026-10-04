@@ -46,7 +46,7 @@ def main(stage="adult"):
         from pet.pet_state import PetState, PetStateStore, Stage
         PetStateStore(PetState(stage=Stage(stage), age=30 if stage == "final" else 14)).save(str(Path(tmp) / "pet_state.json"))
         config_path = Path(tmp) / "config.json"
-        config_path.write_text(json.dumps({"presentation": "rig", "provider": "ai"}), encoding="utf8")
+        config_path.write_text(json.dumps({"provider": "ai"}), encoding="utf8")
         paths = dict(actual, data_dir=tmp, log_dir=tmp, config_path=str(config_path),
                      lock_path=str(Path(tmp) / "qa.lock"))
         from pet import config as cfgmod
@@ -54,7 +54,6 @@ def main(stage="adult"):
 
         def load_cfg(path):
             c = real_load(path)
-            c["presentation"] = "rig"
             # Exercise the shipped default, including config merging for an older config.
             return c
 

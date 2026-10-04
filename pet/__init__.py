@@ -99,4 +99,9 @@
 # v0.19.8：合并 fork 线 feat/live2d（原编号 v0.15.0，撞号顺延）——presentation=live2d
 # 走 live2d-py + QOpenGLWidget（缺库/缺模型/GL 失败回退 frames），默认展示档仍为 rig；
 # 口型改接 v0.17.6 按会话流式缓冲，Live2DWindow.set_motion_params 补风通道参数。
-__version__ = "0.19.8"
+# v0.20.0（fork 精简版）：只保留 rig 展示后端与最新交互功能——移除 frames/paperdoll/
+# Live2D 展示档与 presentation/adult_locomotion/final_locomotion 配置（侧身行走按阶段资产
+# 自动启用）、three_d 实验线（pet/render3d、scene_contract）、EngineBridge.MotionEnricher、
+# 行走覆盖图机制；资产删旧转身包/备份/预览/产线中间件/1024 高片段（运行时窗口≤320 不用）。
+# 完整历史见标签 v0.19.8-full。
+__version__ = "0.20.0"

@@ -129,7 +129,8 @@ def main():
     alpha_count = int((pixels[:, :, 3] > 20).sum())
     check("截图实际包含成年体角色像素", alpha_count > 15000, f"像素数={alpha_count}")
 
-    out_preview = "assets/rig_adult/preview_skinned_adult_live.png"
+    out_preview = os.path.join("spikes", "_qa", "preview_skinned_adult_live.png")
+    os.makedirs(os.path.dirname(out_preview), exist_ok=True)
     img.save(out_preview)
     check("预览截图保存成功", os.path.isfile(out_preview), out_preview)
 
