@@ -40,6 +40,9 @@ def check(name, cond):
 class _AppStub:
     """只挂 _play_* / _frame_tick 依赖的属性——不解耦 PetApp 全量构造。"""
 
+    # v0.19.0 起 _frame_tick 读交互覆盖 key 集（喂食咀嚼不被 walk 抢播）
+    _INTERACT_ANIM_KEYS = PetApp._INTERACT_ANIM_KEYS
+
     def __init__(self, provider, window, stage: Stage):
         self.provider = provider
         self.window = window
@@ -93,6 +96,13 @@ def main() -> int:
     stub._anim_key = "walk"   # 模拟遗留非小动作 key
     stub._frame_tick(None, "idle", "idle")
     check("T4f 非小动作/非 land 的遗留 key 兜底停", stub._anim_key is None)
+    # 喂食咀嚼期间 walk tick 不抢播旧 walk 帧（旧版换成循环 walk 走完全程，
+    # FINAL neglected 侧身会话随之丢灰调）
+    stub._play_key("feed_chew", provider.frames_for("young", "chew"), loop=True)
+    stub._frame_tick(None, "walk", "idle")
+    check("T4g walk tick 不抢播 feed_chew", stub._anim_key == "feed_chew"
+          and len(window._frames) == 2)
+    stub._stop_anim()
 
     # ---- L3（REVIEW-2026-09-04）：land 单帧 520ms 到期自停 ----
     stub._frame_tick(None, "fall", "idle")

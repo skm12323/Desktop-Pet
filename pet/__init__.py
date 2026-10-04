@@ -88,4 +88,8 @@
 # 心情奖励自 v0.14.47 起从未发出；festivaled/birthday_greeted 统一 ISO 串
 # 落盘、读回 date（旧档兼容），生日标记落盘（重启不重发不重奖）、生日当天
 # 整天不发节日、当日已发不再查日历源（mac EventKit 免每 30s 查询）。
-__version__ = "0.19.5"
+# v0.19.6：修复 FINAL neglected 侧身行走变彩色——行走中喂食时咀嚼帧使蒙皮
+# 不可见，_frame_tick 落帧路径把 feed_chew 换成循环旧 walk 帧（走完全程才停），
+# 同期侧身会话接不上载体、locoNeglected 不置位；交互覆盖期间不抢播 walk 帧，
+# 动作帧播放期间行走意图按 0 喂会话，帧收尾后下一拍接管载体与灰调。
+__version__ = "0.19.6"

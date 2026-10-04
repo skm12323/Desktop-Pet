@@ -916,7 +916,11 @@ class RigWindow(WindowBase):
                 else:
                     c = (sb[0] + sb[1]) / 2.0 - self.width() / 2.0
                     loco_bounds = (c, c)
-            lf = self._loco.update(dt, self._loco_vx, float(self.x()),
+            # 动作帧播放期间不推进行走意图：play_frames 已打断会话，此处防
+            # 同期意图把会话重新拉起——帧期间 _display_figure_key 恒空，
+            # _take_loco_figure 接不上载体，neglected 灰调丢失（彩色侧身）
+            loco_vx = 0.0 if self._frames else self._loco_vx
+            lf = self._loco.update(dt, loco_vx, float(self.x()),
                                    grounded=bool(self._motion_inputs.grounded),
                                    dragged=bool(getattr(self, "_dragging", False)),
                                    bounds=loco_bounds)

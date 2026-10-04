@@ -1840,6 +1840,11 @@ class PetApp:
                 if getattr(self, "_anim_key", None) == "walk":
                     self._stop_anim()
                 return
+            # 交互覆盖（喂食咀嚼）期间不抢播旧 walk 帧：咀嚼帧让蒙皮不可见，
+            # 旧版此处落到帧路径把 feed_chew 换成循环 walk（到期 singleShot
+            # 比对 key 失败、走完全程才停），侧身会话也随之丢 neglected 灰调
+            if getattr(self, "_anim_key", None) in self._INTERACT_ANIM_KEYS:
+                return
             walk = provider.frames_for(stage, "walk")
             if walk:
                 self._play_key("walk", walk, loop=True,
