@@ -143,6 +143,43 @@ def main() -> int:
     s.poll()
     check("T7 节日祝福", any("国庆" in b for b in bubbles))
 
+    # T7b 节日/生日带持久化档案（旧版 date 直存 json.dump 抛 TypeError →
+    # 节日气泡永不发出；生日标记不落盘 → 重启重发 + 重复心情奖励）
+    import json, os, tempfile
+    tmpd = tempfile.mkdtemp(prefix="v06-fest-")
+
+    def make_p(clock, path, cfg=None):
+        bubbles = []
+        store = PetStateStore(PetState.default())
+        store.update(mood=-50)
+        s = ProactiveScheduler(store=store, bubble_fn=bubbles.append,
+                               idle_fn=lambda: 0.0, cfg=cfg, now_fn=clock,
+                               state_path=path)
+        return s, bubbles, store
+
+    def greet_run(iso, path, cfg=None):
+        s, bubbles, store = make_p(FakeClock(iso), path, cfg)
+        m0 = store.get().mood
+        s.poll()
+        s.poll()
+        return [b for b in bubbles if "快乐" in b], store.get().mood - m0
+
+    fp = os.path.join(tmpd, "fest.json")
+    b, dm = greet_run("2026-10-01 10:00", fp)
+    check("T7b 持久化下节日发一次 +5", b == ["国庆节快乐！🎉"] and dm == 5)
+    with open(fp, encoding="utf-8") as f:
+        check("T7b festivaled 落盘 ISO 串",
+              json.load(f).get("festivaled") == "2026-10-01")
+    b, dm = greet_run("2026-10-01 15:00", fp)
+    check("T7b 节日重启不重发不重奖", b == [] and dm == 0)
+    bp = os.path.join(tmpd, "bday.json")
+    bcfg = {"birthday": "10-01"}
+    b, dm = greet_run("2026-10-01 10:00", bp, bcfg)
+    check("T7b 生日撞节日只发生日 +10",
+          b == ["生日快乐！🎂 今天你最大～"] and dm == 10)
+    b, dm = greet_run("2026-10-01 15:00", bp, bcfg)
+    check("T7b 生日重启不重发不重奖", b == [] and dm == 0)
+
     # T8 LLM 隔离决策：假客户端返回 JSON → 采纳；坏 JSON → 本地兜底
     # v0.6.2：chat_once 加 system_override/tools_override 参数（决策隔离）
     class FakeClient:

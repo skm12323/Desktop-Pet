@@ -83,4 +83,9 @@
 # win 走内置表）；节日源优先→内置 MM-DD 表兜底，节日祝福附带心情 +5；
 # 用户生日 config 录入（proactive.birthday "MM-DD"）当日一次专属祝福 +
 # 心情 +10（生日优先于节日）。新依赖 pyobjc-framework-EventKit（requirements）。
-__version__ = "0.19.4"
+# v0.19.5：修复节日/生日祝福——proactive 持久化 _festivaled 直存 date 致
+# json.dump 抛 TypeError（只捕 OSError 异常逃出 poll），节日气泡与 0.19.4
+# 心情奖励自 v0.14.47 起从未发出；festivaled/birthday_greeted 统一 ISO 串
+# 落盘、读回 date（旧档兼容），生日标记落盘（重启不重发不重奖）、生日当天
+# 整天不发节日、当日已发不再查日历源（mac EventKit 免每 30s 查询）。
+__version__ = "0.19.5"

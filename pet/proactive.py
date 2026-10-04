@@ -71,6 +71,21 @@ _FESTIVALS = {  # MM-DD → 名称（config festivals 可扩展）
     "06-01": "儿童节", "10-01": "国庆节", "12-25": "圣诞节",
 }
 
+
+def _iso_or_none(v) -> str | None:
+    """date → ISO 字符串（持久化用）；非 date 一律 None。"""
+    return v.isoformat() if isinstance(v, date) else None
+
+
+def _parse_date(v) -> date | None:
+    """持久化档案的 ISO 日期串 → date；空/非法 → None。"""
+    if not isinstance(v, str) or not v:
+        return None
+    try:
+        return datetime.fromisoformat(v).date()
+    except ValueError:
+        return None
+
 _DECISION_SYSTEM = (
     "你是桌面宠物的主动关怀决策器。只输出一个 JSON 对象："
     '{"message": "一句简短关怀(≤25字)", "next_min": 数字(10-360)}。'
@@ -290,7 +305,10 @@ class ProactiveScheduler:
                 "version": 1,
                 "greeted": {k: (v.isoformat() if isinstance(v, date) else None)
                             for k, v in self._greeted.items()},
-                "festivaled": self._festivaled,
+                # festivaled/birthday_greeted 是 date：必须 isoformat 落盘——
+                # 旧版直存 date 致 json.dump 抛 TypeError，节日气泡永不发出
+                "festivaled": _iso_or_none(self._festivaled),
+                "birthday_greeted": _iso_or_none(self._birthday_greeted),
                 "next_wake_at": self._next_wake_at,
                 "followups": [[float(w), str(m)] for w, m in self._followups],
             }
@@ -300,7 +318,8 @@ class ProactiveScheduler:
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp, self._persist_path)
-        except OSError:
+        except (OSError, TypeError, ValueError):
+            # 序列化错误也吞掉：持久化坏了只丢"重启不重发"，不能炸 poll
             _log.warning("[主动] 状态持久化失败", exc_info=True)
 
     def _load_persisted(self) -> None:
@@ -320,9 +339,9 @@ class ProactiveScheduler:
                                 str(v)).date()
                         except ValueError:
                             pass
-            fest = raw.get("festivaled")
-            if isinstance(fest, str) and fest:
-                self._festivaled = fest
+            # 读回 date（旧版存字符串与 today 比较永不相等 → 重启重发）
+            self._festivaled = _parse_date(raw.get("festivaled"))
+            self._birthday_greeted = _parse_date(raw.get("birthday_greeted"))
             wa = raw.get("next_wake_at")
             # 12h 内的过期唤醒也接受（poll 到点即触发，休眠跨夜场景）；
             # 更陈旧的视为失效重排
@@ -725,14 +744,18 @@ class ProactiveScheduler:
             _log.info("[主动] 晚安")
 
         # 5) 节日/生日（每天一次；v0.19.4：生日优先，日历源→内置表，
-        #    附带心情小奖励）
+        #    附带心情小奖励）。生日当天整天不发节日（旧版祝福后下一次 poll
+        #    落 else 又补发节日）；两者都先落盘再发，重启不重发不重复奖励
         md = d.strftime("%m-%d")
-        if self._birthday == md and self._birthday_greeted != today:
-            self._birthday_greeted = today
-            self._emit_bubble("生日快乐！🎂 今天你最大～", now)
-            self._reward_mood(10.0, "生日")
-            _log.info("[主动] 生日祝福")
-        else:
+        if self._birthday == md:
+            if self._birthday_greeted != today:
+                self._birthday_greeted = today
+                self._persist()
+                self._emit_bubble("生日快乐！🎂 今天你最大～", now)
+                self._reward_mood(10.0, "生日")
+                _log.info("[主动] 生日祝福")
+        elif self._festivaled != today:
+            # 已发过就不再查日历源（mac EventKit 查询不必每 30s 跑一次）
             name = None
             if self._festival_fn is not None:
                 try:
@@ -742,7 +765,7 @@ class ProactiveScheduler:
                                  exc_info=True)
             if name is None:
                 name = self._festivals.get(md)
-            if name and self._festivaled != today:
+            if name:
                 self._festivaled = today
                 self._persist()
                 self._emit_bubble(f"{name}快乐！🎉", now)
