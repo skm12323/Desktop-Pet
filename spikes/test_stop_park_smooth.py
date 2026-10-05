@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 
@@ -29,52 +30,73 @@ def check(name: str, ok: bool) -> None:
     print(f"[{'OK' if ok else 'FAIL'}] {name}")
 
 
-def simulate(stage: str, size: int, walk_speed: float = 120.0):
+def simulate(stage: str, size: int, walk_speed: float = 120.0, distance: float = 480.0):
+    """app 同款游走意图（PetApp._loco_cruise_speed + 实测身体速度 50 ms 低通 + 同目标锁存）走向 distance 处的目标。
+
+    返回逐帧步态行；附带 rows[-1]["meta"]：overshoot（窗口中心越过目标的 px，负 = 停在前方）。"""
+    from app import PetApp
     pkg = os.path.join(ROOT, "assets", f"rig_{stage}_walk_v1")
     spec = json.load(open(os.path.join(pkg, "spec.json"), encoding="utf-8"))
     src_h = float(spec["skeleton"]["source_reference"]["image_size_px"][1])
     loco = SideLocomotion(spec, TurnClip(os.path.join(pkg, "clips", "turn_front_to_side_h256")),
                           TurnClip(os.path.join(pkg, "clips", "turn_side_to_front_h256")), size / src_h)
-    dt, x, phase, walk_t, target = 1 / 60, 200.0, "walk", 0.0, None
+    dt, x = 1 / 60, 200.0
+    target = x + size / 2 + distance
+    vm, px, latched, stop_t = 0.0, x, False, None
     rows = []
-    for _ in range(60 * 14):
+    for i in range(60 * 30):
         cx = x + size / 2
-        if phase == "walk":
-            vx = walk_speed
-            walk_t += dt
-            if walk_t > 3.0:
-                phase, target = "approach", cx + 120.0
-        elif phase == "approach":
-            dx = target - cx
-            if abs(dx) <= 4.0:
-                vx, phase = 0.0, "stop"
-            else:
-                vx = min(200.0, walk_speed, 1.2 * abs(dx)) * (1 if dx > 0 else -1)
-        else:
+        dx = target - cx
+        vm += ((x - px) / dt - vm) * (1.0 - math.exp(-dt / 0.05))
+        px = x
+        if latched:
             vx = 0.0
+        else:
+            sp = PetApp._loco_cruise_speed(abs(dx), walk_speed, vm)
+            if sp <= 0.0:
+                latched, vx, stop_t = True, 0.0, i
+            else:
+                vx = sp if dx > 0 else -sp
         f = loco.update(dt, vx, x)
         if f.window_x is not None:
             x = f.window_x
         s = loco._solver
         if s is not None:
             rows.append(dict(
+                i=i, intent=vx,
                 gait=s.state.value, v=s._velocity, wx=s.window_x_float, dip=s._dip,
                 kinds={sd: ft.contact.contact_type.name for sd, ft in s._feet.items()},
                 feet={sd: (float(ft.ankle_now[0]), float(ft.ankle_now[1]), bool(ft.contact.is_locked))
                       for sd, ft in s._feet.items()}))
-        if phase == "stop" and s is not None and s.state.value == "idle_side":
+        if latched and s is not None and s.state.value == "idle_side":
             break
+    rows[-1]["meta"] = dict(overshoot=(x + size / 2) - target, stop_i=stop_t)
     return rows
+
+
+def stop_profile(rows):
+    """减速开始（意图首次低于巡航）→ 静止：耗时与迈步数。"""
+    cruise = max(abs(r["intent"]) for r in rows)
+    i0 = next(k for k, r in enumerate(rows) if 0 < abs(r["intent"]) < cruise - 0.5 or r["intent"] == 0 and k > 60)
+    steps, prev = 0, {sd: True for sd in ("l", "r")}
+    for r in rows[i0:]:
+        for sd, (_x, _y, lk) in r["feet"].items():
+            if prev[sd] and not lk:
+                steps += 1
+            prev[sd] = lk
+    return (len(rows) - i0) / 60.0, steps
 
 
 def run(stage: str, size: int) -> None:
     rows = simulate(stage, size)
     seg = [r for r in rows if r["gait"] in STOP_STATES]
     check(f"{stage}: 会话收步到侧身静止", bool(seg) and seg[-1]["gait"] == "idle_side")
-    # S1：停步段任何一只脚的相邻帧位移（画布 px）——旧版着地回跳 117
+    # S1：停步段着地脚 / 落地那一帧的相邻帧位移（画布 px）——旧版着地回跳 117。
+    # 摆动中的脚不计（v0.20.6 起从巡航速度直接刹车，正常摆动单帧可达 ~80，与行走同量级）
     jump = max((abs(b["feet"][sd][0] - a["feet"][sd][0])
-                for a, b in zip(seg, seg[1:]) for sd in ("l", "r")), default=0.0)
-    check(f"{stage}: S1 停步段无脚部跳变（最大逐帧 {jump:.1f} canvas px < 30）", jump < 30.0)
+                for a, b in zip(seg, seg[1:]) for sd in ("l", "r") if b["feet"][sd][2]),
+               default=0.0)
+    check(f"{stage}: S1 停步段着地/落地无跳变（最大逐帧 {jump:.1f} canvas px < 30）", jump < 30.0)
     # S2：刹车/停步段身体慢于阈值后不应有脚离地摆动
     slow_swing = [r for r in seg if r["gait"] in ("walk_brake", "walk_stop")
                   and abs(r["v"]) < SLOW_V
@@ -138,6 +160,14 @@ def idle_wait(stage: str, size: int) -> float:
 def main() -> int:
     for stage, size in (("adult", 256), ("final", 320)):
         run(stage, size)
+    # v0.20.6：游走停步直接——巡航到预测刹车点，停在目标附近、步数少
+    for stage, size in (("adult", 256), ("final", 320)):
+        for sp in (80.0, 120.0, 200.0):
+            rows = simulate(stage, size, walk_speed=sp)
+            dur, steps = stop_profile(rows)
+            ov = rows[-1]["meta"]["overshoot"]
+            check(f"{stage}@{sp:.0f}: 停步直接（减速→静止 {dur:.2f}s ≤ 1.2，迈步 {steps} ≤ 4，"
+                  f"停位 {ov:+.1f}px ∈ [-6, +8]）", dur <= 1.2 and steps <= 4 and -6.0 <= ov <= 8.0)
     # v0.20.4：侧身站定后转回正面的等待 1.5 s（旧 4.0 s）
     for stage, size in (("adult", 256), ("final", 320)):
         w = idle_wait(stage, size)

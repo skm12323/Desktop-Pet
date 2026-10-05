@@ -17,6 +17,7 @@ v0.2：接 ``PetStateStore``（load 启动 / save debounce+定时+shutdown）+ 1
 
 from __future__ import annotations
 
+import math
 import os
 import sys
 import threading
@@ -1542,9 +1543,40 @@ class PetApp:
     # G7 跟手/边缘：意图按误差比例给速——远处贴上限、近处随距离减速，步态
     # 刹车（0.4s 线性）+ 收步前移的动量不再冲过目标（旧版恒速 120/200 到
     # 达，过冲 ~30-70px → follow 反向再起步 = 侧身⇄正面转身片段循环）。
-    # 增益 1.2/s：停下距离 ≈ 0.45·v < 误差（稳定收敛，不振荡）。
-    _LOCO_INTENT_GAIN = 1.2             # (px/s) / px
+    # 增益 1.2/s：停下距离 ≈ 0.45·v < 误差（稳定收敛，不振荡）——v0.20.6 起只用于 follow
+    # （追随移动中的光标需要比例跟踪）。
+    # v0.20.6 游走停步改"巡航 + 预测刹车点"：比例减速是约 2.2 s 的指数衰减（120→4.8 px/s），
+    # 末段迈 4–5 个越来越碎的小步；步态速度对意图有 ~0.3 s 滞后，单纯加大增益只会冲过
+    # 目标。改为保持巡航速度，剩余距离 ≤ 死区 + 余量 + 0.2 s × 实测身体速度（线性刹车
+    # 0.4 s 的滑行距离）即给 0 并对同一目标锁存，刹车 + 收步走完最后几像素。
+    _LOCO_INTENT_GAIN = 1.2             # (px/s) / px（follow 比例跟踪）
     _LOCO_INTENT_DEADZONE_PX = 4.0      # |dx| 死区：到位即 0，防边界意图翻转
+    _LOCO_STOP_MARGIN_PX = 4.0          # 预测刹车点余量（收步前移/步相量化）
+    _LOCO_BRAKE_LEAD_S = 0.2            # 刹车滑行距离 ≈ 此值 × 身体速度（brake_linear_s 0.4 的一半）
+
+    @classmethod
+    def _loco_cruise_speed(cls, dx_abs: float, cap: float, v_body: float) -> float:
+        """游走行走意图：巡航 cap，进入预测刹车点返回 0（刹车 + 收步走完剩余距离）。"""
+        stop_px = cls._LOCO_INTENT_DEADZONE_PX + cls._LOCO_STOP_MARGIN_PX             + cls._LOCO_BRAKE_LEAD_S * abs(v_body)
+        if dx_abs <= cls._LOCO_INTENT_DEADZONE_PX or (abs(v_body) > 1.0 and dx_abs <= stop_px):
+            return 0.0
+        return cap
+
+    def _loco_body_speed(self) -> float:
+        """身体（窗口中心）实测水平速度 px/s，时间常数 50 ms 低通。"""
+        import time as _time
+        now = _time.monotonic()
+        x = float(self.fsm.pos[0])
+        prev = getattr(self, "_loco_vm_prev", None)
+        vm = getattr(self, "_loco_vm", 0.0)
+        if prev is not None:
+            dt = now - prev[1]
+            if 0.0 < dt < 0.25:
+                k = 1.0 - math.exp(-dt / 0.05)
+                vm += ((x - prev[0]) / dt - vm) * k
+        self._loco_vm_prev = (x, now)
+        self._loco_vm = vm
+        return vm
 
     def _locomotion_pre_step(self) -> bool:
         avail = getattr(self.window, "locomotion_available", None)
@@ -1568,14 +1600,27 @@ class PetApp:
         target = self.fsm.walk_target
         if mode == "walk" and target is not None:
             dx = target[0] - self.fsm.pos[0]
-            if abs(dx) <= self._LOCO_INTENT_DEADZONE_PX:
-                self.window.set_locomotion_intent(0.0)
+            if getattr(self, "_loco_stop_target", None) == target:
+                self.window.set_locomotion_intent(0.0)     # 本目标已决定停下（锁存）
                 return
-            cap = (self._LOCO_SPEED_CAP if self.fsm.motion_mode == "follow"
-                   else min(self.fsm._speed, self._LOCO_SPEED_CAP))
-            speed = min(cap, self._LOCO_INTENT_GAIN * abs(dx))
+            v_body = self._loco_body_speed()
+            if self.fsm.motion_mode == "follow":
+                # 跟随：比例跟踪移动中的光标（不锁存，目标逐拍刷新）
+                if abs(dx) <= self._LOCO_INTENT_DEADZONE_PX:
+                    self.window.set_locomotion_intent(0.0)
+                    return
+                speed = min(self._LOCO_SPEED_CAP, self._LOCO_INTENT_GAIN * abs(dx))
+            else:
+                speed = self._loco_cruise_speed(
+                    abs(dx), min(self.fsm._speed, self._LOCO_SPEED_CAP), v_body)
+                if speed <= 0.0:
+                    self._loco_stop_target = target
+                    self.window.set_locomotion_intent(0.0)
+                    return
             self.window.set_locomotion_intent(speed if dx > 0 else -speed)
         else:
+            self._loco_stop_target = None
+            self._loco_body_speed()
             self.window.set_locomotion_intent(0.0)
 
     def _setup_side_locomotion(self) -> None:
