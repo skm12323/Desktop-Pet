@@ -91,7 +91,7 @@ class LocoFrame:
 
 class SideLocomotion:
     def __init__(self, side_spec: dict, clip_out: TurnClip, clip_in: TurnClip,
-                 window_scale: float, settle_s: float = 0.2, side_idle_timeout_s: float = 4.0,
+                 window_scale: float, settle_s: float = 0.2, side_idle_timeout_s: float = 1.5,
                  fade_in_s: float = 0.3, crossfade_s: float = 0.1):
         self._spec = side_spec
         self.clip_out = clip_out
@@ -102,6 +102,10 @@ class SideLocomotion:
         self.fade_in_s = float(fade_in_s)          # 片段结束后次级运动渐入（§6）
         self.crossfade_s = float(crossfade_s)      # 片段两端交叉淡化 ≈ 3 帧 @30fps
         timing = side_spec.get("locomotion") or {}
+        # v0.20.4：侧身站定后转回正面的等待 4.0 → 1.5 s（spec locomotion.side_idle_timeout_s 可覆盖）；
+        # 再短会让跟随模式的频繁小停顿每次都触发转回+转出两段片段
+        if "side_idle_timeout_s" in timing:
+            self.side_idle_timeout_s = max(0.3, min(10.0, float(timing["side_idle_timeout_s"])))
         self.clip_rate = max(1.0, min(1.5, float(timing.get("clip_rate", 1.0))))
         self.reverse_clip_rate = max(1.0, min(2.0, float(timing.get("reverse_clip_rate", 1.0))))
         self.reverse_settle_s = max(.05, min(self.settle_s, float(timing.get("reverse_settle_s", self.settle_s))))

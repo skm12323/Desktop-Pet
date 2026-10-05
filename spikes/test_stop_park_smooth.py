@@ -100,9 +100,34 @@ def run(stage: str, size: int) -> None:
     check(f"{stage}: 静止双脚着地", all(lk for (_x, _y, lk) in s_last.values()))
 
 
+def idle_wait(stage: str, size: int) -> float:
+    """侧身静止 → SIDE_SETTLE（开始转回正面）的等待秒数。"""
+    pkg = os.path.join(ROOT, "assets", f"rig_{stage}_walk_v1")
+    spec = json.load(open(os.path.join(pkg, "spec.json"), encoding="utf-8"))
+    src_h = float(spec["skeleton"]["source_reference"]["image_size_px"][1])
+    loco = SideLocomotion(spec, TurnClip(os.path.join(pkg, "clips", "turn_front_to_side_h256")),
+                          TurnClip(os.path.join(pkg, "clips", "turn_side_to_front_h256")), size / src_h)
+    dt, x, t, t_idle = 1 / 60, 200.0, 0.0, None
+    for i in range(60 * 20):
+        t = i * dt
+        f = loco.update(dt, 120.0 if t < 3.0 else 0.0, x)
+        if f.window_x is not None:
+            x = f.window_x
+        s = loco._solver
+        if t_idle is None and s is not None and s.state.value == "idle_side":
+            t_idle = t
+        if t_idle is not None and loco.state.value == "side_settle":
+            return t - t_idle
+    return float("inf")
+
+
 def main() -> int:
     for stage, size in (("adult", 256), ("final", 320)):
         run(stage, size)
+    # v0.20.4：侧身站定后转回正面的等待 1.5 s（旧 4.0 s）
+    for stage, size in (("adult", 256), ("final", 320)):
+        w = idle_wait(stage, size)
+        check(f"{stage}: 侧身站定 → 转回正面等待 {w:.2f}s ≈ 1.5s", abs(w - 1.5) < 0.1)
     # 单元：_park_glide_s 按距离自适应
     g = gait_mod
     check("PARK_GLIDE_MIN_S 下限 0.25 s", g.PARK_GLIDE_MIN_S == 0.25)

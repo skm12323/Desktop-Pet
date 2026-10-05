@@ -115,4 +115,6 @@
 # 拉到参考摆动已越过的位置后方，旧版着地一帧回跳 117 canvas px）；②刹车/停步末段身体慢于
 # PARK_SKIP_SWING_V（20 px/s）时将起步的脚不再迈原地一步（两腿叠成一条），直接收步；
 # ③收步前移时长按距离自适应，峰值 ≤ PARK_GLIDE_VMAX（60 px/s，旧版固定 0.25 s 峰值 >110）。
-__version__ = "0.20.3"
+# v0.20.4：侧身站定后转回正面的等待 4.0 → 1.5 s（SideLocomotion 默认；spec locomotion.
+# side_idle_timeout_s 可覆盖，钳 0.3–10 s）。
+__version__ = "0.20.4"
