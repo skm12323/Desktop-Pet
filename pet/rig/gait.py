@@ -81,6 +81,11 @@ MAX_DT_S = 0.25                  # 单帧 dt 钳制（防后台恢复巨帧）
 TURN_DURATION_S = 0.30           # 转身时长（计划 0.25–0.35s）
 START_RAMP_S = 0.45              # 起步包络
 BRAKE_RAMP_S = 0.35              # 刹车斜坡
+# v0.20.3 停步：刹车/停步阶段身体慢于此速（逻辑 px/s）时，正要趾离地的脚不再起新的一步
+# （水平几乎不动 = 原地抬脚放脚、两腿叠成一条），直接收步；收步前移峰值速度上限
+PARK_SKIP_SWING_V = 20.0
+PARK_GLIDE_VMAX = 60.0
+PARK_GLIDE_MIN_S = 0.25
 LANDING_CROUCH_S = 0.15          # 落地屈膝缓冲（§3.5）
 IDLE_FRONT_TIMEOUT_S = 8.0       # IDLE_SIDE 闲置回正超时
 STANCE_EXT_TARGET = 0.975        # 支撑腿伸展率上限（vault，见模块 docstring；
@@ -476,7 +481,7 @@ class GaitSolver:
         self._park_start: dict = {}
         self._park_step_s = 0.30          # 收脚一步的时长
         self._park_flatten_s = 0.18       # 支撑脚放平（绕当前接触点）
-        self._park_glide_s = 0.25         # 身体前移到前脚上方（双脚锚定，不滑）
+        self._park_glide_s = PARK_GLIDE_MIN_S   # 身体前移到前脚上方（双脚锚定，不滑；_plan_park 按距离加长）
         self._park_glide_w = 0.0          # 前移总量（世界 px）
         self._park_end = 0.0
         self._park_wx_final = 0.0
@@ -739,6 +744,7 @@ class GaitSolver:
             foot.swing_last_wx = None
         else:
             foot.swing_th0 = None
+            foot.swing_last_wx = None
         foot.swing_planned = True
 
     def _swing_ankle(self, side: str, u: float) -> np.ndarray:
@@ -809,6 +815,26 @@ class GaitSolver:
             wx = foot.swing_last_wx
         foot.swing_last_wx = wx
         return np.array([self._w2c(wx), float(out[1])])
+
+    def _clamp_landing_forward(self, side: str) -> None:
+        """着地瞬间遵守"摆动脚不在地面上后退"（v0.20.3）。
+
+        刹车重规划（_brake_replan）会把落点拉回身体减速后的位置，而参考曲线摆动
+        （大腿 1.12 倍过冲）此时可能已越过新落点；摆动途中单调约束把脚定在最前处，
+        但 u=1 的规划端点不受约束——旧版着地一帧把脚拉回规划落点（ADULT 停步实测
+        回跳 117 canvas px ≈ 屏上 27 px），收步再据此重规划 = 原地踏 → 回跳 → 再挪步。
+        改为在实际到达的最前位置着地，并把落点同步为该处（锚点 = 画面所见）。
+        """
+        foot = self._feet[side]
+        if foot.swing_last_wx is None:
+            return
+        d = 1.0 if self._velocity >= 0 else -1.0
+        wx = self._c2w(float(foot.ankle_now[0]))
+        if d * (wx - foot.swing_last_wx) < 0.0:
+            foot.ankle_now = np.array([self._w2c(foot.swing_last_wx), float(foot.ankle_now[1])])
+            foot.land_world_x = foot.swing_last_wx
+            foot.land_fix, foot.land_fix_b0 = 0.0, 0.0
+        foot.swing_last_wx = None
 
     def _swing_end_planned(self, side: str) -> np.ndarray:
         foot = self._feet[side]
@@ -1155,6 +1181,17 @@ class GaitSolver:
                     self._begin_turn(0.0, GaitPhaseState.IDLE_FRONT)
                 self._t = 0.0
 
+    def _park_instead_of_swing(self, side: str) -> bool:
+        """刹车末段（身体已慢于 PARK_SKIP_SWING_V）将要起步的脚：另一只脚着地时
+        直接收步，不再迈一个水平位移几乎为零的原地步。"""
+        if not self.park_feet or self.state not in (GaitPhaseState.WALK_BRAKE,
+                                                     GaitPhaseState.WALK_STOP):
+            return False
+        if abs(self._velocity) >= PARK_SKIP_SWING_V:
+            return False
+        other = "r" if side == "l" else "l"
+        return bool(self._feet[other].contact.is_locked)
+
     def _any_foot_swinging(self) -> bool:
         for foot in self._feet.values():
             tau = (self.phase + foot.phase_offset) % 1.0
@@ -1359,6 +1396,7 @@ class GaitSolver:
                         if foot.swing_planned:
                             # 贝塞尔末端位姿 → 锚定后跟（仰角 = 着地角）
                             foot.ankle_now = self._swing_ankle(side, 1.0)
+                            self._clamp_landing_forward(side)
                             foot.pitch_now = foot.land_pitch
                             foot.swing_planned = False
                             foot.heel_entry_pitch = foot.land_pitch
@@ -1383,6 +1421,13 @@ class GaitSolver:
                     self._lock_contact(side, ContactType.FOREFOOT)
             else:
                 if not foot.swing_planned:
+                    if self._park_instead_of_swing(side):
+                        # 低速停步：不起原地一步，改为收步（放平 + 后脚小步收上）
+                        self.state = GaitPhaseState.WALK_PARK
+                        self._t = 0.0
+                        self._idle_timer = 0.0
+                        self._plan_park()
+                        break
                     # 贝塞尔入口规划（P0 = 趾离地末位姿，pitch≈18°）；
                     # 也覆盖任意中途进入（起步/状态恢复）
                     self._plan_swing(side, self._velocity)
@@ -1526,6 +1571,9 @@ class GaitSolver:
             offsets[side] = float(flat[0] - leg.ankle_rest[0])
         glide_c = max(0.0, max(offsets.values()))
         self._park_glide_w = glide_c * self.scale
+        # 前移峰值速度 = 1.5 × 距离 / 时长：时长按距离自适应，峰值不超过 PARK_GLIDE_VMAX
+        # （旧版固定 0.25 s，前移 19 px 时峰值 >110 px/s——刚停住又往前窜一下）
+        self._park_glide_s = max(PARK_GLIDE_MIN_S, 1.5 * self._park_glide_w / PARK_GLIDE_VMAX)
         self._park_wx_final = self._wx + self._park_glide_w     # 前移结束后的窗口世界 x
         after = {sd: o - glide_c for sd, o in offsets.items()}
         # 离站位 > 1 canvas px 的脚都迈一步（小偏差 = 快而低的调整小步），全程不滑脚
