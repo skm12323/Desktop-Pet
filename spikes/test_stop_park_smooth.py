@@ -58,7 +58,8 @@ def simulate(stage: str, size: int, walk_speed: float = 120.0):
         s = loco._solver
         if s is not None:
             rows.append(dict(
-                gait=s.state.value, v=s._velocity, wx=s.window_x_float,
+                gait=s.state.value, v=s._velocity, wx=s.window_x_float, dip=s._dip,
+                kinds={sd: ft.contact.contact_type.name for sd, ft in s._feet.items()},
                 feet={sd: (float(ft.ankle_now[0]), float(ft.ankle_now[1]), bool(ft.contact.is_locked))
                       for sd, ft in s._feet.items()}))
         if phase == "stop" and s is not None and s.state.value == "idle_side":
@@ -95,6 +96,19 @@ def run(stage: str, size: int) -> None:
     vpk = max((abs(r["v"]) for r in park), default=0.0)
     check(f"{stage}: S3 收步前移峰值 {vpk:.0f} px/s ≤ {gait_mod.PARK_GLIDE_VMAX:.0f}",
           vpk <= gait_mod.PARK_GLIDE_VMAX + 0.5)
+    # S4（v0.20.5）：收步不下蹲——下沉不超过进入收步时（旧版沿用行走伸展比，停下后蹲 ~9 px）
+    if park:
+        dip0 = park[0]["dip"]
+        dmax = max(r["dip"] for r in park)
+        check(f"{stage}: S4 收步不下蹲（下沉 {dip0:.1f} → 峰 {dmax:.1f} canvas px）", dmax <= dip0 + 0.5)
+    # S5（v0.20.5）：低速刹车中平踩的脚不新进入踮脚（膝盖前顶后又不迈步）
+    new_heel_rise = 0
+    for a, b in zip(rows, rows[1:]):
+        if b["gait"] in ("walk_brake", "walk_stop") and abs(b["v"]) < SLOW_V:
+            for sd in ("l", "r"):
+                if a["kinds"][sd] in ("FLAT_SOLE", "HEEL") and b["kinds"][sd] == "FOREFOOT":
+                    new_heel_rise += 1
+    check(f"{stage}: S5 低速刹车不新起踮脚（{new_heel_rise} 次）", new_heel_rise == 0)
     # 静止时双脚落在静止站位（收步完成）
     s_last = seg[-1]["feet"]
     check(f"{stage}: 静止双脚着地", all(lk for (_x, _y, lk) in s_last.values()))

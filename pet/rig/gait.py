@@ -484,6 +484,8 @@ class GaitSolver:
         self._park_glide_s = PARK_GLIDE_MIN_S   # 身体前移到前脚上方（双脚锚定，不滑；_plan_park 按距离加长）
         self._park_glide_w = 0.0          # 前移总量（世界 px）
         self._park_end = 0.0
+        self._parked = False              # v0.20.3b：收步后到再起步前，静止保持站立伸展比
+        self._park_just_planned = False   # 规划所在子步的位移补偿（update 子步循环）
         self._park_wx_final = 0.0
         self._park_steps: dict = {}       # side -> (t_start, ankle_start)
         self._park_dur: dict = {}         # side -> step duration (short for small corrections)
@@ -964,7 +966,14 @@ class GaitSolver:
                 # Ease back to the bind stance after the feet have landed. A permanent
                 # crouch in idle forced the presenter to pull both shoes sideways later.
                 if self.state is GaitPhaseState.WALK_PARK:
-                    weight = 1.0 - _smoothstep((self._t - (self._park_end - 0.2)) / 0.2)
+                    # v0.20.3b：收步全程用静止伸展比——只保留够到双脚所需的最小下沉。
+                    # 旧版沿用行走伸展比到收步末 0.2 s：停下后先下蹲 ~9 canvas px
+                    # （双膝前顶）再站直，静止后又缓慢伸膝 ~1 s
+                    weight = 0.0
+                elif self._parked and self.state in (
+                        GaitPhaseState.IDLE_FRONT, GaitPhaseState.IDLE_SIDE,
+                        GaitPhaseState.TURN_TO_SIDE, GaitPhaseState.TURN_TO_FRONT):
+                    weight = 0.0              # 收步已站直：静止不再按残余包络重新屈膝
                 else:
                     weight = min(1.0, self._env * 4.0) if self.state in (
                         GaitPhaseState.IDLE_FRONT, GaitPhaseState.IDLE_SIDE,
@@ -1181,6 +1190,22 @@ class GaitSolver:
                     self._begin_turn(0.0, GaitPhaseState.IDLE_FRONT)
                 self._t = 0.0
 
+    def _hold_flat_for_stop(self) -> bool:
+        """刹车末段（身体慢于 PARK_SKIP_SWING_V）：着地脚不进入踮脚/蹬地子相。"""
+        return bool(self.park_feet and self.state in (GaitPhaseState.WALK_BRAKE,
+                                                       GaitPhaseState.WALK_STOP)
+                    and abs(self._velocity) < PARK_SKIP_SWING_V)
+
+    def _park_on_landing(self, side: str) -> bool:
+        """刹车末段（身体慢于 PARK_SKIP_SWING_V）一只脚着地、另一只脚仍着地：即收步。"""
+        if not self.park_feet or self.state not in (GaitPhaseState.WALK_BRAKE,
+                                                     GaitPhaseState.WALK_STOP):
+            return False
+        if abs(self._velocity) >= PARK_SKIP_SWING_V:
+            return False
+        other = "r" if side == "l" else "l"
+        return bool(self._feet[other].contact.is_locked)
+
     def _park_instead_of_swing(self, side: str) -> bool:
         """刹车末段（身体已慢于 PARK_SKIP_SWING_V）将要起步的脚：另一只脚着地时
         直接收步，不再迈一个水平位移几乎为零的原地步。"""
@@ -1228,6 +1253,7 @@ class GaitSolver:
         扫过整个支撑相（~0.48s · v/S ≈ 238 canvas px），后扫深度超设计
         2 倍，顶死骨盆下沉与膝/脚限位。
         """
+        self._parked = False
         direction = 1.0 if desired_v >= 0 else -1.0
         if self.adaptive_cadence:
             reference_speed = self.speed_target * self.scale / (256.0 / 1696.0)
@@ -1297,7 +1323,17 @@ class GaitSolver:
             remaining -= step
             v_before = self._velocity
             self._advance(step, base + delta_win, is_grounded, is_dragged)
-            delta_win += 0.5 * (v_before + self._velocity) * step
+            moved = 0.5 * (v_before + self._velocity) * step
+            delta_win += moved
+            if self._park_just_planned:
+                # v0.20.5：刹车中途进入收步时，规划所在子步的位移（梯形含刹车速度）已发生、
+                # 未计入前移量——从剩余前移扣除，最终站位不变（旧版静止站位差 ~1 canvas px）
+                self._park_just_planned = False
+                if self._park_glide_w >= moved:
+                    self._park_glide_w -= moved
+                else:
+                    self._park_wx_final += moved - self._park_glide_w
+                    self._park_glide_w = 0.0
         # 帧末统一以最终窗口 x 重解目标再输出。内部维护**浮点窗口累加器**
         # （与调用方累加器同值：同种子同增量）——锚点世界坐标按构造恒定，
         # 渲染口径漂移只剩窗口整数落位的 ±0.5 px 舍入（接触预算内）。切勿
@@ -1388,8 +1424,14 @@ class GaitSolver:
             tau = (self.phase + foot.phase_offset) % 1.0
             prev_tau = _unwrap(tau, (tau - self.stride_hz * dt) % 1.0)
 
+            hold_flat = self._hold_flat_for_stop()
             if tau < self.stance_ratio:
                 kind = self._sub_phase_kind(tau)
+                if (hold_flat and kind is ContactType.FOREFOOT and foot.contact.is_locked
+                        and foot.contact.contact_type is not ContactType.FOREFOOT):
+                    # 低速停步：后脚保持平踩，不再踮脚蹬地（膝盖前顶后又不迈步）；
+                    # 只阻止"进入"踮脚，已在踮脚的脚不改写（强转平踩会绕鞋底中心一帧跳转）
+                    kind = ContactType.FLAT_SOLE
                 if self._needs_anchor(prev_tau, tau, foot, kind):
                     if prev_tau < 0.0:
                         # 相位环绕 = 新一步着地
@@ -1401,6 +1443,14 @@ class GaitSolver:
                             foot.swing_planned = False
                             foot.heel_entry_pitch = foot.land_pitch
                             self._lock_contact(side, ContactType.HEEL)
+                            if self._park_on_landing(side):
+                                # 低速停步：这一步落地即收步——不再让后脚按行走节奏
+                                # 踮脚蹬地（膝盖前顶 ~120 canvas px 后又不迈步）
+                                self.state = GaitPhaseState.WALK_PARK
+                                self._t = 0.0
+                                self._idle_timer = 0.0
+                                self._plan_park()
+                                break
                         elif foot.contact.contact_type is ContactType.FLAT_SOLE:
                             # 起步首支撑（静止全掌进入）：跳过后跟子相，全掌保持
                             foot.heel_entry_pitch = foot.pitch_now
@@ -1417,7 +1467,9 @@ class GaitSolver:
                         foot.heel_entry_pitch = foot.pitch_now
                         self._lock_contact(side, kind)
             elif tau < self.toe_off_end:
-                if foot.contact.contact_type is not ContactType.FOREFOOT:
+                if hold_flat and foot.contact.is_locked                         and foot.contact.contact_type is not ContactType.FOREFOOT:
+                    pass                          # 低速停步：保持平踩（见上）
+                elif foot.contact.contact_type is not ContactType.FOREFOOT:
                     self._lock_contact(side, ContactType.FOREFOOT)
             else:
                 if not foot.swing_planned:
@@ -1561,6 +1613,8 @@ class GaitSolver:
         3. 仍落后于站位的脚依次（最靠后的先）向前迈一小步落到站位；不向后迈、不交叉拖脚。
         """
         self._park_start = {}
+        self._parked = True
+        self._park_just_planned = True
         offsets = {}
         for side, foot in self._feet.items():
             if not foot.contact.is_locked:
