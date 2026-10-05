@@ -1717,11 +1717,24 @@ class PetApp:
     # ---- v0.10.15 状态驱动帧播放 ----
     def _play_key(self, key: str, frames: list, loop: bool = False,
                   interval: int = 150) -> None:
-        """播放并记录当前 key（同 key 重入不重启计时器）。"""
+        """播放并记录当前 key（同 key 重入不重启计时器）。
+
+        v0.20.1：蒙皮网格可见时不切动作逐帧图——只登记 key（到期 singleShot /
+        模式切换的收尾路径照常工作），动作由 rig 反应表达（window.rig_reaction）。
+        逐帧图只在降级窗（静态立绘）下播放。
+        """
         # v0.13：私有 _frames 直读收口为 is_playing()（两套呈现后端同语义）
-        if getattr(self, "_anim_key", None) == key and self.window.is_playing():
+        if getattr(self, "_anim_key", None) == key and (
+                self.window.is_playing() or getattr(self, "_anim_rig", False)):
             return
         self._anim_key = key
+        if getattr(self.window, "skinned_motion_active", lambda: False)():
+            self._anim_rig = True
+            react = getattr(self.window, "rig_reaction", None)
+            if callable(react):
+                react(key)
+            return
+        self._anim_rig = False
         for f in frames:
             f.width = self.window.width()
             f.height = self.window.height()
@@ -1730,7 +1743,13 @@ class PetApp:
     def _stop_anim(self) -> None:
         if getattr(self, "_anim_key", None) is not None:
             self._anim_key = None
-            self.window.stop_frames()
+            if getattr(self, "_anim_rig", False):
+                self._anim_rig = False
+                stop = getattr(self.window, "stop_rig_reaction", None)
+                if callable(stop):
+                    stop()
+            else:
+                self.window.stop_frames()
 
     def _frame_tick(self, action, mode: str, prev_mode: str) -> None:
         """FSM 模式 → 帧：walk 交替 / fall 空中 / 落地瞬帧 / 吃鼠标咀嚼循环。"""

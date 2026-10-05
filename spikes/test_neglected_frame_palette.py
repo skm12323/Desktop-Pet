@@ -76,6 +76,26 @@ def rig_checks(stage: str) -> None:
           not w._root.property("frameNeglected"))
     w.stop_frames()
 
+    # v0.20.1：静止也走 rig——所有心情 × 双分支都显示蒙皮骨骼，neglected 灰调
+    from pet.pet_state import Mood
+
+    def idle_grab(branch, mood):
+        w._conversation_mood = mood
+        w.on_state_change(PetState(stage=Stage(stage), branch=branch))
+        r._pump(6)
+        return (w._root.property("activeFigure"), bool(w._root.property("skinnedMeshVisible")),
+                bool(w._root.property("idleNeglected")), qimage_rgba(w._quick.grabFramebuffer()))
+
+    fig_h, vis_h, neg_h, im_h = idle_grab(Branch.HEALTHY, Mood.HAPPY)
+    check(f"rig/{stage}: healthy mood figure {fig_h} renders skinned rig", vis_h and not neg_h)
+    fig_n, vis_n, neg_n, im_n = idle_grab(Branch.NEGLECTED, Mood.SAD)
+    check(f"rig/{stage}: neglected mood figure {fig_n} renders skinned rig + idleNeglected",
+          vis_n and neg_n)
+    ratio = chroma_rgba(im_n) / max(1e-6, chroma_rgba(im_h))
+    check(f"rig/{stage}: neglected idle rig visibly muted (chroma ratio {ratio:.2f})", ratio < 0.6)
+    check(f"rig/{stage}: skinned_motion_active for mood figures", w.skinned_motion_active())
+    w._conversation_mood = None
+
 
 def frames_backend_checks(stage: str) -> None:
     from pet.asset_provider import AIArtProvider
@@ -114,7 +134,8 @@ def main() -> int:
     QApplication.instance() or QApplication(sys.argv)
     for stage in ("young", "final"):
         frames_backend_checks(stage)
-    rig_checks("final")
+    for stage in ("young", "adult", "final"):
+        rig_checks(stage)
     failed = [n for n, ok in RESULTS if not ok]
     print(f"\n== 门禁结果：{len(RESULTS) - len(failed)} 通过 / {len(failed)} 失败 ==")
     return 1 if failed else 0

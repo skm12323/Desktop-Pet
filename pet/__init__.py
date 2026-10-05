@@ -104,4 +104,9 @@
 # 自动启用）、three_d 实验线（pet/render3d、scene_contract）、EngineBridge.MotionEnricher、
 # 行走覆盖图机制；资产删旧转身包/备份/预览/产线中间件/1024 高片段（运行时窗口≤320 不用）。
 # 完整历史见标签 v0.19.8-full。
-__version__ = "0.20.0"
+# v0.20.1：静止也走 rig——蒙皮骨骼覆盖全部心情 × 双分支（rig_scene skinnedMeshVisible
+# 改按 healthy_*/neglected_* 判定，neglected 静止用 idleNeglected 灰调层，与侧身行走同参）；
+# 蒙皮可见时动作不再切逐帧图（app._play_key 只登记 key），喂食/吃鼠标咀嚼改为骨骼节律
+# 轻压扁回弹（presenter.rig_reaction，MotionEngine.trigger_squash(strength)），摔落/落地由
+# airborne + 落地 squash 表达；逐帧图仅留给降级窗。
+__version__ = "0.20.1"

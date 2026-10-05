@@ -88,7 +88,7 @@ python app.py --verbose
 ### 外观与立绘
 
 - `provider`：立绘来源，`emoji`（表情占位）、`ai`（AI 立绘，缺图自动回退表情）或 `commission`（约稿立绘，按与 `ai` 相同的命名约定读取 `assets/` 资产）。
-- 展示后端固定为 `rig`（v0.20.0 起唯一后端）：正面 2D 骨骼蒙皮（`assets/rig_{stage}/`）+ mood 立绘交叉淡化与部件弹簧（`assets/rig/{stage}/`）+ 动作帧（`assets/frames/`）。Qt Quick 或资产缺失时自动降级为静态立绘 + 动作帧。旧配置中的 `presentation` / `adult_locomotion` / `final_locomotion` 键会被忽略。
+- 展示后端固定为 `rig`（v0.20.0 起唯一后端）：正面 2D 骨骼蒙皮（`assets/rig_{stage}/`）+ mood 立绘交叉淡化与部件弹簧（`assets/rig/{stage}/`）。v0.20.1 起静止与动作全程 rig：蒙皮覆盖全部心情与双分支（neglected 去饱和），喂食/吃鼠标咀嚼为骨骼节律回弹、摔落为离地/落地压扁。Qt Quick 或资产缺失时自动降级为静态心情立绘 + 动作逐帧图（`assets/frames/`）。旧配置中的 `presentation` / `adult_locomotion` / `final_locomotion` 键会被忽略。
 - ADULT 行走：转身片段 + 侧身骨骼行走 + 依次收脚（`assets/rig_adult_walk_v1/`）；侧身资产缺失时自动回退正面步态。YOUNG 使用正面蒙皮步态。
   侧身行走期间，各情绪暂用同一中性骨骼体态；neglected 保持灰暗配色，完整行走会话转回正面后恢复最新表情。拖拽、离地及动作帧会中断会话并恢复表情。
   当前侧身资产包含膝部曲线过渡、裙摆惯性与尾鳍刚性约束；普通转身轻微提速，反向转身使用更快的片段播放，仍先完成收脚。

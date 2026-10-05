@@ -326,6 +326,20 @@ def main() -> int:
     air = eng.step(MotionInputs(grounded=False), 66.0)
     check("M12c FINAL 离地时保留全身运动", abs(air.body_y) > 0.01)
 
+    # ---- v0.20.1：轻量 squash（rig 咀嚼反应）----
+    eng.reset()
+    eng.step(MotionInputs(), 1000.0)
+    eng.trigger_squash(0.35)
+    light_min = min(eng.step(MotionInputs(), 33.0).body_scale_y for _ in range(8))
+    check(f"M13a 轻量 squash 压缩幅度更小（谷 {light_min:.4f} ∈ (0.93,0.99)）",
+          0.93 < light_min < 0.99)
+    eng.reset()
+    eng.step(MotionInputs(), 1000.0)
+    eng.trigger_squash()                  # 落地强冲量在途
+    eng.trigger_squash(0.35)              # 咀嚼脉冲不得削弱它
+    strong_min = min(eng.step(MotionInputs(), 33.0).body_scale_y for _ in range(8))
+    check(f"M13b 轻量脉冲不覆盖在途强压缩（谷 {strong_min:.4f} < 0.95）", strong_min < 0.95)
+
     print(f"\nmotion 引擎: {len(PASS)} 通过, {len(FAIL)} 失败")
     return 1 if FAIL else 0
 

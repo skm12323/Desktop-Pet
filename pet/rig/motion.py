@@ -213,14 +213,18 @@ class MotionEngine:
         self._blink_next_ms = self._blink_open_until + self._blink_rng.uniform(
             self._BLINK_MIN_MS, self._BLINK_MAX_MS)
 
-    def trigger_squash(self) -> None:
+    def trigger_squash(self, strength: float = 1.0) -> None:
         """落地冲量注入（presenter 在 airborne 下降沿调用）。
 
         撞击瞬间直置压缩量=1（=旧 exp 首拍量级），随后由欠阻尼弹簧回弹
         （过冲拉伸→settle），替代旧的单调指数衰减——落地不再是"戛然而止"。
+        v0.20.1：strength<1 为轻量冲量（rig 咀嚼反应），不覆盖更强的在途压缩。
         """
+        strength = max(0.0, min(1.0, float(strength)))
+        if strength < 1.0 and self._squash_s > strength:
+            return
         self._squash_at = self._t_ms
-        self._squash_s = 1.0
+        self._squash_s = strength
         self._squash_v = 0.0
 
     # ---- 只读快照（接线/测试观察用，与 QML 根属性同名便于对照）----

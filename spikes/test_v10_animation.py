@@ -134,17 +134,65 @@ def main() -> int:
         def stop_frames(self):
             pass
 
+        # v0.20.1 rig 动作反应钩子
+        reactions: list = []
+        stopped = 0
+
+        def rig_reaction(self, key):
+            self.reactions.append(key)
+
+        def stop_rig_reaction(self):
+            self.stopped += 1
+
     stub2 = _AppStub(provider, window, Stage.YOUNG)
     stub2._SMALL_ANIM_KEYS = PetApp._SMALL_ANIM_KEYS
     for name in ("_play_animate", "_play_key", "_stop_anim", "_frame_tick"):
         setattr(stub2, name, types.MethodType(getattr(PetApp, name), stub2))
     stub2.window = _FakeSkinnedWin()
+    stub2.window.reactions = []
     stub2._play_animate("blink")
     check("L21 蒙皮可见跳过帧版 blink（网格自带眨眼）",
           stub2._anim_key is None and not stub2.window.played)
     stub2._play_animate("stretch")
-    check("L21a stretch 不受影响照常播帧",
-          stub2._anim_key == "stretch" and len(stub2.window.played) == 1)
+    check("L21a 蒙皮可见 stretch 不切逐帧图（只登记 key，交 rig 表达）",
+          stub2._anim_key == "stretch" and not stub2.window.played
+          and stub2.window.reactions == ["stretch"])
+    stub2._stop_anim()
+
+    # ---- v0.20.1：rig 档喂食/吃鼠标咀嚼走骨骼反应，不播逐帧图 ----
+    stub2._play_feed_chew = types.MethodType(PetApp._play_feed_chew, stub2)
+    stub2.window.reactions = []
+    stub2._play_feed_chew()
+    check("R1 rig 喂食：触发 rig_reaction(feed_chew) 且不播逐帧图",
+          stub2._anim_key == "feed_chew" and not stub2.window.played
+          and stub2.window.reactions == ["feed_chew"])
+    stub2._play_key("feed_chew", provider.frames_for("young", "chew"), loop=True)
+    check("R1b 同 key 重入不重复触发反应", stub2.window.reactions == ["feed_chew"])
+    before = stub2.window.stopped
+    stub2._stop_anim()
+    check("R1c 收尾停 rig 反应（不调 stop_frames 路径）",
+          stub2._anim_key is None and stub2.window.stopped == before + 1)
+    stub2._frame_tick(None, "eat_mouse", "idle")
+    check("R2 rig 吃鼠标咀嚼：反应 eat_mouse_chew 且不播帧",
+          stub2._anim_key == "eat_mouse_chew" and not stub2.window.played
+          and stub2.window.reactions[-1] == "eat_mouse_chew")
+    stub2._frame_tick(None, "fall", "idle")
+    check("R3 rig 摔落不切 fall 帧（离地/落地由骨骼 squash 表达）",
+          stub2._anim_key == "fall_air" and not stub2.window.played)
+    stub2._stop_anim()
+    # 降级窗（无 skinned_motion_active）照常播逐帧图
+    stub3 = _AppStub(provider, window, Stage.YOUNG)
+    stub3._SMALL_ANIM_KEYS = PetApp._SMALL_ANIM_KEYS
+    for name in ("_play_animate", "_play_key", "_stop_anim", "_frame_tick", "_play_feed_chew"):
+        setattr(stub3, name, types.MethodType(getattr(PetApp, name), stub3))
+    fake = _FakeSkinnedWin()
+    fake.skinned_motion_active = lambda: False
+    fake.reactions = []
+    stub3.window = fake
+    stub3._play_feed_chew()
+    check("R4 降级窗喂食照常播咀嚼逐帧图",
+          stub3._anim_key == "feed_chew" and len(fake.played) == 1 and not fake.reactions)
+    stub3._stop_anim()
 
     # ---- L4（REVIEW-2026-09-04）：emoji 档行走 2 帧交替恢复 ----
     from pet.asset_provider import EmojiProvider

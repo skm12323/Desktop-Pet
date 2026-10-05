@@ -20,8 +20,12 @@ Item {
 
     // ---- 2D 骨骼蒙皮（v0.18）----
     property bool skinnedMeshEnabled: false
+    // v0.20.1：蒙皮骨骼覆盖全部心情 × 双分支（healthy_* / neglected_*），静止也走 rig；
+    // 心情立绘只在蒙皮不可用时作为降级显示。neglected 用 idleNeglected 灰调层。
     readonly property bool skinnedMeshVisible: skinnedMeshEnabled
-        && skinnedMesh.ready && activeFigure === "healthy_neutral"
+        && skinnedMesh.ready && /^(healthy|neglected)_/.test(activeFigure)
+    readonly property bool idleNeglected: skinnedMeshVisible
+        && activeFigure.indexOf("neglected_") === 0
     property string specFile: ""
     property string meshDataFile: ""
     property string layersDir: ""
@@ -146,9 +150,9 @@ Item {
     Item {
         id: mirrorNode
         anchors.fill: parent
-        // One palette for front rig, turn clip, side rig and shared action frames while
-        // neglected. The offscreen layer is allocated only for this branch, not normal idle/walk.
-        layer.enabled: root.locoNeglected || root.frameNeglected
+        // One palette for front rig (idle), turn clip, side rig and shared action frames while
+        // neglected. The offscreen layer is allocated only for this branch, not healthy idle/walk.
+        layer.enabled: root.locoNeglected || root.frameNeglected || root.idleNeglected
         layer.effect: MultiEffect {
             saturation: -0.65
             brightness: -0.025

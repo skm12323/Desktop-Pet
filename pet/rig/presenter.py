@@ -1001,6 +1001,36 @@ class RigWindow(WindowBase):
                 and not self._motion_timer.isActive()):
             self._motion_timer.start()
 
+    # ---------- v0.20.1 rig 动作反应（替代动作逐帧图） ----------
+    _CHEW_KEYS = ("feed_chew", "eat_mouse_chew")
+    _CHEW_PULSE_MS = 340
+    _CHEW_STRENGTH = 0.35
+
+    def rig_reaction(self, key: str) -> None:
+        """蒙皮可见时 app 不切动作帧，改由骨骼表达：咀嚼类为节律轻压扁回弹；
+        摔落/落地由 airborne 标志与落地 squash 自然表达；伸懒腰/打滚/眨眼
+        交给常驻呼吸摆动与网格眨眼（无额外反应）。"""
+        self.stop_rig_reaction()
+        if key not in self._CHEW_KEYS or self._engine is None or not self.rig_active:
+            return
+        timer = getattr(self, "_chew_timer", None)
+        if timer is None:
+            timer = self._chew_timer = QTimer(self)
+            timer.setInterval(self._CHEW_PULSE_MS)
+            timer.timeout.connect(self._chew_pulse)
+        self._chew_pulse()
+        timer.start()
+
+    def stop_rig_reaction(self) -> None:
+        timer = getattr(self, "_chew_timer", None)
+        if timer is not None:
+            timer.stop()
+
+    def _chew_pulse(self) -> None:
+        if self._engine is not None:
+            self._engine.trigger_squash(self._CHEW_STRENGTH)
+            self._set_prop("squashAt", float(self._engine.squash_at))
+
     def _push_frame(self, frame) -> None:
         """把 MotionFrame 一次性写到 QML（body 变换 + 眨眼 + 部件角度）。
 
