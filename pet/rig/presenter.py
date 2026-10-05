@@ -318,9 +318,10 @@ class RigWindow(WindowBase):
         spec_file = os.path.join(pkg_dir, "spec.json")
         mesh_file = os.path.join(pkg_dir, "mesh", "mesh_data.json")
         layers = os.path.join(pkg_dir, "layers")
-        # 片段按窗口高度选 1×（256 高）/ 2×（512 高）/ 4×（1024 高，仅大窗口与参考导出）帧集
-        # （内存门禁：单条解码 ≤ 12 MB；缺对应帧集时回退 512 高）
-        win_h = float(self.height() or 256)
+        # 片段按窗口**物理像素**高度选 1×（256 高）/ 2×（512 高）/ 4×（1024 高）帧集
+        # （内存门禁：单条解码 ≤ 12 MB；缺对应帧集时回退 512 高）。v0.20.2：旧版按逻辑
+        # 高度选档，150% 缩放下 256 逻辑 = 384 物理仍取 256 档 → 转身片段放大 1.5–1.9 倍发虚
+        win_h = float(self.height() or 256) * self._clip_dpr()
         suffix = "_h256" if win_h <= 320 else ("_h1024" if win_h >= 768 else "")
         clip_out = os.path.join(pkg_dir, "clips", "turn_front_to_side" + suffix)
         clip_in = os.path.join(pkg_dir, "clips", "turn_side_to_front" + suffix)
@@ -1000,6 +1001,18 @@ class RigWindow(WindowBase):
         if (self._motion_timer is not None and self.rig_active
                 and not self._motion_timer.isActive()):
             self._motion_timer.start()
+
+    def _clip_dpr(self) -> float:
+        """转身片段选档用的设备像素比：窗口所在屏优先，取不到按 1.0。"""
+        try:
+            dpr = float(self.devicePixelRatioF())
+            if dpr <= 1.0:
+                screen = self.screen()
+                if screen is not None:
+                    dpr = max(dpr, float(screen.devicePixelRatio()))
+            return dpr if dpr > 0 else 1.0
+        except Exception:  # noqa: BLE001 —— 选档失败不阻断侧身行走
+            return 1.0
 
     # ---------- v0.20.1 rig 动作反应（替代动作逐帧图） ----------
     _CHEW_KEYS = ("feed_chew", "eat_mouse_chew")

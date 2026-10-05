@@ -109,4 +109,6 @@
 # 蒙皮可见时动作不再切逐帧图（app._play_key 只登记 key），喂食/吃鼠标咀嚼改为骨骼节律
 # 轻压扁回弹（presenter.rig_reaction，MotionEngine.trigger_squash(strength)），摔落/落地由
 # airborne + 落地 squash 表达；逐帧图仅留给降级窗。
-__version__ = "0.20.1"
+# v0.20.2：转身片段按物理像素选档（逻辑高 × DPR）——旧版按逻辑高，150% 缩放下 ADULT 256
+# 逻辑 = 384 物理、FINAL 320 = 480 物理仍取 256 档，转身放大 1.5–1.9 倍发虚；现取 512 档。
+__version__ = "0.20.2"

@@ -46,6 +46,20 @@ class FinalIntegration(unittest.TestCase):
         self.assertAlmostEqual(self.win._loco.scale,320/1824)
         self.assertTrue(self.win._loco.clip_out.frames[0].path.endswith('000.png'))
 
+    def test_turn_clip_set_follows_physical_pixels(self):
+        # v0.20.2：选档按物理像素（逻辑高 × DPR），150% 缩放下 320 逻辑 = 480 物理取 512 档
+        pkg=str(ROOT/'assets/rig_final_walk_v1')
+        orig=self.win._clip_dpr
+        try:
+            for dpr,expect in ((1.0,'turn_front_to_side_h256'),(1.5,'turn_front_to_side'),(2.0,'turn_front_to_side')):
+                self.win._clip_dpr=lambda d=dpr: d
+                self.win.disable_side_locomotion()
+                self.assertTrue(self.win.enable_side_locomotion(pkg))
+                self.assertEqual(Path(self.win._loco.clip_out.frames[0].path).parent.parent.name,expect)
+        finally:
+            self.win._clip_dpr=orig
+            self.win.disable_side_locomotion()
+
     def test_final_canvas_rejects_adult_bundle(self):
         self.assertFalse(self.win.enable_side_locomotion(str(ROOT/'assets/rig_adult_walk_v1')))
         self.assertFalse(self.win.locomotion_available())
